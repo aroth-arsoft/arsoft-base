@@ -1,0 +1,32 @@
+#!/bin/sh -e
+
+#DEBHELPER#
+
+case "$1" in
+	configure|upgrade)
+		apt-key del AFF68B78 2>/dev/null || true
+		rm /etc/apt/sources.list.d/ppa-aroth.list 2>/dev/null || true
+
+		release=$(lsb_release -c -s)
+
+		## Add the ppa-aroth keyring
+		apt-key add /usr/share/keyrings/ppa-aroth.gpg
+
+		## create the apt source list file
+		echo "# /etc/apt/sources.list.d/ppa-aroth.list" >> /etc/apt/sources.list.d/ppa-aroth.list
+		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
+		echo "deb-src http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
+
+		;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+		;;
+
+    *)
+		echo "postinst called with unknown argument \`$1'" >&2
+		exit 1
+		;;
+esac
+
+
+
+exit 0
