@@ -1,0 +1,64 @@
+#!/bin/bash
+
+vpnnames=''
+verbose=0
+vpnlogdir='/var/log/openvpn'
+CONFIG_DIR='/etc/openvpn'
+
+function usage()
+{
+	echo "openvpn-status [vpnname]"
+	echo "    -h, --help      shows this help screen"
+	echo "    -v,--verbose    verbose output"
+	exit 0
+}
+
+function show_vpn_status() 
+{
+	local vpn="$1"
+	config_file="$CONFIG_DIR/${vpn}.conf"
+	statusfile=`awk '/^(status)[ ]+.*$/ { print $2; }' "$config_file"`
+	statusversion=`awk '/^(status-version)[ ]+.*$/ { print $2; }' "$config_file"`
+	[ -z "$statusversion" ] && statusversion=1
+
+	if [ ! -z "$statusfile" ]; then
+		if [ -f "$statusfile" ]; then
+			if [ -r "$statusfile" ]; then
+				echo "Status of VPN $vpn:"
+				cat "$statusfile"
+			else
+				echo "Unable to read status file $statusfile (version $statusversion) for VPN $vpn" >&2
+			fi
+		else
+			echo "Unable to retrieve status for VPN $vpn" >&2
+		fi
+	fi
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		*)
+			if [ ! -z "$vpnnames" ]; then
+				vpnnames="$vpnnames $1"
+			else
+				vpnnames="$1"
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$vpnnames" ]; then
+	for vpn in "$CONFIG_DIR"/*.conf; do
+		name=`basename "$vpn" .conf`
+		show_vpn_status "$name"
+	done
+else
+	for vpn in $vpnnames; do
+		show_vpn_status "$vpn"
+	done
+fi
+

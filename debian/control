@@ -10,12 +10,13 @@ Package: arsoft-base
 Architecture: any
 Depends: arsoft-ppa,
  tzdata, mc, 
- unzip, zip, iotop,
+ unzip, zip, iotop, htop,
  ntfsprogs, xfsprogs, cryptsetup,
  update-manager-core, update-notifier-common, 
  language-pack-en-base, 
  console-data, console-setup, gawk,
  strace, 
+ openssh-server,
  arsoft-scripts,
  ${misc:Depends}
 Description: configure the system to use the AR Soft packages.
@@ -27,3 +28,15 @@ Architecture: any
 Depends: ${misc:Depends}
 Description: installs the AR Soft package repository
  Installs all files to access the AR Soft package repository.
+
+Package: arsoft-openvpn
+Architecture: any
+Depends: arsoft-base, ${misc:Depends}
+Description: OpenVPN helper scripts
+ Provides a set of script to helper and simplify the OpenVPN configuration.
+
+Package: arsoft-vim
+Architecture: any
+Depends: arsoft-base, vim, vim-doc, vim-scripts, ${misc:Depends}
+Description: VIM configuration for AR Soft machines
+ Configures VIM to be used as default editor.

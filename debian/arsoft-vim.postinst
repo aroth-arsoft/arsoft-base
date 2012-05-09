@@ -4,8 +4,8 @@
 
 case "$1" in
 	configure|upgrade)
-		rm /etc/bash.bashrc
-		ln -s /usr/share/arsoft-base/bash/bash.bashrc /etc/bash.bashrc
+		rm /etc/vim/vimrc
+		ln -s /usr/share/arsoft-base/vim/vimrc /etc/vim/vimrc
 		;;
     abort-upgrade|abort-remove|abort-deconfigure)
 		;;

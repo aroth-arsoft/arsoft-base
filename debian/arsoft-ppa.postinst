@@ -4,18 +4,20 @@
 
 case "$1" in
 	configure|upgrade)
-		apt-key del AFF68B78 2>/dev/null || true
 		rm /etc/apt/sources.list.d/ppa-aroth.list 2>/dev/null || true
-
-		release=$(lsb_release -c -s)
-
-		## Add the ppa-aroth keyring
-		apt-key add /usr/share/keyrings/ppa-aroth.gpg
+		rm /etc/apt/sources.list.d/puppetlabs.list 2>/dev/null || true
 
 		## create the apt source list file
+		release=$(lsb_release -c -s)
 		echo "# /etc/apt/sources.list.d/ppa-aroth.list" >> /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb-src http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
+
+		echo "# Puppetlabs products " >> /etc/apt/sources.list.d/puppetlabs.list
+		echo "deb http://apt.puppetlabs.com $release main" >> /etc/apt/sources.list.d/puppetlabs.list
+		echo "" >> /etc/apt/sources.list.d/puppetlabs.list
+		echo "# Puppetlabs source" >> /etc/apt/sources.list.d/puppetlabs.list
+		echo "deb-src http://apt.puppetlabs.com $release main" >> /etc/apt/sources.list.d/puppetlabs.list
 
 		;;
     abort-upgrade|abort-remove|abort-deconfigure)

@@ -1,2 +1,3 @@
-usr/share/keyrings/ppa-aroth.gpg
+etc/apt/trusted.gpg.d/ppa-aroth.gpg
+etc/apt/trusted.gpg.d/puppetlabs.gpg
 etc/cron.daily/arsoft-base-repos
