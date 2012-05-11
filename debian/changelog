@@ -1,3 +1,9 @@
+arsoft-base (1.2) precise; urgency=low
+
+  * fixed ppa-aroth gpg key
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 11 May 2012 20:20:41 +0200
+
 arsoft-base (1.1) precise; urgency=low
 
   * add puppetlabs GPG key and apt source list
