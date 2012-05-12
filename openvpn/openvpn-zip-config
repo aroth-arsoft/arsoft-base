@@ -5,7 +5,6 @@ outdir=''
 config_recipient=''
 override_usermail=0
 CONFIG_DIR='/etc/openvpn'
-PUPPET_OPENVPN_DIR='/var/lib/puppet/modules/openvpn'
 
 function usage()
 {
@@ -104,8 +103,8 @@ function zip_config()
 	local config_dir="$3"
 	local outfile="$4"
 
-	name=`get_config_name "$config_file" "$config_dir"`
-	ostype=`get_config_ostype "$config_file" "$config_dir"`
+	local name=`get_config_name "$config_file" "$config_dir"`
+	local ostype=`get_config_ostype "$config_file" "$config_dir"`
 
 	[ $verbose -ne 0 ] && echo "compress $name ($ostype, $config_file, $config_dir/*) to $outfile"
 
@@ -204,13 +203,7 @@ function generate_client_config()
 	local config_file="$2"
 	local config_dir="$3"
 	local outdir="$4"
-	local clients_file="$PUPPET_OPENVPN_DIR/${name}_clients"
-	
-	if [ ! -r "$clients_file" ]; then
-		echo "Cannot read client list from $clients_file" >&2
-		return 1
-	fi
-	
+
 	local client_zip_basename="$outdir/$(basename "$config_dir")"
 
 	local puplic_address=`awk '/^#[ ]*(public-address)[ ]+.*$/ { print $3; }' "$config_file"`
@@ -222,25 +215,32 @@ function generate_client_config()
 	local server_ca=`awk '/^(ca)[ ]+.*$/ { print $2; }' "$config_file"`
 	local server_dh=`awk '/^(dh)[ ]+.*$/ { print $2; }' "$config_file"`
 	local server_crl=`awk '/^(crl-verify)[ ]+.*$/ { print $2; }' "$config_file"`
+	local server_ccddir=`awk '/^(client-config-dir)[ ]+.*$/ { print $2; }' "$config_file"`
 
 	[ $verbose -ne 0 ] && echo "Server CA: $server_ca"
 	[ $verbose -ne 0 ] && echo "Server DH: $server_dh"
 	[ $verbose -ne 0 ] && echo "Server CRL: $server_crl"
+	[ $verbose -ne 0 ] && echo "Server CCD: $server_ccddir"
+
+	if [ ! -d "$server_ccddir" ]; then
+		echo "client config directory $server_ccddir does not exist" >&2
+		return 1
+	fi
 	
+	local ccdfile
 	# $client_line = "${namesafe}\t${ostype}\t${serverconf}\t${serverdir}\t${client_certfile}\t${client_keyfile}\t${usermail}\t${iroute_joined}\n"
-	while read client_line
-	do
-		local clientname=`echo "$client_line" | awk -F '\t' '{ print $1; }'`
-		local clientostype=`echo "$client_line" | awk -F '\t' '{ print $2; }'`
-		local serverconf=`echo "$client_line" | awk -F '\t' '{ print $3; }'`
-		local serverdir=`echo "$client_line" | awk -F '\t' '{ print $4; }'`
-		local clientcert=`echo "$client_line" | awk -F '\t' '{ print $5; }'`
-		local clientkey=`echo "$client_line" | awk -F '\t' '{ print $6; }'`
-		local usermail=`echo "$client_line" | awk -F '\t' '{ print $7; }'`
-		local routes_raw=`echo "$client_line" | awk -F '\t' '{ print $8; }'`
+	for ccdfile in "$server_ccddir"/*; do
+		local clientname=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local clientostype=`awk '/^#[ ]*(ostype)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local clientcert=`awk '/^#[ ]*(certfile)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local clientkey=`awk '/^#[ ]*(keyfile)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local usermail=`awk '/^#[ ]*(usermail)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local iroutes=`awk '/^(iroute)[ ]+.*$/ { print $2, $3; }' "$ccdfile"`
 		#clientname clientostype serverconf serverdir clientcert clientkey usermail routes_raw
 		client_zipfile="${client_zip_basename}_${clientname}.zip"
 		echo "Server ${name}: Generate configuration for ${clientname} ($clientostype) to $client_zipfile"
+		[ $verbose -ne 0 ] && echo "client usermail=$usermail"
+		[ $verbose -ne 0 ] && echo "client iroutes=$iroutes"
 		case "$clientostype" in
 			'linux')
 				status_line="status /var/log/openvpn/${clientname}-status.log"
@@ -269,13 +269,12 @@ function generate_client_config()
 		esac
 		
 		# prepare route lines
-		if [ ! -z "$routes_raw" ]; then
-			routes=`echo "# begin of routes to the server"; echo "$routes_raw" | tr ',' '\n' | sed 's@^@route @'; echo "# end of routes"; `
+		local routes
+		if [ ! -z "$iroutes" ]; then
+			routes=`echo "# begin of routes to the server"; echo "$iroutes" | sed 's@^@route @'; echo "# end of routes"; `
 		else
 			routes='# No routes defined'
 		fi
-		[ $verbose -ne 0 ] && echo "client usermail=$usermail"
-		[ $verbose -ne 0 ] && echo "client routes=$routes_raw"
 
 		local client_configdir=`mktemp -d /tmp/openvpn_client.XXXXXX`
 		local client_ca_line=''
@@ -284,19 +283,19 @@ function generate_client_config()
 		local client_cert_line=''
 		local client_key_line=''
 		if [ ! -z "$server_ca" -a -f "$server_ca" ]; then
-			cp "$server_ca" "$client_configdir/ca.pem"
+			verbose_exec cp "$server_ca" "$client_configdir/ca.pem"
 			client_ca_line="ca ${client_file_dir}ca.pem"
 		fi
 		if [ ! -z "$server_dh" -a -f "$server_dh" ]; then
-			cp "$server_dh" "$client_configdir/dh.pem"
+			verbose_exec cp "$server_dh" "$client_configdir/dh.pem"
 			client_dh_line="dh ${client_file_dir}dh.pem"
 		fi
 		if [ ! -z "$server_crl" -a -f "$server_crl" ]; then
-			cp "$server_crl" "$client_configdir/crl.pem"
+			verbose_exec cp "$server_crl" "$client_configdir/crl.pem"
 			client_crl_line="crl-verify ${client_file_dir}crl.pem" 
 		fi
-		[ -f "$clientcert" ] && cp "$clientcert" "$client_configdir/cert.pem" && client_cert_line="cert ${client_file_dir}cert.pem"
-		[ -f "$clientkey" ] && cp "$clientkey" "$client_configdir/key.pem" && client_key_line="key ${client_file_dir}key.pem"
+		[ -f "$clientcert" ] && verbose_exec cp "$clientcert" "$client_configdir/cert.pem" && client_cert_line="cert ${client_file_dir}cert.pem"
+		[ -f "$clientkey" ] && verbose_exec cp "$clientkey" "$client_configdir/key.pem" && verbose_exec chmod 600 "$client_configdir/key.pem" && client_key_line="key ${client_file_dir}key.pem"
 		
 		if [ -z "$client_cert_line" ]; then
 			echo "Missing client certficate $clientcert" >&2
@@ -361,7 +360,7 @@ CONFEOF
 			mail_client_config "${clientname}" "$usermail" "$client_zipfile"
 		fi
 		rm -rf "$client_configdir"
-	done < "$clients_file"
+	done
 	return 0
 }
 
