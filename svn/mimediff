@@ -1,0 +1,182 @@
+#!/bin/bash
+
+verbose=0
+left=''
+right=''
+label_left=''
+label_right=''
+unified=1
+diff_opts=''
+
+function usage()
+{
+    echo "mimediff <left> <right>"
+    echo "    -h, --help      shows this help screen"
+	echo "    -v, --verbose   enable verbose output"
+	echo "     -u  -U NUM  --unified[=NUM]  Output NUM (default 3) lines of unified context."
+	echo "    -L, --label     specifies the label for the compare"
+    exit 0
+}
+
+function verbose_exec()
+{
+	[ $verbose -ne 0 ] && echo "$@"
+	"$@"
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		"-u"|"-U"|"--unified") unified=1; ;;
+		"-L"|"--label") 
+            if [ -z "$label_left" ]; then
+                label_left="$2"
+            elif [ -z "$label_right" ]; then
+                label_right="$2"
+            else
+                echo "Two labels ($label_left, $label_right) already specified."
+                exit 1
+            fi
+            shift;
+            ;;
+		*)
+			if [ -z "$left" ]; then
+				left="$1"
+			elif [ -z "$right" ]; then
+				right="$1"
+			else
+				echo "Two files ($left, $right) already specified."
+				exit 1
+			fi
+            ;;
+	esac
+	shift
+done
+
+if [ -z "$left" ]; then
+	echo "No left file specified."
+	exit 1
+fi
+
+if [ -z "$right" ]; then
+	echo "No right file specified."
+	exit 1
+fi
+
+if [ ! -f "$left" ]; then
+	echo "Unable to read left file $left"
+	exit 1
+fi
+
+if [ ! -f "$right" ]; then
+	echo "Unable to read right file $right"
+	exit 1
+fi
+
+script_file=`readlink -f "$0"`
+script_dir=`dirname "$script_file"`
+
+mime_left=`/usr/bin/file -b --mime-type "$left"`
+mime_right=`/usr/bin/file -b --mime-type "$right"`
+
+[ $verbose -ne 0 ] && echo "mime_left=$mime_left"
+[ $verbose -ne 0 ] && echo "mime_right=$mime_right"
+
+diff_bin=''
+diff_opts=''
+
+# take over the mime-type from the other side if empty
+[ "$mime_left" == 'application/x-empty' ] && mime_left="$mime_right"
+[ "$mime_right" == 'application/x-empty' ] && mime_right="$mime_left"
+
+# recheck the contents of a zip file
+if [ "$mime_left" == 'application/zip' ]; then
+	[ $verbose -ne 0 ] && ls -la "$left"
+	mime_left=`/usr/bin/unzip -p "$left" 'mimetype' 2>/dev/null || echo "$mime_left"`
+	[ $verbose -ne 0 ] && echo "Mime-type of left zip file: $tmp"
+fi
+if [ "$mime_right" == 'application/zip' ]; then
+	[ $verbose -ne 0 ] && ls -la "$right"
+	mime_right=`/usr/bin/unzip -p "$right" 'mimetype' 2>/dev/null || echo "$mime_right"`
+	[ $verbose -ne 0 ] && echo "Mime-type of right zip file: $tmp"
+fi
+
+if [ "$mime_left" == "$mime_right" ]; then
+	mimeclass=`echo "$mime_left" | awk -F '/' '{print $1}'`
+	case "$mimeclass" in
+		'application')
+			case "$mime_left" in
+				'application/vnd.oasis.opendocument.text'|\
+				'application/vnd.oasis.opendocument.text-web'|\
+				'application/vnd.oasis.opendocument.text-master'|\
+				'application/vnd.oasis.opendocument.graphics'|\
+				'application/vnd.oasis.opendocument.presentation'|\
+				'application/vnd.oasis.opendocument.spreadsheet'|\
+				'application/vnd.oasis.opendocument.chart'|\
+				'application/vnd.oasis.opendocument.formula'|\
+				'application/vnd.oasis.opendocument.image')
+					diff_bin="$script_dir/oodiff"
+					diff_opts='-u'
+					[ $verbose -ne 0 ] && diff_opts="$diff_opts -v"
+					;;
+				# handle empty files here
+				'application/x-empty')
+					diff_bin='/bin/false'
+					;;
+				# check for binary files
+				'application/octet-stream')
+					diff_bin='/bin/false'
+					;;
+				# handle XML files explicitly like normal text files
+				'application/xml')
+					diff_bin='/usr/bin/diff'
+					diff_opts='-u'
+					;;
+				# handle PDF files explicitly; might add special diff tool in the future
+				# using pdf2txt or similar tool
+				'application/pdf')
+					diff_bin='/bin/false'
+					;;
+				# difference between zip files
+				'application/zip')
+					diff_bin="$script_dir/zipdiff"
+					diff_opts='-u'
+					[ $verbose -ne 0 ] && diff_opts="$diff_opts -v"
+					;;
+				*)
+					diff_bin='/bin/false'
+					;;
+			esac
+			;;
+		'text')
+			diff_bin='/usr/bin/diff'
+			diff_opts='-u'
+			;;
+		'image')
+			diff_bin="$script_dir/imagediff"
+			diff_opts='-u'
+			[ $verbose -ne 0 ] && diff_opts="$diff_opts -v"
+			;;
+		*)
+			diff_bin='/bin/false'
+			;;
+	esac
+else
+	echo "Mime-type changed from $mime_left to  $mime_right. No diff available."
+fi
+
+[ $verbose -ne 0 ] && echo "compare $left ($mime_left) and $right ($mime_right) with $diff_bin $diff_opts"
+if [ ! -z "$diff_bin" -a "$diff_bin" != '/bin/false' ]; then
+	verbose_exec "$diff_bin" $diff_opts "$left" "$right" --label "$label_left" --label "$label_right"
+else
+    if [ -z "$label_left" -a -z "$label_right" ]; then
+        echo "No appropriate diff program found to compare $left ($mime_left) and $right ($mime_right)"
+    else
+        echo "No appropriate diff program found to compare $label_left ($mime_left) and $label_right ($mime_right)"
+    fi
+fi
+

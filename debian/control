@@ -17,8 +17,8 @@ Depends: arsoft-ppa,
  console-data, console-setup, gawk,
  strace, 
  openssh-server,
- arsoft-scripts,
- ${misc:Depends}
+ ${misc:Depends}, ${python:Depends} 
+Replaces: arsoft-scripts
 Description: configure the system to use the AR Soft packages.
  installs basic packages and configuration for operation on 
  AR Soft managed systems.
@@ -31,7 +31,7 @@ Description: installs the AR Soft package repository
 
 Package: arsoft-openvpn
 Architecture: any
-Depends: arsoft-base, ${misc:Depends}
+Depends: arsoft-base, openvpn, ${misc:Depends}
 Description: OpenVPN helper scripts
  Provides a set of script to helper and simplify the OpenVPN configuration.
 
@@ -40,3 +40,31 @@ Architecture: any
 Depends: arsoft-base, vim, vim-doc, vim-scripts, ${misc:Depends}
 Description: VIM configuration for AR Soft machines
  Configures VIM to be used as default editor.
+
+Package: arsoft-dhcp-client
+Architecture: any
+Replaces: arsoft-scripts-dhcp
+Depends: arsoft-base, isc-dhcp-client, ${misc:Depends}, ${python:Depends} 
+Description: script for network configuration
+ installs dhcp client scripts to configure your workstations
+ according to data provided by DHCP, DNS and LDAP.
+
+Package: arsoft-scripts-mythtv
+Architecture: any
+Depends: arsoft-mythtv, ${misc:Depends}, ${python:Depends} 
+Description: some helper script to set up MythTV
+ installs helper scripts for MythTV to start the frontend
+ on tty6.
+
+Package: arsoft-scripts-cyrusimapd
+Architecture: any
+Depends: arsoft-cyrusimapd-2.4, ${misc:Depends}, ${python:Depends} 
+Description: backup script for the Cyrus IMAP server
+ installs a backup script for the Cyrus IMAP server to
+ backup the configuration and data to a different location.
+
+Package: arsoft-scripts-svn
+Architecture: any
+Depends: arsoft-base, libimage-exiftool-perl, odt2txt, ${misc:Depends}, ${python:Depends} 
+Description: some helper scripts for Subversion
+ a collection of Subversion helper scripts.

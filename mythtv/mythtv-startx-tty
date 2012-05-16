@@ -1,0 +1,23 @@
+#!/bin/bash
+#
+# THIS FILE IS MANAGED BY PUPPET. DO NOT EDIT
+# AR SOFT PUPPET CONFIG
+#
+
+start-frontend() {
+MYTHRC="$HOME/.mythrc"
+if [ -r $MYTHRC ] ; then
+   . $MYTHRC
+fi
+
+LAYOUT_SPEC=
+[ ! -z "$LAYOUT" ] && LAYOUT_SPEC="-layout $LAYOUT"
+
+startx --  $LAYOUT_SPEC -logverbose 5
+exit
+}
+
+/usr/bin/tty | /bin/grep tty6 && start-frontend
+#
+# EOF
+#

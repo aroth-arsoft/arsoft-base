@@ -1,0 +1,8 @@
+#!/bin/bash
+title=`uname -rs`
+if [ "$KDE_FULL_SESSION" == "true" ]; then
+	notifybin="/usr/bin/kdialog --title \"$title\" --passivepopup"
+else
+	notifybin='/usr/bin/notify-send'
+fi
+tail -n 1 -f /var/log/dmesg | while read LINE; do $notifybin "$LINE";done

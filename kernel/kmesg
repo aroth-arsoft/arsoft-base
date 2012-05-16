@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+# show_deltas: Read list of printk messages instrumented with
+# time data, and format with time deltas.
+#
+# Also, you can show the times relative to a fixed point.
+#
+# Copyright 2003 Sony Corporation
+#
+# GPL 2.0 applies.
+
+import sys
+import string
+import time
+import os
+
+def usage():
+	print """usage: kmesg [<filename>]
+print the kernel messages with a human readable timestamp.
+"""
+	sys.exit(1)
+
+# returns a tuple containing the seconds and text for each message line
+# seconds is returned as a float
+# raise an exception if no timing data was found
+def get_time(line):
+	if line[0]!="[":
+		raise ValueError
+
+	# split on closing bracket
+	(time_str, rest) = string.split(line[1:],']',1)
+	time = string.atof(time_str)
+
+	#print "time=", time
+	return (time, rest)
+
+def date_line(line, base_time):
+	try:
+		(time_epoch, rest) = get_time(line)
+	except:
+		# if any problem parsing time, don't convert anything
+		return line
+
+	t = time_epoch + base_time
+	tm = time.localtime(t)
+	return time.strftime("[%Y-%m-%d %H:%M:%S]", tm) + rest
+
+#
+# retrieve the system uptime in seconds
+#
+def uptime():
+	try:
+		f = open( "/proc/uptime" )
+		contents = f.read().split()
+		f.close()
+		ret = float(contents[0])
+	except:
+		ret = float(0)
+
+	return ret
+
+
+def main():
+	base_str = ""
+	filein = ""
+	for arg in sys.argv[1:]:
+		if arg=="-h":
+			usage()
+		else:
+			filein = arg
+
+	if not filein:
+		lines = os.popen("dmesg").readlines() 
+	else:
+		try:
+			if filein == '-':
+				lines = sys.stdin.readlines()
+			else:
+				lines = open(filein,"r").readlines()
+		except:
+			print "Problem opening file: %s" % filein
+			sys.exit(1)
+
+	base_time = time.time() - uptime()
+
+	for line in lines:
+		print date_line(line, base_time),
+
+main()
+

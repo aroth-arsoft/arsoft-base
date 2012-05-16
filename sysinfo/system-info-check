@@ -1,0 +1,169 @@
+#!/bin/bash
+
+verbose=0
+fqdn=`hostname -f`
+from="root@$fqdn"
+to="root@$fqdn"
+sendmail_bin='/usr/sbin/sendmail'
+
+function usage()
+{
+    echo "system-info-check [OPTIONS]"
+    echo "    -h, --help      shows this help screen"
+	echo "    -v, --verbose   enable verbose output"
+    exit 0
+}
+
+# see /usr/lib/update-notifier/update-motd-fsck-at-reboot
+function filesystem_check()
+{
+	declare -i NEEDS_FSCK_CHECK=0
+	# poor mans force
+	if [ "$1" = "--force" ]; then
+		NEEDS_FSCK_CHECK=1
+	fi
+
+	# check time when we did the last check
+	stamp="/var/lib/update-notifier/fsck-at-reboot"
+	if [ -e "$stamp" ]; then
+		stampt=$(stat -c %Y $stamp)
+	else
+		stampt=0
+	fi
+
+	now=$(date +%s)
+	if [ $(($stampt + 3600)) -lt $now ]; then
+		#echo $stampt $now need update 
+		NEEDS_FSCK_CHECK=yes
+	fi
+
+	# output something for update-motd
+	if [ -n "$NEEDS_FSCK_CHECK" ]; then
+		> $stamp
+		check_occur_any=
+
+		mountinfo=`LANG=C mount 2>/dev/null`
+		ext_partitions=`echo "$mountinfo" | awk '$5 ~ /^ext(2|3|4)$/ { print $1 }'`
+		for part in $ext_partitions; do
+			dumpe2fs_out=$(LANG=C dumpe2fs -h $part 2>/dev/null)
+			mount_count=$(echo "$dumpe2fs_out" | grep "^Mount count:"|cut -d':' -f 2-)
+			if [ -z "$mount_count" ]; then mount_count=0; fi
+			last_mounted_on=$(echo "$dumpe2fs_out" | grep "^Last mounted on:"|cut -d':' -f 2-)
+			fs_volume_name=$(echo "$dumpe2fs_out" | grep "^Filesystem volume name:"|cut -d':' -f 2-)
+			#fs_uuid=$(echo "$dumpe2fs_out" | grep "^Filesystem UUID:"|cut -d':' -f 2-)
+			max_mount_count=$(echo "$dumpe2fs_out" | grep "^Maximum mount count:"|cut -d':' -f 2-)
+			if [ -z "$max_mount_count" ]; then max_mount_count=0; fi
+			check_interval=$(echo "$dumpe2fs_out" | grep "^Check interval:" | cut -d':' -f 2- | cut -d'(' -f 1)
+			if [ -z "$check_interval" ]; then check_interval=0; fi
+			next_check_date=$(echo "$dumpe2fs_out" | grep "^Next check after:" | cut -d':' -f 2-)
+			if [ -z "$next_check_interval" ]; then next_check_interval=0; fi
+			next_check_tstamp=$(date -d "$next_check_date" +%s)
+
+			#echo "next_check_date=\"$next_check_date\" next_check_tstamp=\"$next_check_tstamp\""
+			#echo "part=\"$part\" mount_count=\"$mount_count\" / max=\"$max_mount_count\" "
+
+			check_occur=
+			# Check based on mount counts?
+			if [ "$max_mount_count" -gt 0 -a \
+				"$mount_count" -ge "$max_mount_count" ]; then
+				check_occur=yes
+			fi
+			# Check based on time passed?
+			if [ "$check_interval" -gt 0 -a \
+				"$next_check_tstamp" -lt "$now" ]; then
+				check_occur=yes
+			fi
+			if [ -n "$check_occur" ]; then
+				check_occur_any=yes
+				echo "*** $part ($fs_volume_name, $last_mounted_on) will be checked for errors at next reboot ***" >> $stamp
+			fi
+		done
+		if [ -n "$check_occur_any" ]; then
+			echo "" >> $stamp
+		fi
+	fi
+
+	# output what we have (either cached or newly generated)
+	cat $stamp
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		*)
+			echo "unknown parameter $1"
+			exit 1
+		;;
+	esac
+	shift
+done
+
+# take from /usr/lib/update-notifier/update-motd-reboot-required
+if [ -f /var/run/reboot-required ]; then
+	reboot_required=`cat /var/run/reboot-required`
+else
+	reboot_required=''
+fi
+
+filesystemchecks=`filesystem_check`
+
+free_space_warnings=`LANG=C /bin/df --portability --human-readable --local 2>/dev/null | awk '{ if (NR > 1 && $5 > 90) print $0 }'`
+
+num_updates=`LANG=C /usr/lib/update-notifier/apt_check.py 2>&1`
+num_security_updates=`echo "$num_updates" | awk -F ';' '{print $1}'`
+num_regular_updates=`echo "$num_updates" | awk -F ';' '{print $2}'`
+
+do_sendmail=0
+maildate=`LANG=C date -R -d "\`date\`"`
+mail_temp=`mktemp /tmp/system-info-check.XXXXXX`
+subject="System information from $fqdn at "`LANG=C date`
+echo "From: ${from}" >> "$mail_temp"
+echo "To: ${to}" >> "$mail_temp"
+echo "Date: ${maildate}" >> "$mail_temp"
+[ ! -z "$replyto" ] && echo "Reply-To: ${from}" >> "$mail_temp"
+echo "Subject: ${subject}" >> "$mail_temp"
+
+if [ $num_security_updates -ne 0 -o $num_regular_updates -ne 0 ]; then
+	updatable_packages=`LANG=C /usr/lib/update-notifier/apt_check.py --package-names 2>&1 | sort`
+	do_sendmail=1
+	echo "$num_regular_updates packages can be updated." >> "$mail_temp"
+	echo "$num_security_updates updates are security updates." >> "$mail_temp"
+	echo "Updatable packages:" >> "$mail_temp"
+	echo "$updatable_packages" >> "$mail_temp"
+else
+	[ $verbose -ne 0 ] && echo "No updates pending."
+fi
+if [ ! -z "$filesystemchecks" ]; then
+	do_sendmail=1
+	echo "$filesystemchecks" >> "$mail_temp"
+else
+	[ $verbose -ne 0 ] && echo "No filesystem checks pending."
+fi
+if [ ! -z "$reboot_required" ]; then
+	do_sendmail=1
+	echo "$reboot_required" >> "$mail_temp"
+else
+	[ $verbose -ne 0 ] && echo "No reboot required."
+fi
+if [ ! -z "$free_space_warnings" ]; then
+	do_sendmail=1
+	echo "Filesystem            Size  Used Avail Use% Mounted on" >> "$mail_temp"
+	echo "$free_space_warnings" >> "$mail_temp"
+fi
+
+[ $verbose -ne 0 ] && cat "$mail_temp"
+
+if [ $do_sendmail -ne 0 ]; then
+	cat "$mail_temp" | "${sendmail_bin}" ${sendmail_opts} "${to}"
+else
+	[ $verbose -ne 0 ] && echo "do not send a message"
+fi
+
+rm "$mail_temp"
+
+exit 0
+

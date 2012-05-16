@@ -1,0 +1,944 @@
+#!/bin/bash
+
+verbose=0
+dryrun=1
+backup=''
+restore=''
+convert_db=''
+test=''
+args=''
+CONF=/etc/imapd.conf
+MASTERCONF=/etc/cyrus.conf
+rsync_bin=`which rsync`
+remote_keyfile=''
+CYRBIN='/usr/lib/cyrus/bin'
+rsync_rsh='/usr/bin/ssh -x'
+rsync_opt='-z -r -a --delete'
+cyrus_was_running=0
+declare -A partitions
+this_script=`readlink -f "$0"`
+
+function usage()
+{
+	echo "cyrusimap-backup <params>"
+	echo "    -h, --help          shows this help screen"
+	echo "    -v,--verbose        verbose output"
+	echo "    -n, --dry-run       perform a trial run with no changes made"
+	echo "    --no-dry-run        run with real data."
+	echo "    -k,--keyfile        keyfile to access the remote source or destination"
+	echo "  backup:"
+	echo "    --backup <mode> <destination>"
+	echo "  restore:"
+	echo "    --restore <mode> <source>"
+	exit 0
+}
+
+function imapdconf()
+{
+	local conffile="$1"
+	local valname="$2"
+	local defvalue="$3"
+	# $(gawk '/^proc_path:[[:blank:]]/ {print $2}' $CONF)"
+	value=`/bin/grep -E "^$valname\:" "$conffile" | /usr/bin/awk -F ':' '{ gsub(/[[:space:]]*/,"",$2); if (firstline==0) { firstline=1; printf "%s", $2; } else { printf " %s", $2; } }'`
+	[ ! -z "$defvalue" -a -z "$value" ] && echo "$defvalue" || echo "$value"
+}
+
+function imapdconf_dict()
+{
+	local conffile="$1"
+	local valname="$2"
+	/bin/grep -E "^$valname\:" "$conffile" | /usr/bin/awk -F ':' '{ gsub(/[[:space:]]*/,"",$1); gsub(/[[:space:]]*/,"",$2); if (firstline==0) { firstline=1; printf "%s:%s", $1, $2; } else { printf " %s:%s", $1, $2; } }'
+}
+
+function update_imapdconf()
+{
+	local conffile="$1"
+	local valname="$2"
+	local value="$3"
+	currentvalue=`imapdconf "$conffile" "$valname"`
+	if [ "$currentvalue" != "$value" ]; then
+		if [ -z "$currentvalue" ]; then
+			echo "$valname: $value" >> "$conffile"
+		else
+			/bin/sed -i -r -e "s@^${valname}\:\s*.*\$@${valname}: ${value}@" "$conffile"
+		fi
+	fi
+}
+
+function argv_dump()
+{
+	/usr/bin/perl -MData::Dumper -e'print Dumper \@ARGV' "$@"
+}
+
+function verbose_exec()
+{
+	[ $verbose -ne 0 ] && echo "$@"
+	#argv_dump "$@"
+	if [ $dryrun -eq 0 ]; then
+		eval "$@"
+		RES=$?
+		[ $RES -ne 0 ] && echo "command failed with exit code $RES: $@" >2
+	else
+		RES=0
+	fi
+	return $RES
+}
+
+function relpath() {
+	/usr/bin/python -c "import os.path; import sys; print os.path.relpath(sys.argv[2], sys.argv[1])" "$1" "$2"
+}
+
+function cp_file_and_mkdir()
+{
+	dest_dir=`dirname "$2"`
+	if [ ! -d "$dest_dir" ]; then
+		verbose_exec mkdir -p "$dest_dir"
+	fi
+	verbose_exec cp -a "$1" "$2"
+	if [ -h "$1" ]; then
+		src_dir=`dirname "$1"`
+		target=`readlink -f "$1"`
+		target_name=`basename "$target"`
+		target_dir=`dirname "$target"`
+		
+		rel=`relpath "$src_dir" "$target_dir"`
+		if [ ! -d "$dest_dir/$rel" ]; then
+			verbose_exec mkdir -p "$dest_dir/$rel"
+		fi
+		verbose_exec cp -a "$target" "$dest_dir/$rel/$target_name"
+	fi
+	RES=$?
+	return $RES
+}
+
+function cp_dir_and_mkdir()
+{
+	if [ ! -d "$2" ]; then
+		verbose_exec mkdir -p "$2"
+	fi
+	verbose_exec cp -a "$1" "$2"
+	RES=$?
+	return $RES
+}
+
+function ensure_dir()
+{
+	if [ ! -d "$1" ]; then
+		verbose_exec mkdir -p "$1"
+	else
+		true
+	fi
+	RES=$?
+	return $RES
+}
+
+function rsync_exec()
+{
+	#echo "$rsync_bin $rsync_opt -e '$rsync_rsh' $*"
+	local cmd="$rsync_bin $rsync_opt -e '$rsync_rsh' $*"
+	[ $verbose -ne 0 ] && echo "$cmd"
+	#argv_dump "$@"
+	eval "$cmd"
+	RES=$?
+	[ $RES -ne 0 ] && echo "command failed with exit code $RES: $cmd" 1>&2
+	return $RES
+}
+
+function su_exec()
+{
+	local args=''
+	local stdin='/dev/stdin'
+	local stdout='/dev/stdout'
+	local stderr='/dev/stderr'
+	local user='cyrus'
+	local shell='/bin/sh'
+	local lookup_flags=1
+	echo "su_exec \"$*\""
+	# parse command line arguments
+	while [ $# -ne 0 ]; do
+		if [ $lookup_flags -ne 0 ]; then
+			case "$1" in
+				"stdin") stdin="$2"; shift; ;;
+				"stdout") stdout="$2"; shift; ;;
+				"stderr") stderr="$2"; shift; ;;
+				"user") user="$2"; shift; ;;
+				"shell") shell="$2"; shift; ;;
+				*)
+					lookup_flags=0
+					if [ ! -z "$args" ]; then
+						args="$args $1"
+					else
+						args="$1"
+					fi
+				;;
+			esac
+		else
+			if [ ! -z "$args" ]; then
+				args="$args $1"
+			else
+				args="$1"
+			fi
+		fi
+		shift
+	done
+	
+	[ $verbose -ne 0 ] && echo "/bin/su -s $shell $user -c \"$args\" < \"$stdin\" > \"$stdout\" 2> \"$stderr\""
+	#argv_dump "$@"
+	if [ $dryrun -eq 0 ]; then
+		/bin/su -s $shell $user -c "$args" < "$stdin" > "$stdout" 2> "$stderr"
+		RES=$?
+		[ $RES -ne 0 ] && echo "command failed with exit code $RES: /bin/su -s $shell $user -c \"$args\" < \"$stdin\" > \"$stdout\" 2> \"$stderr\"" 1>&2
+	else
+		RES=0
+	fi
+	return $RES
+}
+
+function do_cvt_cyrusdb() {
+	local olddb=`readlink -f "$1"`
+	local oldtype="$2"
+	local newdb=`readlink -f "$3"`
+	local newtype="$4"
+	if [ "$oldtype" == "$newtype" ]; then
+		local newdb_temp=`mktemp /tmp/cyrusimap-backup.XXXXXX`
+		#verbose_exec chown cyrus.mail "$newdb_temp"
+		verbose_exec "$CYRBIN/cvt_cyrusdb" "$olddb" "$oldtype" "$newdb_temp" "flat"
+		#verbose_exec cp "$olddb" "$newdb_temp"
+		if [ $? -eq 0 ]; then
+			verbose_exec "$CYRBIN/cvt_cyrusdb" "$newdb_temp" "flat" "$newdb" "$newtype"
+			#verbose_exec cp "$newdb_temp" "$newdb"
+			[ $verbose -ne 0 ] && echo "do_cvt_cyrusdb: delete tmp file $newdb_temp"
+			verbose_exec rm "$newdb_temp"
+		else
+			echo "do_cvt_cyrusdb: $olddb $oldtype $newdb_temp flat failed with exit code $?" 1>&2
+		fi
+	else
+		# convertion required, let cvt_cyrusdb convert the old db into the new one
+		verbose_exec "$CYRBIN/cvt_cyrusdb" "$olddb" "$oldtype" "$newdb" "$newtype"
+	fi
+}
+
+function convert_seenstate_db() {
+	local user_dir="$1"
+	export backup_imapd_conf
+	export system_imapd_conf
+	[ $verbose -ne 0 ] && verbose_opt='-v' || verbose_opt=''
+	[ $dryrun -ne 0 ] && dryrun_opt='--dry-run' || dryrun_opt='--no-dry-run'
+	verbose_exec /usr/bin/find "$user_dir" -name '\*.seen' -exec "$this_script" $verbose_opt $dryrun_opt --convert-db seenstate '\{\}' '\;'
+	export -n backup_imapd_conf
+	export -n system_imapd_conf
+}
+
+function convert_subscription_db() {
+	local user_dir="$1"
+	export backup_imapd_conf
+	export system_imapd_conf
+	[ $verbose -ne 0 ] && verbose_opt='-v' || verbose_opt=''
+	[ $dryrun -ne 0 ] && dryrun_opt='--dry-run' || dryrun_opt='--no-dry-run'
+	verbose_exec /usr/bin/find "$user_dir" -name '\*.sub' -exec "$this_script" $verbose_opt $dryrun_opt --convert-db subscription '\{\}' '\;'
+	export -n backup_imapd_conf
+	export -n system_imapd_conf
+}
+
+function reconstruct() {
+	local conf="$1"
+	local user="$2"
+	su_exec user cyrus "$CYRBIN/reconstruct" -C "$conf" -f -r "user.$user"
+}
+
+function cyrus_recover_db() {
+	local conf="$1"
+	su_exec user cyrus "$CYRBIN/ctl_cyrusdb" -C "$conf"  -r
+}
+
+function shutdown_cyrus() {
+	status=`/usr/sbin/service cyrus-imapd status > /dev/null`
+	if [ $? -eq 0 ]; then
+		cyrus_was_running=1
+		if [ $dryrun -eq 0 ]; then
+			echo "Stop service cyrus-imapd"
+			status=`/usr/sbin/service cyrus-imapd stop > /dev/null`
+		fi
+	else
+		cyrus_was_running=0
+	fi
+}
+
+function start_cyrus() {
+	status=`/usr/sbin/service cyrus-imapd status > /dev/null`
+	if [ $? -eq 0 ]; then
+		# cyrus already running
+		cyrus_is_running=1
+	else
+		if [ $dryrun -eq 0 ]; then
+			echo "Start service cyrus-imapd"
+			status=`/usr/sbin/service cyrus-imapd start > /dev/null`
+			[ $? -eq 0 ] && cyrus_is_running=1 || cyrus_is_running=0
+		else
+			cyrus_is_running=0
+		fi
+	fi
+}
+
+function restart_cyrus() {
+	[ $cyrus_was_running -ne 0 ] && start_cyrus
+}
+
+
+function shutdown_fetchmail() {
+	status=`/usr/sbin/service fetchmail status > /dev/null`
+	if [ $? -eq 0 ]; then
+		fetchmail_was_running=1
+		if [ $dryrun -eq 0 ]; then
+			echo "Stop service fetchmail"
+			status=`/usr/sbin/service fetchmail stop > /dev/null`
+		fi
+	else
+		fetchmail_was_running=0
+	fi
+}
+
+function start_fetchmail() {
+	status=`/usr/sbin/service fetchmail status > /dev/null`
+	if [ $? -eq 0 ]; then
+		# fetchmail already running
+		fetchmail_is_running=1
+	else
+		if [ $dryrun -eq 0 ]; then
+			echo "Start service fetchmail"
+			status=`/usr/sbin/service fetchmail start > /dev/null`
+			[ $? -eq 0 ] && fetchmail_is_running=1 || fetchmail_is_running=0
+		else
+			fetchmail_is_running=0
+		fi
+	fi
+}
+
+function restart_fetchmail() {
+	[ $fetchmail_was_running -ne 0 ] && start_fetchmail
+}
+
+
+function load_config() {
+	local conffile="$1"
+	local basedir="$2"
+	# load cyrus-imapd settings if available
+	if [ -f "$conffile" ] ; then
+		source "$conffile"
+	else
+		conffile=''
+		MASTERCONF='/etc/cyrus.conf'
+		CONF='/etc/imapd.conf'
+	fi
+
+	configfile=`readlink -f "$conffile"`
+	if [ -h "${basedir}${MASTERCONF}" ]; then
+		cyrus_conf="${basedir}/"`readlink -f "${basedir}${MASTERCONF}"`
+		cyrus_conf=`readlink -f "$cyrus_conf"`
+	else
+		cyrus_conf=`readlink -f "${basedir}${MASTERCONF}"`
+	fi
+	if [ -h "${basedir}${CONF}" ]; then
+		imapd_conf="${basedir}/"`readlink -f "${basedir}${CONF}"`
+		imapd_conf=`readlink -f "$imapd_conf"`
+	else
+		imapd_conf=`readlink -f "${basedir}${CONF}"`
+	fi
+	
+	configdirectory="${basedir}/"`imapdconf "$imapd_conf" configdirectory`
+	configdirectory=`readlink -f "$configdirectory"`
+	sievedirectory="${basedir}/"`imapdconf "$imapd_conf" sievedir`
+	sievedirectory=`readlink -f "$sievedirectory"`
+	keytab_file="${basedir}/"`imapdconf "$imapd_conf" keytab`
+	keytab_file=`readlink -f "$keytab_file"`
+	sasl_keytab_file="${basedir}/"`imapdconf "$imapd_conf" sasl_keytab`
+	sasl_keytab_file=`readlink -f "$sasl_keytab_file"`
+
+	local partitions_tmp=(`imapdconf_dict "$imapd_conf" 'partition-\w+'`)
+	for part in ${partitions_tmp[@]} ; do
+		key=${part%%:*}
+		name=${key##*-}
+		path=${part##*:}
+		partitions[$name]=`readlink -f "$basedir/$path"`
+	done
+
+	[ $verbose -ne 0 ] && echo "configfile: $configfile ($conffile)"
+	[ $verbose -ne 0 ] && echo "basedir: $basedir"
+	[ $verbose -ne 0 ] && echo "cyrus.conf: $cyrus_conf"
+	[ $verbose -ne 0 ] && echo "imapd.conf: $imapd_conf"
+	[ $verbose -ne 0 ] && echo "configdir: $configdirectory"
+	[ $verbose -ne 0 ] && echo "sievedir: $sievedirectory"
+	[ $verbose -ne 0 ] && echo "keytab: $keytab_file"
+	[ $verbose -ne 0 ] && echo "sasl keytab: $sasl_keytab_file"
+	if [ $verbose -ne 0 ]; then
+		for index in ${!partitions[*]}; do
+			path=${partitions[$index]}
+			echo "partition: $index -> $path"
+		done
+	fi
+}
+
+function is_remote_destination() {
+	local dest="$1"
+	local user=${dest%%@*}
+	local hostname_and_filename=${dest#*@}
+	local hostname=${hostname_and_filename%%:*}
+	local filename=${hostname_and_filename#*:}
+	
+	#echo "dest $dest"
+	#echo "user $user"
+	#echo "hostname_and_filename $hostname_and_filename"
+	#echo "hostname $hostname"
+	#echo "filename $filename"
+	
+	[ "$user" != "$dest" -a ! -z "$user" -a ! -z "$hostname" -a ! -z "$filename" ] && true || false
+}
+
+function action_backup() {
+
+	local backup_what=''
+	local destination=''
+	local backup_config=0
+	local backup_mailbox_list=0
+	local backup_data=0
+	local backup_sieve=0
+	local backup_fetchmail=0
+
+	# parse command line arguments
+	while [ $# -ne 0 ]; do
+		case "$1" in
+			'all')
+				backup_config=1
+				backup_mailbox_list=1
+				backup_sieve=1
+				backup_data=1
+				backup_fetchmail=1
+				;;
+			'config')
+				backup_config=1
+				backup_mailbox_list=1
+				backup_sieve=0
+				backup_data=0
+				backup_fetchmail=1
+				;;
+			'data')
+				backup_config=0
+				backup_mailbox_list=1
+				backup_sieve=1
+				backup_data=1
+				backup_fetchmail=1
+				;;
+			-*)
+				echo "backup: invalid parameter $1." 1>&2
+				exit 1
+				;;
+			*)
+				if [ -z "$destination" ]; then
+					destination="$1"
+				else
+					echo "backup: destination $destination already specified." 1>&2
+					exit 1
+				fi
+				;;
+		esac
+		shift
+	done
+	
+	if [ $verbose -ne 0 ]; then
+		echo "destination=$destination"
+		echo "backup_config=$backup_config"
+		echo "backup_mailbox_list=$backup_mailbox_list"
+		echo "backup_sieve=$backup_sieve"
+		echo "backup_data=$backup_data"
+		echo "backup_fetchmail=$backup_fetchmail"
+	fi
+
+	if [ -z "$destination" ]; then
+		echo "No destination specified." 1>&2
+		exit 1
+	fi
+
+	if ! is_remote_destination "$destination"; then
+		if [ -d "$destination" ]; then
+			echo "Destination directory $destination already exists."
+		else
+			verbose_exec mkdir -p "$destination"
+		fi
+	else
+		echo "remote destination $destination"
+	fi
+
+	load_config '/etc/default/cyrus-imapd' '/'
+	
+	backup_temp=`mktemp -d /tmp/cyrus-backup.XXXXXX`
+	verbose_exec chown cyrus.mail "$backup_temp"
+	verbose_exec chmod 0755 "$backup_temp"
+	if [ $backup_config -ne 0 ]; then
+		if [ -f "$sasl_keytab_file" ]; then
+			cp_file_and_mkdir "$sasl_keytab_file" "$backup_temp/$sasl_keytab_file"
+		fi
+		if [ -f "$keytab_file" ]; then
+			cp_file_and_mkdir "$keytab_file" "$backup_temp/$keytab_file"
+		fi
+
+		[ -f "$imapd_conf" ] && cp_file_and_mkdir "$imapd_conf" "$backup_temp/$imapd_conf"
+		[ -f "$cyrus_conf" ] && cp_file_and_mkdir "$cyrus_conf" "$backup_temp/$cyrus_conf"
+		[ -f "$configfile" ] && cp_file_and_mkdir "$configfile" "$backup_temp/$configfile"
+
+		cp_dir_and_mkdir "$configdirectory/*" "$backup_temp/$configdirectory/"
+		# delete all locks
+		verbose_exec rm -rf "$backup_temp/$configdirectory/lock/*"
+		# ... and all procs
+		verbose_exec rm -rf "$backup_temp/$configdirectory/proc/*"
+		# ... and all sockets
+		verbose_exec rm -rf "$backup_temp/$configdirectory/socket/*"
+		
+		# create a backup of the mailbox list
+		backup_mailbox_list_temp=`mktemp /tmp/cyrus-backup.XXXXXX`
+		su_exec user cyrus stdout "$backup_mailbox_list_temp" /usr/sbin/ctl_mboxlist -d
+		verbose_exec install "$backup_mailbox_list_temp" -o cyrus -g mail -m 0640 "$backup_temp/$configdirectory/mailbox.list"
+		# remove the mailbox.db file since we use the mailbox.list text file for this
+		[ -d "$backup_temp/$configdirectory/mailbox.db" ] && verbose_exec rm -rf "$backup_temp/$configdirectory/mailbox.db"
+		rm "$backup_mailbox_list_temp"
+	fi
+
+	if [ $backup_sieve -ne 0 ]; then
+		# copy the sieve script into the config backup since it most likely does
+		# not hold so large files
+		cp_dir_and_mkdir "$sievedirectory/*" "$backup_temp/$sievedirectory"
+	fi
+
+	exclude_dirs=''
+	for index in ${!partitions[*]}; do
+		name=$index
+		path=${partitions[$index]}
+		# make sure the partion directory exists on the backup destination
+		ensure_dir "$backup_temp/$path"
+		exclude_dirs="$exclude_dirs --exclude=$path"
+	done
+
+	if [ $backup_fetchmail -ne 0 ]; then
+		[ -f '/etc/default/fetchmail' ] && cp_file_and_mkdir '/etc/default/fetchmail' "$backup_temp/etc/default/fetchmail"
+		if [ -f '/etc/fetchmailrc' ]; then
+			cp_file_and_mkdir '/etc/fetchmailrc' "$backup_temp/etc/fetchmailrc"
+			idfile=`/usr/bin/awk '/set idfile/ { gsub(/\"*/,"",$3); print $3 }' /etc/fetchmailrc`
+			[ ! -z "$idfile" -a -f "$idfile" ] && cp_file_and_mkdir "$idfile" "$backup_temp/$idfile"
+		fi
+	fi
+
+	# copy the directory structure and all config files to the backup destination
+	rsync_exec $exclude_dirs "$backup_temp/" "$destination/"
+	# copying done, so remove the temp directory
+	verbose_exec rm -rf "$backup_temp"
+
+	if [ $backup_data -ne 0 ]; then
+		# backup all partitions (rsync one by one)
+		for index in ${!partitions[*]}; do
+			name=$index
+			path=${partitions[$index]}
+			rsync_exec "$path/*" "$destination/$path"
+			RES=$?
+		done
+	fi
+}
+
+function action_restore() {
+	local restore_what=''
+	local source=''
+	local restore_config=0
+	local restore_mailbox_list=0
+	local restore_data=0
+	local restore_sieve=0
+	local restore_user_db=0
+	local restore_quota=0
+	local restore_fetchmail=0
+	local purge_tlssession=1
+	local migrate=1
+
+	# parse command line arguments
+	while [ $# -ne 0 ]; do
+		case "$1" in
+			'all')
+				restore_config=1
+				restore_mailbox_list=1
+				restore_sieve=1
+				restore_data=1
+				restore_user_db=1
+				restore_quota=1
+				restore_fetchmail=1
+				migrate=0
+				;;
+			'config')
+				restore_config=1
+				restore_mailbox_list=1
+				restore_sieve=0
+				restore_data=0
+				restore_user_db=0
+				restore_quota=0
+				restore_fetchmail=1
+				migrate=0
+				;;
+			'data')
+				restore_config=0
+				restore_mailbox_list=1
+				restore_sieve=1
+				restore_data=1
+				restore_user_db=1
+				restore_quota=1
+				restore_fetchmail=1
+				migrate=1
+				;;
+			-*)
+				echo "restore: invalid parameter $1." 1>&2
+				exit 1
+				;;
+			*)
+				if [ -z "$source" ]; then
+					source="$1"
+				else
+					echo "restore: source $source already specified." 1>&2
+					exit 1
+				fi
+				;;
+		esac
+		shift
+	done
+	
+	if [ $verbose -ne 0 ]; then
+		echo "source=$source"
+		echo "restore_config=$restore_config"
+		echo "restore_mailbox_list=$restore_mailbox_list"
+		echo "restore_data=$restore_data"
+		echo "restore_sieve=$restore_sieve"
+		echo "restore_user_db=$restore_user_db"
+		echo "purge_tlssession=$purge_tlssession"
+		echo "migrate=$migrate"
+	fi
+
+	if [ -z "$source" ]; then
+		echo "No source specified." 1>&2
+		exit 1
+	fi
+
+	# first load the config from the source/backup directory
+	load_config "$source/etc/default/cyrus-imapd" "$source"
+
+	backup_configfile="$configfile"
+	backup_cyrus_conf="$cyrus_conf"
+	backup_imapd_conf="$imapd_conf"
+	backup_configdirectory="$configdirectory"
+	backup_sievedirectory="$sievedirectory"
+	declare -A backup_partitions
+	backup_keytab_file="$keytab_file"
+	backup_sasl_keytab_file="$sasl_keytab_file"
+	for index in ${!partitions[*]}; do
+		backup_partitions[$index]=${partitions[$index]}
+	done
+	
+	# stop the running fetchmail and cyrus to avoid trouble
+	shutdown_fetchmail
+	shutdown_cyrus
+
+	# only restore the configuration if selected
+	if [ $restore_config -ne 0 ]; then
+		# take over the settings from the backup
+		system_configfile="/etc/default/cyrus-imapd"
+		system_cyrus_conf=/`relpath "$source" "$cyrus_conf"`
+		system_imapd_conf=/`relpath "$source" "$imapd_conf"`
+		system_configdirectory=/`relpath "$source" "$configdirectory"`
+		system_sievedirectory=/`relpath "$source" "$sievedirectory"`
+		system_keytab_file=/`relpath "$source" "$keytab_file"`
+		system_sasl_keytab_file=/`relpath "$source" "$sasl_keytab_file"`
+
+		verbose_exec install -o root -g root -m 0644 "$backup_configfile" "$system_configfile"
+		verbose_exec install -o root -g root -m 0644 "$backup_cyrus_conf" "$system_cyrus_conf"
+		verbose_exec install -o root -g root -m 0644 "$backup_imapd_conf" "$system_imapd_conf"
+		verbose_exec install -o cyrus -g mail -m 0600 "$backup_keytab_file" "$system_keytab_file"
+		verbose_exec install -o cyrus -g mail -m 0600 "$backup_sasl_keytab_file" "$system_sasl_keytab_file"
+
+		verbose_exec cp -rp "$backup_configdirectory" "$system_configdirectory"
+		verbose_exec chown cyrus.mail -R "$system_configdirectory"
+	else
+		# load the system config to get the correct destinations
+		load_config '/etc/default/cyrus-imapd' '/'
+		
+		system_configfile="$configfile"
+		system_cyrus_conf="$cyrus_conf"
+		system_imapd_conf="$imapd_conf"
+		system_configdirectory="$configdirectory"
+		system_sievedirectory="$sievedirectory"
+		system_keytab_file="$keytab_file"
+		system_sasl_keytab_file="$sasl_keytab_file"
+
+		if [ $restore_user_db -ne 0 ]; then
+			if [ -d "$backup_configdirectory/user" ]; then
+				[ ! -d "$system_configdirectory/user" ] && verbose_exec mkdir -p "$system_configdirectory/user" && verbose_exec chown cyrus.mail "$system_configdirectory/user"
+				verbose_exec rsync_exec "$backup_configdirectory/user/" "$system_configdirectory/user/"
+				convert_seenstate_db "$system_configdirectory/user"
+				convert_subscription_db "$system_configdirectory/user"
+				verbose_exec chown cyrus.mail -R "$system_configdirectory/user"
+			else
+				echo "user db backup not available: $backup_configdirectory/user does not exist"
+			fi
+		fi
+		if [ $restore_quota -ne 0 ]; then
+			if [ -d "$backup_configdirectory/quota" ]; then
+				[ ! -d "$system_configdirectory/quota" ] && verbose_exec mkdir -p "$system_configdirectory/quota" && verbose_exec chown cyrus.mail "$system_configdirectory/quota"
+				verbose_exec rsync_exec "$backup_configdirectory/quota/" "$system_configdirectory/quota/"
+				verbose_exec chown cyrus.mail -R "$system_configdirectory/quota"
+			else
+				echo "quota backup not available: $backup_configdirectory/quota does not exist"
+			fi
+		fi
+		
+	fi
+	if [ $restore_mailbox_list -ne 0 ]; then
+		su_exec user cyrus stdin "$backup_configdirectory/mailbox.list" /usr/sbin/ctl_mboxlist -u
+	fi
+
+	[ $purge_tlssession -ne 0 -a -f "$system_configdirectory/tls_sessions.db" ] && verbose_exec rm "$system_configdirectory/tls_sessions.db"
+	[ ! -f "$system_configdirectory/tls_sessions.db" ] && verbose_exec touch "$system_configdirectory/tls_sessions.db"
+	verbose_exec chown cyrus.mail "$system_configdirectory/tls_sessions.db"
+
+	if [ $restore_sieve -ne 0 ]; then
+		if [ -d "$backup_sievedirectory" ]; then
+			[ ! -d "$system_sievedirectory" ] && verbose_exec mkdir -p "$system_sievedirectory" && verbose_exec chown cyrus.mail "$system_sievedirectory"
+			rsync_exec "$backup_sievedirectory/" "$system_sievedirectory/"
+			verbose_exec chown cyrus.mail -R "$system_sievedirectory"
+		else
+			echo "sieve backup not available: $backup_sievedirectory does not exist"
+		fi
+	fi
+
+	if [ $restore_data -ne 0 -a 0 ]; then
+		# backup all partitions (rsync one by one)
+		for index in ${!backup_partitions[*]}; do
+			name=$index
+			path=${backup_partitions[$index]}
+			
+			# check if we should migrate the data from the backup into the system
+			if [ $migrate -ne 0 ]; then
+				system_partition_dir=`imapdconf "$system_imapd_conf" "partition-${index}"`
+				if [ -z "$system_partition_dir" ]; then
+					# take over the path from the backup when the partion is
+					# not yet configured on the system
+					system_partition_dir=/`relpath "$source" "$path"`
+					update_imapdconf "$system_imapd_conf" "partition-$name" "$system_partition_dir"
+				fi
+			else
+				# take over the path from the backup because 
+				# migration is disabled
+				system_partition_dir=/`relpath "$source" "$path"`
+				update_imapdconf "$system_imapd_conf" "partition-$name" "$system_partition_dir"
+			fi
+
+			[ ! -d "$system_partition_dir" ] && verbose_exec mkdir -p "$system_partition_dir" && verbose_exec chown cyrus.mail "$system_partition_dir"
+			rsync_exec "$path/" "$system_partition_dir/"
+			# make sure the partition is owned by the cyrus user
+			verbose_exec chown cyrus.mail -R "$system_partition_dir"
+		done
+	fi
+
+	if [ $restore_fetchmail -ne 0 ]; then
+		if [ -f "$source/etc/default/fetchmail" ]; then
+			verbose_exec install -o root -g root -m 0644 "$source/etc/default/fetchmail" '/etc/default/fetchmail'
+		fi
+		if [ -f "$source/etc/fetchmailrc" ]; then
+			verbose_exec install -o fetchmail -g root -m 0600 "$source/etc/fetchmailrc" '/etc/fetchmailrc'
+			idfile=`/usr/bin/awk '/set idfile/ { gsub(/\"*/,"",$3); print $3 }' "$source/etc/fetchmailrc"`
+			[ ! -z "$idfile" -a -f "$source/$idfile" ] && verbose_exec install -o fetchmail -g root -m 0600 "$source/$idfile" "$idfile"
+		fi
+	fi
+	
+	cyrus_recover_db "$system_imapd_conf"
+	
+	restart_cyrus
+	restart_fetchmail
+}
+
+function action_convert_db() {
+	local olddb=''
+	local newdb=''
+	local olddbtype=''
+	local newdbtype=''
+	
+	if [ -z "$backup_imapd_conf" ]; then
+		echo "convert-db: backup imapd config file unavailable." 1>&2
+		exit 1
+	fi
+	if [ -z "$system_imapd_conf" ]; then
+		echo "convert-db: system imapd config file unavailable." 1>&2
+		exit 1
+	fi
+	
+	# parse command line arguments
+	while [ $# -ne 0 ]; do
+		case "$1" in
+			'seenstate')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'seenstate_db' 'skiplist'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'seenstate_db' 'skiplist'`
+				;;
+			'subscription')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'subscription_db' 'flat'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'subscription_db' 'flat'`
+				;;
+			'quota')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'quota_db' 'quotalegacy'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'quota_db' 'quotalegacy'`
+				;;
+			'annotation')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'annotation_db' 'skiplist'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'annotation_db' 'skiplist'`
+				;;
+			'tlscache')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'tlscache_db' 'skiplist'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'tlscache_db' 'skiplist'`
+				;;
+			'userdeny')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'userdeny_db' 'flat'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'userdeny_db' 'flat'`
+				;;
+			'duplicate')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'duplicate_db' 'skiplist'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'duplicate_db' 'skiplist'`
+				;;
+			'mboxkey')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'mboxkey_db' 'skiplist'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'mboxkey_db' 'skiplist'`
+				;;
+			'mboxlist')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'mboxlist_db' 'skiplist'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'mboxlist_db' 'skiplist'`
+				;;
+			'ptscache')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'ptscache_db' 'skiplist'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'ptscache_db' 'skiplist'`
+				;;
+			'statuscache')
+				olddbtype=`imapdconf "$backup_imapd_conf" 'statuscache_db' 'skiplist'`
+				newdbtype=`imapdconf "$system_imapd_conf" 'statuscache_db' 'skiplist'`
+				;;
+			-*)
+				echo "convert-db invalid parameter $1." 1>&2
+				exit 1
+				;;
+			*)
+				if [ -z "$olddb" ]; then
+					olddb="$1"
+				elif [ -z "$newdb" ]; then
+					newdb="$1"
+				else
+					echo "convert-db: old and new database already specified." 1>&2
+					exit 1
+				fi
+				;;
+		esac
+		shift
+	done
+	
+	if [ -z "$olddbtype" -o -z "$newdbtype" ]; then
+		echo "convert-db: database type cannot be determined." 1>&2
+		exit 1
+	fi
+
+	if [ -z "$olddb" ]; then
+		echo "convert-db: no database file specified." 1>&2
+		exit 1
+	fi
+		
+	if [ -z "$newdb" ]; then
+		local newdb_temp=`mktemp /tmp/cyrusimap-backup.XXXXXX`
+		do_cvt_cyrusdb "$olddb" "$olddbtype" "$newdb_temp" "$newdbtype"
+		if [ $? -eq 0 ]; then
+			verbose_exec mv "$newdb_temp" "$olddb"
+		else
+			echo "convert-db: error $? - failed to convert $olddb $olddbtype $newdb_temp $newdbtype" 1>&2
+		fi
+	else
+		do_cvt_cyrusdb "$olddb" "$olddbtype" "$newdb" "$newdbtype"
+	fi
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		"-n"|"--dry-run") dryrun=1; ;;
+		"--no-dry-run") dryrun=0; ;;
+		"-k"|"--keyfile") remote_keyfile="$2"; shift; ;;
+		"--backup")
+			backup='all'
+			case "$2" in
+				'all'|'config'|'data') backup="$2"; shift; ;;
+			esac
+			;;
+		"--restore")
+			restore='all'
+			case "$2" in
+				'all'|'config'|'data') restore="$2"; shift; ;;
+			esac
+			;;
+		'--convert-db')
+			convert_db="$2"; 
+			shift;
+			;;
+		'--test')
+			test="$2"; 
+			shift;
+			;;
+		*)
+			if [ ! -z "$args" ]; then
+				args="$args $1"
+			else
+				args="$1"
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$rsync_bin" ]; then
+	echo "rsync not available. Please install rsync" 1>&2
+	exit 1
+fi
+
+if [[ $EUID -ne 0 ]]; then
+   echo "This script must be run as root" 1>&2
+   exit 1
+fi
+
+#cp_file_and_mkdir '/tmp/cyrus/file' '/tmp/copy/file'
+#exit 0
+
+if [ ! -z "$remote_keyfile" ]; then
+	if [ $verbose -ne 0 ]; then
+		rsync_rsh="$rsync_rsh -i $remote_keyfile"
+	else
+		rsync_rsh="$rsync_rsh -i $remote_keyfile"
+	fi
+fi
+[ $verbose -ne 0 ] && rsync_opt="-v $rsync_opt"
+[ $dryrun -ne 0 ] && rsync_opt="--dry-run $rsync_opt"
+
+if [ ! -z "$backup" ]; then
+	action_backup "$backup" $args
+elif [ ! -z "$restore" ]; then
+	action_restore "$restore" $args
+elif [ ! -z "$convert_db" ]; then
+	action_convert_db "$convert_db" $args
+elif [ ! -z "$test" ]; then
+	backup_imapd_conf=/local/midas/download/cyrus/ossrv_2/etc/cyrus/imapd.conf 
+	system_imapd_conf=/etc/cyrus/imapd.conf 
+	export backup_imapd_conf
+	export system_imapd_conf
+	"$this_script" -v --no-dry-run --convert-db seenstate /var/lib/cyrus/user/a/aroth.seen
+	"$this_script" -v --no-dry-run --convert-db subscription /var/lib/cyrus/user/a/aroth.sub
+	export -n backup_imapd_conf
+	export -n system_imapd_conf
+else
+	echo "No action selected."
+	usage
+fi
+
+exit 0

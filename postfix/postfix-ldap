@@ -1,0 +1,70 @@
+#!/bin/bash
+verbose=0
+reload=1
+action=''
+
+postfix_ldap_conf() {
+	local enable="$1"
+	local postfix_reload=0
+
+	# update all /etc/postfix/ldap-*.cf files
+	for cf_file in /etc/postfix/ldap-*.cf; do
+		map_name=`basename "$cf_file" | sed -r -e 's@ldap-([a-z_]+)\.cf@\1@'`
+		if [ "$map_name" == 'aliases' ]; then
+			parameter='alias_maps'
+			map_file='hash:/etc/alias'
+		else
+			parameter="${map_name}_maps"
+			map_file="hash:/etc/postfix/${map_name}"
+		fi
+		map_value=`/usr/sbin/postconf -h "$parameter"`
+		if [ $enable -ne 0 ]; then
+			new_map_value="${map_file},ldap:/etc/postfix/ldap-${map_name}.cf"
+		else
+			new_map_value="${map_file}"
+		fi
+		[ $verbose -ne 0 ] && echo "map_value=$map_value"
+		[ $verbose -ne 0 ] && echo "new_map_value=$new_map_value"
+		if [ "$map_value" != "$new_map_value" ]; then
+			/usr/sbin/postconf -e "$parameter=$new_map_value"
+			postfix_reload=1
+		fi
+	done
+	
+	[ $postfix_reload -ne 0 -a $reload -ne 0 ] && /usr/sbin/service postfix reload || true
+}
+
+function usage()
+{
+	echo "postfix-ldap [OPTIONS] <enable|disable>"
+	echo "    -h, --help      shows this help screen"
+	echo "    -v,--verbose    verbose output"
+	echo "    enable          enables the postfix ldap lookup"
+	echo "    disable         disables the postfix ldap lookup"
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		'-v'|'--verbose') verbose=1; ;;
+		"--noreload") reload=0; ;;
+		"enable"|"disable") action="$1"; ;;
+		*)
+			echo "Unknown parameter $1"
+			exit 1
+		;;
+	esac
+	shift
+done
+
+if [ -z "$action" ]; then
+	echo "Neither 'enable' nor 'disable' is specified.'"
+	exit 1
+else
+	case "$action" in
+		'enable') postfix_ldap_conf 1; ;;
+		'disable') postfix_ldap_conf 0; ;;
+	esac
+fi

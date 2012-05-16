@@ -1,0 +1,342 @@
+#!/usr/bin/python
+import sys
+import getopt
+import os
+import ldap
+import ldap.modlist as modlist
+import socket
+import string
+
+def usage():
+	print "puppet-node [options] <action> <nodename> [args]"
+	print "options:"
+	print "  -h, --help               this help screen"
+	print "  -v, --verbose            enable verbose output"
+	print "  -q, --quiet              disable any output, except errors"
+	print "  --server=hostname        specify the ldap server"
+	print "  --username=user          specify the user to acess the ldap directory"
+	print "  --password=secret        password for the ldap user"
+	print "  --base=basedn            specify the base dn for ldap search operation"
+	print "actions:"
+	print "  show                     shows the current configuration for the given node"
+	print "  add                      adds the specified node"
+	print "  delete, rm               deletes the specified node"
+	print "  addclass <classname>     adds the given class for the specified node"
+	print "  rmclass <classname>      removes the given class for the specified node"
+	print "  addvar <varname>=<val>   adds the given variable for the specified node"
+	print "  rmclass <varname>=<val>  removes the given variable for the specified node"
+	
+	sys.exit(0)
+
+def main(argv=None):
+	if argv is None:
+		argv = sys.argv
+		
+	verbose = False
+	quiet = False
+	commands = None
+	ldapuri = None
+	ldapserver = None
+	ldapbase = None
+	ldapusername = None
+	ldappassword = None
+
+	try:
+		try:
+			opts, args = getopt.getopt(argv[1:], "hvq", ["help","verbose","quiet","uri=", "server=", "username=", "password=", "base="])
+			output = None
+			for o, a in opts:
+				if o in ("-h", "--help"):
+					usage()
+					sys.exit()
+				elif o == ("-v", "--verbose"):
+					verbose = True
+				elif o == ("-q", "--quiet"):
+					quiet = True
+				elif o in ("--uri"):
+					ldapserver  = a
+				elif o in ("--server"):
+					ldapserver  = a
+				elif o in ("--username"):
+					ldapusername  = a
+				elif o in ("--password"):
+					ldappassword  = a
+				elif o in ("--base"):
+					ldapbase  = a
+				else:
+					assert False, "unhandled option"
+			commands = args
+		except getopt.error, msg:
+			 raise Usage(msg)
+		# more code, unchanged
+	except Usage, err:
+		print >>sys.stderr, err.msg
+		print >>sys.stderr, "for help use --help"
+		return 2
+
+	if ldapuri is None and ldapserver is None:
+		ldapuri = ldap.get_option(ldap.OPT_URI)
+		if ldapuri is None:
+			ldapserver  = ldap.get_option(ldap.OPT_SERVER)
+			if ldapserver is None:
+				ldapserver = "127.0.0.1"
+				
+	if ldapbase is None or len(ldapbase) == 0:
+		ldapbase = 'ou=nodes,ou=config,o=arsoft'
+
+	if ldapusername is not None and len(ldapusername.split('=')) == 1:
+		ldapusername = 'cn=' + ldapusername + ',o=arsoft'
+
+	if commands is None or len(commands) == 0:
+		fqdn = socket.getfqdn()
+		commands = ['show', fqdn ]
+
+	try:
+		if ldapuri is not None:
+			cxn = ldap.initialize(ldapuri)
+		elif ldapserver is not None:
+			cxn = ldap.open(ldapserver)
+		else:
+			cxn = None
+	except ldap.LDAPError, e:
+		print >>sys.stderr, "Failed to connect to ldap server " + ldapuri + ". Error: " + e.desc
+		sys.exit()
+		
+	# you should  set this to ldap.VERSION2 if you're using a v2 directory
+	cxn.protocol_version = ldap.VERSION3
+	# Pass in a valid username and password to get 
+	# privileged directory access.
+	# If you leave them as empty strings or pass an invalid value
+	# you will still bind to the server but with limited privileges.
+	
+	if ldapusername is not None:
+		if ldappassword is None:
+			ldappassword = ''
+		# Any errors will throw an ldap.LDAPError exception 
+		# or related exception so you can ignore the result
+		print 'simple_bind ' + ldapusername + " pwd:" + ldappassword
+		cxn.simple_bind(ldapusername, ldappassword)
+		
+	action = commands[0]
+	nodename = commands[1]
+	action_args = commands[2:]
+	if verbose:
+		print 'action ' + str(action)
+		print 'nodename ' + str(nodename)
+		print 'action_args ' + str(action_args)
+	
+	tmp = nodename.split('.')
+	if len(tmp) != 0:
+		node_hostname = tmp[0]
+		node_fqdn = nodename
+	else:
+		node_hostname = nodename
+		node_fqdn = nodename
+
+	searchFilter = '(&(objectclass=puppetclient)(|(cn=' + node_hostname + ')(cn=' + node_fqdn + ')))'
+	attrsFilter = ['cn', 'puppetclass', 'puppetvar']
+
+	if verbose:
+		print 'searchFilter ' + searchFilter
+	result_set = []
+	try:
+		ldap_result_id = cxn.search(ldapbase, ldap.SCOPE_SUBTREE, searchFilter, None)
+		while 1:
+			result_type, result_data = cxn.result(ldap_result_id, 0)
+			if (result_data == []):
+				break
+			else:
+				## here you don't have to append to a list
+				## you could do whatever you want with the individual entry
+				## The appending to list is just for illustration. 
+				if result_type == ldap.RES_SEARCH_ENTRY:
+					result_set.append(result_data)
+	except ldap.LDAPError, e:
+		pass
+	
+	node_dn = None
+	node_classes = []
+	node_vars = []
+	if len(result_set) > 1:
+		print >>sys.stderr, "got multiple results for the node " + nodename + ". Please specify a different search base."
+		sys.exit()
+	elif len(result_set) == 1:
+		(node_dn, node_data) = result_set[0][0]
+		if verbose:
+			print "node data: " + str(node_data)
+		if node_data.has_key('puppetclass'):
+			for c in node_data['puppetclass']:
+				node_classes.append(c)
+
+		if node_data.has_key('puppetvar'):
+			for var in node_data['puppetvar']:
+				tmp = var.split('=')
+				if len(tmp) == 2:
+					node_vars.append( (tmp[0], tmp[1]) )
+
+	if action == "show":
+		print "Node:      " + nodename
+		print "Classes:   " + string.join(node_classes, ',')
+		print "Variables: "
+		for (varname, value) in node_vars:
+			print "           " + varname + "=" + value
+
+	elif action == "add":
+		if node_dn is not None:
+			print >>sys.stderr, "Node " + nodename + " already exists."
+			sys.exit()
+		else:
+			# The dn of our new entry/object
+			node_dn="cn=" + nodename + "," + ldapbase
+
+			# A dict to help build the "body" of the object
+			attrs = {}
+			attrs['objectclass'] = ['top','device','puppetclient']
+			attrs['cn'] = nodename
+
+			# Convert our dict to nice syntax for the add-function using modlist-module
+			ldif = modlist.addModlist(attrs)
+
+			try:
+				print "add " + node_dn + " ldif:" + str(ldif)
+				# Do the actual synchronous add-operation to the ldapserver
+				cxn.add_s(node_dn,ldif)
+				print "added " + node_dn
+			except ldap.LDAPError, e:
+				print e
+				## handle error however you like
+	elif action == "delete" or action == "rm":
+		if node_dn is not None:
+			try:
+				# you can safely ignore the results returned as an exception 
+				# will be raised if the delete doesn't work.
+				cxn.delete_s(node_dn)
+				print "deleted " + node_dn
+			except ldap.LDAPError, e:
+				print e
+				## handle error however you like
+	elif action == "addclass":
+		if node_dn is None:
+			print >>sys.stderr, "Node " + nodename + " does not exists."
+			sys.exit()
+		else:
+			new_classes = []
+			for c in node_classes:
+				new_classes.append(c)
+			for a in action_args:
+				if new_classes.count(a) == 0:
+					new_classes.append(a)
+
+			# A dict to help build the "body" of the object
+			old = {'puppetclass': node_classes }
+			new = {'puppetclass': new_classes }
+			
+			print "old " + str(old)
+			print "new " + str(new)
+
+			# Convert our dict to nice syntax for the add-function using modlist-module
+			ldif = modlist.modifyModlist(old, new)
+
+			try:
+				print "modify " + node_dn + " ldif:" + str(ldif)
+				# Do the actual synchronous add-operation to the ldapserver
+				cxn.modify_s(node_dn,ldif)
+				print "modified " + node_dn
+			except ldap.LDAPError, e:
+				print e
+				## handle error however you like
+	elif action == "rmclass":
+		if node_dn is None:
+			print >>sys.stderr, "Node " + nodename + " does not exists."
+			sys.exit()
+		else:
+			new_classes = []
+			for c in node_classes:
+					new_classes.append(c)
+			for a in action_args:
+				if new_classes.count(a) != 0:
+					new_classes.remove(a)
+
+			# A dict to help build the "body" of the object
+			old = {'puppetclass': node_classes }
+			new = {'puppetclass': new_classes }
+			
+			print "old " + str(old)
+			print "new " + str(new)
+
+			# Convert our dict to nice syntax for the add-function using modlist-module
+			ldif = modlist.modifyModlist(old, new)
+
+			try:
+				print "modify " + node_dn + " ldif:" + str(ldif)
+				# Do the actual synchronous add-operation to the ldapserver
+				cxn.modify_s(node_dn,ldif)
+				print "modified " + node_dn
+			except ldap.LDAPError, e:
+				print e
+				## handle error however you like
+	elif action == "addvar":
+		if node_dn is None:
+			print >>sys.stderr, "Node " + nodename + " does not exists."
+			sys.exit()
+		else:
+			new_vars = []
+			for v in node_vars:
+				new_vars.append(v)
+			for a in action_args:
+				if new_vars.count(a) == 0:
+					new_vars.append(a)
+
+			# A dict to help build the "body" of the object
+			old = {'puppetvar': node_vars }
+			new = {'puppetvar': new_vars }
+			
+			print "old " + str(old)
+			print "new " + str(new)
+
+			# Convert our dict to nice syntax for the add-function using modlist-module
+			ldif = modlist.modifyModlist(old, new)
+
+			try:
+				print "modify " + node_dn + " ldif:" + str(ldif)
+				# Do the actual synchronous add-operation to the ldapserver
+				cxn.modify_s(node_dn,ldif)
+				print "modified " + node_dn
+			except ldap.LDAPError, e:
+				print e
+				## handle error however you like
+	elif action == "rmvar":
+		if node_dn is None:
+			print >>sys.stderr, "Node " + nodename + " does not exists."
+			sys.exit()
+		else:
+			new_vars = []
+			for v in node_vars:
+				new_vars.append(v)
+			for a in action_args:
+				if new_vars.count(a) != 0:
+					new_vars.remove(a)
+
+			# A dict to help build the "body" of the object
+			old = {'puppetvar': node_vars }
+			new = {'puppetvar': new_vars }
+			
+			print "old " + str(old)
+			print "new " + str(new)
+
+			# Convert our dict to nice syntax for the add-function using modlist-module
+			ldif = modlist.modifyModlist(old, new)
+
+			try:
+				print "modify " + node_dn + " ldif:" + str(ldif)
+				# Do the actual synchronous add-operation to the ldapserver
+				cxn.modify_s(node_dn,ldif)
+				print "modified " + node_dn
+			except ldap.LDAPError, e:
+				print e
+				## handle error however you like
+
+		
+		
+if __name__ == "__main__":
+    main()

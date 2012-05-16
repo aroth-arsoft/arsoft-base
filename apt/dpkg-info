@@ -1,0 +1,117 @@
+#!/bin/bash
+
+args=''
+files=0
+action=''
+
+function usage() {
+	echo "usage: dpkg-info <action> [params]"
+	echo "   size           displays all install packages by size"
+	echo "   files <pkgs>   lists the files of the given packages"
+	echo "   restore <pkgs> restores the configuration of the given packages"
+}
+
+function action_size() {
+	local human_readable=0
+	local limit=-1
+	# parse command line arguments
+	while [ $# -ne 0 ]; do        
+		case "$1" in
+			"-h") human_readable=1; ;;
+			*) limit="$1"; ;;
+		esac                                    
+		shift                                   
+	done
+
+	if [ $limit -gt 0 ]; then
+		results=`dpkg-query --show --showformat='${Package;-50}\t${Installed-Size}\n' | sort -k 2 -n | grep -v deinstall | tail -n "$limit"`
+	else
+		results=`dpkg-query --show --showformat='${Package;-50}\t${Installed-Size}\n' | sort -k 2 -n | grep -v deinstall`
+	fi
+	echo "$results" | tail -n 10
+	if [ $human_readable -eq 0 ]; then
+		echo "$results" | awk '{printf "%i\t%s\n", $2*(1024), $1}'
+	else
+		echo "$results" | awk '{printf "%.3f MB\t%s\n", $2/(1024), $1}'
+	fi
+}
+
+function action_files() {
+	[ -z "$#" ] && echo "No package specified." && exit 1
+	local files=`LANG=C /usr/bin/dpkg -L $@`
+	if [ ! -z "$files" ]; then
+		local old_IFS=$IFS
+		IFS=$'\n'
+		for f in $files; do 
+			if [ "${f:0:1}" == '/' ]; then
+				[ ! -e "$f" ] && echo "$f (missing)" || echo "$f"
+			elif [ "${f:0:8}" == 'diverted' ]; then
+				by=`echo "$f" | awk '{ print $3 }'`
+				realfile=`echo "$f" | awk '{ print $5 }'`
+				echo "$realfile (diverted by $by)"
+			else
+				echo "Not a file: $f"
+			fi
+		done
+		IFS=$old_IFS
+	fi
+}
+
+function action_restore() {
+	local pkgs=''
+	# parse command line arguments
+	while [ $# -ne 0 ]; do        
+		case "$1" in
+			*)
+				[ -z "$pkgs" ] && pkgs="$1" || pkgs="$pkgs $1"
+				;;                                      
+		esac                                    
+		shift                                   
+	done
+	
+	for pkg in $pkgs; do
+		pkgfiles=`ls -1 /var/cache/apt/archives/$pkg*.deb`
+		if [ -z "$pkgfiles" ]; then
+			echo "No packages files for $pkg are available"
+		else
+			msg=`LANG=C /usr/bin/dpkg -i --force-confmiss "/var/cache/apt/archives/$pkg*.deb"`
+		fi
+	done
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do        
+	case "$1" in          
+	"--help") usage; exit 0;; 
+	*)
+		if [ -z "$action" ]; then
+			action="$1"
+		else
+			[ -z "$args" ] && args="$1" || args="$args $1"
+		fi
+		;;                                      
+	esac                                    
+	shift                                   
+done
+
+case $action in
+	'size')
+		action_size $args
+		;;
+	'files')
+		action_files $args
+		;;
+	'restore')
+		action_restore $args
+		;;
+	'')
+		echo "No action specified."
+		usage
+		exit 1
+		;;
+	*)
+		echo "invalid action $action specified."
+		usage
+		exit 1
+		;;
+esac

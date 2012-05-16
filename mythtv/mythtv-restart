@@ -1,0 +1,60 @@
+#!/bin/bash
+#
+# THIS FILE IS MANAGED BY PUPPET. DO NOT EDIT
+# AR SOFT PUPPET CONFIG
+#
+# mythrestart.sh
+# Automatically restart mythfrontend if it fails.
+
+echo "" > $HOME/.xsession-errors
+
+[ -x '/usr/bin/unclutter' ] && /usr/bin/unclutter -idle 5 &
+
+# Loop the call of mythfrontend.
+while [ /bin/true ]; do
+
+	MYTHTV_FRONTEND=1
+	MYTHTV_XTERM=0
+	MYTHTV_SETUP=0
+	MYTHTV_VLC=0
+	MYTHTV_NO_BACKEND=0
+
+	test -f /etc/default/mythtv-frontend && . /etc/default/mythtv-frontend
+	test -f $HOME/.mythtv/frontend.conf && . $HOME/.mythtv/frontend.conf
+
+	[ $MYTHTV_SETUP -ne 0 -o $MYTHTV_VLC -ne 0 -o $MYTHTV_XTERM -ne 0 ] && MYTHTV_NO_BACKEND=1
+	[ $MYTHTV_FRONTEND -ne 0 ] && MYTHTV_NO_BACKEND=0
+	echo "MYTHTV_FRONTEND=$MYTHTV_FRONTEND"
+	echo "MYTHTV_XTERM=$MYTHTV_XTERM"
+	echo "MYTHTV_SETUP=$MYTHTV_SETUP"
+	echo "MYTHTV_VLC=$MYTHTV_VLC"
+	echo "MYTHTV_NO_BACKEND=$MYTHTV_NO_BACKEND"
+	mythtv_backend_status=`/sbin/initctl status mythtv-backend 2>&1 | grep 'running' > /dev/null; echo $?`
+	if [ $mythtv_backend_status -eq 0 ]; then
+		if [ $MYTHTV_NO_BACKEND -ne 0 ]; then
+			echo "Stop mythtv-backend"
+			sudo /sbin/initctl stop mythtv-backend
+		else
+			echo "mythtv-backend is running"
+		fi
+	else
+		if [ $MYTHTV_NO_BACKEND -eq 0 ]; then
+			echo "mythtv-backend is required but is stopped. Try to start"
+			sudo /sbin/initctl start mythtv-backend
+		else
+			echo "mythtv-backend already stopped"
+		fi
+	fi
+	[ $MYTHTV_XTERM -ne 0 ] && /usr/bin/xterm -maximized
+	[ $MYTHTV_SETUP -ne 0 ] && /usr/bin/mythtv-setup
+	[ $MYTHTV_VLC -ne 0 ] && /usr/bin/vlc --ignore-config
+	[ $MYTHTV_FRONTEND -ne 0 ] && (killall mythfrontend; /usr/bin/mythfrontend; sleep 2)
+	if [ $MYTHTV_NO_BACKEND -ne 0 ]; then
+		echo "Restart mythtv-backend"
+		sudo /sbin/initctl start mythtv-backend
+		sleep 5
+	fi
+done
+#
+# EOF
+#

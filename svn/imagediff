@@ -1,0 +1,106 @@
+#!/bin/bash
+
+verbose=0
+left=''
+right=''
+label_left=''
+label_right=''
+unified=1
+diff_opts=''
+
+function usage()
+{
+    echo "imagediff <left> <right>"
+    echo "    -h, --help      shows this help screen"
+	echo "    -v, --verbose   enable verbose output"
+	echo "    -u  -U NUM  --unified[=NUM]  Output NUM (default 3) lines of unified context."
+	echo "    -L, --label     specifies the label for the compare"
+    exit 0
+}
+
+function verbose_exec()
+{
+	[ $verbose -ne 0 ] && echo "$@"
+	"$@"
+}
+
+function clean_up ()
+{
+    [ "$files_left_temp" ] && rm -f "$files_left_temp"
+    [ "$files_right_temp" ] && rm -f "$files_right_temp"
+}
+
+function get_exif_info()
+{
+	LANG=C /usr/bin/exiftool "$1" 2>/dev/null | grep -E -v "ExifTool Version Number|File Name|Directory|File Permissions"
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		"-u"|"-U"|"--unified") unified=1; ;;
+		"-L"|"--label") 
+            if [ -z "$label_left" ]; then
+                label_left="$2"
+            elif [ -z "$label_right" ]; then
+                label_right="$2"
+            else
+                echo "Two labels ($label_left, $label_right) already specified."
+                exit 1
+            fi
+            shift;
+            ;;
+		*)
+			if [ -z "$left" ]; then
+				left="$1"
+			elif [ -z "$right" ]; then
+				right="$1"
+			else
+				echo "Two files ($left, $right) already specified."
+				exit 1
+			fi
+            ;;
+	esac
+	shift
+done
+
+if [ -z "$left" ]; then
+	echo "No left file specified."
+	exit 1
+fi
+
+if [ -z "$right" ]; then
+	echo "No right file specified."
+	exit 1
+fi
+
+if [ ! -f "$left" ]; then
+	echo "Unable to read left file $left"
+	exit 1
+fi
+
+if [ ! -f "$right" ]; then
+	echo "Unable to read right file $right"
+	exit 1
+fi
+
+[ -z "$label_left" ] && label_left="$left"
+[ -z "$label_right" ] && label_right="$right"
+
+[ $unified -ne 0 ] && diff_opts="$diff_opts -u"
+
+files_left_temp=`mktemp /tmp/zipdiff.XXXXXX`
+files_right_temp=`mktemp /tmp/zipdiff.XXXXXX`
+
+trap 'clean_up; exit 0' 1 2 3 15
+
+get_exif_info "$left" >"$files_left_temp"
+get_exif_info "$right" >"$files_right_temp"
+
+/usr/bin/diff $diff_opts "$files_left_temp" "$files_right_temp" --label "$label_left" --label "$label_right"
+
+clean_up

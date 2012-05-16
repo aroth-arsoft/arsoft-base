@@ -1,0 +1,67 @@
+#!/bin/bash
+
+nsupdate_bin=`which nsupdate`
+verbose=0
+commands=''
+nsupdate_opts=''
+nsupdate_key=''
+rrtype='A'
+
+function usage()
+{
+	echo "dns-update <params>"
+	echo "    -h, --help                      shows this help screen"
+	echo "    -v,--verbose                    verbose output"
+	echo "    --rrtype <rrtype>               specify the RR type for the next operation (default: $rrtype)"
+	echo "    -a,--add <dnsname> <ipaddr>     adds the given DNS A record"
+	echo "    -d,--delete <dnsname>           deletes the specified DNS A record"
+	echo "    -u,--update <dnsname> <ipaddr>  adds the given DNS A record"
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"-v"|"--verbose") verbose=1; nsupdate_opts="$nsupdate_opts -d"; ;;
+		"-a"|"--add") 
+			commands="${commands}update add $2 86400 $rrtype $3\n"
+			shift; shift;
+			;;
+		"-d"|"--delete") 
+			commands="${commands}update delete $2 $rrtype\n"
+			;;
+		"-u"|"--update") 
+			commands="${commands}update delete $2 $rrtype\n"
+			commands="${commands}update add $2 86400 $rrtype $3\n"
+			shift; shift;
+			;;
+		"-k","--key") 
+			nsupdate_key="$2"
+			shift
+			;;
+		"--rrtype") 
+			rrtype="$2"
+			shift
+			;;
+		*)
+			if [ ! -z "$message" ]; then
+				message="$message $1"
+			else
+				message="$1"
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$commands" ]; then
+	echo "No commands specified."
+else
+	commands="${commands}send\n"
+	if [ ! -z "$nsupdate_key" ]; then
+		nsupdate_opts="$nsupdate_opts -k $nsupdate_key"
+	fi
+	echo -e "$commands" | "$nsupdate_bin" $nsupdate_opts
+fi
+

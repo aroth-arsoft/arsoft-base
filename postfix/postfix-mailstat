@@ -1,0 +1,71 @@
+#!/bin/bash
+
+verbose=0
+
+function usage()
+{
+    echo "postfix-mailstat [OPTIONS]"
+    echo "    -h, --help      shows this help screen"
+	echo "    -v, --verbose   enable verbose output"
+    exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		*)
+			if [ -z "$configfile" ]; then
+				configfile="$1"
+			else
+				echo "config file $configfile already given. ignoring $1"
+			fi
+		;;
+	esac
+	shift
+done
+
+FQDN=`hostname -f`
+DOMAIN=`hostname -d`
+MYHOSTNAME=`postconf -h myhostname`
+FROM="postmaster@$FQDN"
+TO="postmaster@$FQDN"
+LOGFILE="/var/log/mail.log.0"
+PFLOGSUMM_BIN='/usr/sbin/pflogsumm'
+PFLOGSUMM_OPTS='--iso_date_time --problems_first --rej_add_from'
+SENDMAIL_BIN='/usr/sbin/sendmail'
+SUBJECT="$MYHOSTNAME mail statistics of "`LANG=C date`
+
+if [ -f "$LOGFILE" ]; then
+	if [ ! -x "$PFLOGSUMM_BIN" ]; then
+		summary="$PFLOGSUMM_BIN not available. Please install pflogsum package."
+	else
+		if [ -r "$LOGFILE" ]; then
+			[ $verbose -ne 0 ] && echo "cat \"$LOGFILE\" 2>/dev/null | \"$PFLOGSUMM_BIN\""
+			summary=`cat "$LOGFILE" 2>/dev/null | "$PFLOGSUMM_BIN" $PFLOGSUMM_OPTS`
+		else
+			summary="Cannot read $LOGFILE"
+		fi
+	fi
+else
+	summary="logfile $LOGFILE does not exist"
+fi
+
+if [ ! -z "$summary" ]; then
+	message="To: $TO
+From: $FROM
+Subject: $SUBJECT
+
+
+$summary
+
+"
+	[ $verbose -ne 0 ] && echo "$message"
+	echo "$message" | "$SENDMAIL_BIN" -t
+fi
+
+exit 0
+

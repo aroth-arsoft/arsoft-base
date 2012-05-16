@@ -1,0 +1,6 @@
+#!/bin/sh
+
+winid=`xwininfo | awk '/Window id: +0x[0-9a-f]+/ { print $4 }'`
+winpid=`xprop -id "$winid" | awk '/_NET_WM_PID/ { print $3 }'`
+
+echo -n "$winpid"

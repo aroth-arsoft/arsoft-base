@@ -1,0 +1,13 @@
+#!/bin/sh -e
+#
+# Called when a new interface is coming up
+# Written by Andreas Roth <aroth@arsoft-online.com>
+
+# we are only interested in the lo interface
+if [ "$IFACE" != "lo" ]; then
+        exit 0
+fi
+
+#
+# EOF
+#

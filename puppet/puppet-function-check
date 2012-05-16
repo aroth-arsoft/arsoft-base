@@ -1,0 +1,55 @@
+#!/bin/bash
+quiet=0
+verbose=0
+compile_only=0
+funcfile=''
+funcname=''
+input=''
+
+function usage() {
+	echo "puppet-function-check [OPTIONS] <functionfile>"
+	echo "  -h,--help          this help message"
+	echo "  -v,--verbose       enables verbose output"
+	echo "  -q,--quiet         disable all output messages"
+	echo "  -S                 syntax check only"
+	echo "  -i <input>         additional script line to execute"
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"-S") compile_only=1; ;;
+		"-q"|"--quiet") quiet=1; ;;
+		"-v"|"--verbose") verbose=1; ;;
+		"-i") input="$2"; shift; ;;
+		*)
+			if [ -z "$funcfile" ]; then
+				funcfile="$1"
+			else
+				echo "Too many arguments: $1"
+				exit 1
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ ! -z "$funcfile" ]; then
+	funcfile=$(readlink -f "$funcfile")
+	funcname=`basename "$funcfile" .rb`
+else
+	echo "No function file specified."
+	exit 1
+fi
+
+if [ $compile_only -eq 0 ]; then
+	script="require 'puppet'\nrequire '$funcfile'\nPuppet::Parser::Functions.function(:$funcname)\n"
+
+	[ $verbose -ne 0 ] && echo -e "$script"
+	echo -e "$script" | irb 2>/dev/null | grep "function_$funcname">/dev/null && echo "Function $funcname OK" || echo "Error loading function $funcname from $funcfile"
+else
+	ruby -rpuppet "$funcfile" && echo "Syntax OK" || echo "Syntax Error"
+fi
+

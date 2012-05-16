@@ -1,0 +1,2 @@
+#!/bin/sh
+/usr/lib/arsoft-dhcp/dhclient-master-script enter interface "$interface" "$reason"

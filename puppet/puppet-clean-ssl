@@ -1,0 +1,4 @@
+#!/bin/sh
+
+ssldir=`puppet config --mode agent print ssldir`
+find "$ssldir" -type f -exec rm {} \;

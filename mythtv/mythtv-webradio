@@ -1,0 +1,141 @@
+#!/bin/bash
+VOLUME=256
+SPDIF=--spdif
+verbose=0
+myhostname=''
+test_only=0
+list_keys=''
+vlc_args=''
+
+brigde_keys='quit:Global/ESCAPE play-pause:Music/PAUSE stop:Music/STOP next:Music/NEXTTRACK prev:Music/PREVTRACK fullscreen:Music/BLANKSCR'
+
+function usage() {
+	echo "mythtv-webradio [file|url]"
+	echo "    -h, --help              shows this help screen"
+	echo "    -v,--verbose            verbose output"
+	echo "    --hostname              overrides the hostname to use (default: "`hostname`')'
+	echo "    --test                  enables the test mode, which does not start VLC."
+	echo "    --listkeys [context]    lists all available keys. if a context is specified only"
+	echo "                            keys from this context are listed."
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		"--hostname") myhostname="$2"; shift;  ;;
+		"--test") test_only=1; ;;
+		"--listkeys") 
+			list_keys='All'; 
+			case "$2" in
+				'Music'|'Global'|'Game'|'Archive')
+					list_keys="$2"
+					shift
+					;;
+			esac
+			;;
+		*)
+			if [ -z "$vlc_args" ]; then
+				vlc_args="$1"
+			else
+				vlc_args="$vlc_args $1"
+			fi
+			;;
+	esac
+	shift
+done
+
+function argv_dump()
+{
+	/usr/bin/perl -MData::Dumper -e'print Dumper \@ARGV' "$@"
+}
+
+function verbose_exec()
+{
+	[ $verbose -ne 0 ] && echo "$@"
+	eval "$@"
+}
+
+function mythtv_query() {
+	local query="$1"
+	#echo "query $query"
+	echo "$query" | LANG=C mysql --skip-column-names --batch --host="$DBHostName" --port="$DBPort" --user="$DBUserName" --password="$DBPassword" "$DBName"
+}
+
+function mapKeyName() {
+	local qtkeyname="$1"
+	case "$1" in
+		'Return') qtkeyname='Enter'; ;;
+		'XF86AudioPlay') qtkeyname='Play'; ;;
+		'XF86AudioStop') qtkeyname='Stop'; ;;
+		*) ;;
+	esac
+	echo "$qtkeyname"
+}
+
+function listKeys() {
+	local fields="$1"
+	local context="$2"
+	local action="$3"
+	[ -z "$fields" ] && fields='*'
+	if [ ! -z "$context" -a ! -z "$action" ]; then
+		query="select $fields from keybindings where hostname='$myhostname' and action='$action' and context='$context';"
+	elif [ ! -z "$context" ]; then
+		query="select $fields from keybindings where hostname='$myhostname' and context='$context';"
+	else
+		query="select $fields from keybindings where hostname='$myhostname';"
+	fi
+	mythtv_query "$query"
+}
+
+function getMappedKey() {
+	local context="$1"
+	local action="$2"
+	local unmapped_key=`listKeys 'keylist' "$context" "$action" | awk -F ',' '{ print $1 }'`
+	mapKeyName "$unmapped_key"
+}
+
+function buildKeyOpts() {
+	local keyopts=''
+	for k in $brigde_keys; do
+		vlc_key_arg=`echo "$k" | awk -F '[:/]' '{print $1}'`
+		mythtv_key_context=`echo "$k" | awk -F '[:/]' '{print $2}'`
+		mythtv_key_name=`echo "$k" | awk -F '[:/]' '{print $3}'`
+		vlc_key_name=$(getMappedKey "$mythtv_key_context" "$mythtv_key_name")
+		
+		keyopts="$keyopts --key-${vlc_key_arg} '${vlc_key_name}'"
+	done
+	echo -n "$keyopts"
+}
+
+if [ ! -x '/usr/bin/vlc' ]; then
+	echo "/usr/bin/vlc not available. Please install vlc." 1>&2
+	exit 1
+fi
+
+[ -f /etc/mythtv/mysql.txt ] && source /etc/mythtv/mysql.txt
+
+if [ -z "$myhostname" ]; then
+	myhostname=`hostname`
+fi
+
+if [ ! -z "$list_keys" ]; then
+	if [ "$list_keys" == 'All' ]; then
+		listKeys '*'
+	else
+		listKeys '*' "$list_keys"
+	fi
+elif [ $test_only -eq 0 ]; then
+	verbose_exec "/usr/bin/vlc $SPDIF --no-qt-autosave-volume --volume $VOLUME $(buildKeyOpts) $vlc_args"
+else
+	for k in $brigde_keys; do
+		vlc_key_arg=`echo "$k" | awk -F '[:/]' '{print $1}'`
+		mythtv_key_context=`echo "$k" | awk -F '[:/]' '{print $2}'`
+		mythtv_key_name=`echo "$k" | awk -F '[:/]' '{print $3}'`
+		vlc_key_name=$(getMappedKey "$mythtv_key_context" "$mythtv_key_name")
+		
+		echo "key $mythtv_key_context $mythtv_key_name -> $vlc_key_arg=$vlc_key_name"
+	done
+fi

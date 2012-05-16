@@ -1,0 +1,49 @@
+#!/bin/sh
+PUPPET_CONF='/etc/puppet/puppet.conf'
+
+puppet_update_conf() {
+
+	if [ ! -z "$new_domain_name" ]; then
+		srv_record=`LANG=C /usr/bin/host -t SRV "_puppet._tcp.$new_domain_name."`
+		if [ $? -eq 0 ]; then
+			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
+			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
+			#newserver="${srv_name%\.}:${srv_port}"
+			#puppet does not support to specify a different port yet
+			newserver="${srv_name%\.}"
+		else
+			newserver=''
+		fi
+		newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$new_domain_name."`
+		[ -z "$newconfigtimeout" ] && newconfigtimeout=`awk -F '=' '/^ *(configtimeout)/ { print $2 }' "$PUPPET_CONF"`
+
+	fi
+	oldserver=`awk -F '=' '/^ *(server)/ { print $2 }' "$PUPPET_CONF"`
+	oldconfigtimeout=`awk -F '=' '/^ *(configtimeout)/ { print $2 }' "$PUPPET_CONF"`
+	log_info "puppet server: $newserver"
+	log_info "puppet configtimeout: $newconfigtimeout"
+	if [ "$oldserver" != "$newserver" -o "$oldconfigtimeout" != "$newconfigtimeout" ]; then
+		tmp=$(mktemp "$PUPPET_CONF.XXXXXX") || return
+		(
+			sed -r -e "s/server=.*/server=$newserver/" \
+					-e "s/configtimeout=.*/configtimeout=$newconfigtimeout/" \
+				"$PUPPET_CONF"
+		) >>$tmp
+		RES=$?
+		if [ $RES -eq 0 ]; then
+			mv "$tmp" "$PUPPET_CONF" && /usr/sbin/service puppet reload
+		else
+			false
+		fi
+	else
+		true
+	fi
+}
+
+case $reason in
+	BOUND|RENEW|REBIND|REBOOT)                                                                                                                                                                           
+		puppet_update_conf
+		;;
+	EXPIRE|FAIL|RELEASE|STOP)
+		;;
+esac

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Name=kernel-message-notification
+GenericName=Kernel message notification
+Exec=kernel-messages-notify
+Icon=kernel
+Type=Application
+Comment=Kernel message notification
+X-KDE-autostart-after=panel
+X-KDE-StartupNotify=false
+Categories=Qt;KDE;Network;Applet;
+OnlyShowIn=KDE;

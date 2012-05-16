@@ -1,0 +1,66 @@
+#!/bin/bash
+NSSWITCH_CONF='/etc/nsswitch.conf'
+verbose=0
+action=''
+
+nsswitch_ldap_modify() {
+	local enable="$1"
+	tmp=$(mktemp "$NSSWITCH_CONF.XXXXXX") || return
+	chmod --reference=$NSSWITCH_CONF $tmp
+	chown --reference=$NSSWITCH_CONF $tmp
+	if [ $enable -eq 0 ]; then
+		(
+			sed -r -e 's/^ *(passwd|group|shadow|aliases):.*$/\1: files/' \
+				-e 's/^ *(automount):.*$/\1: files/' \
+				-e 's/^ *(sudoers):.*$/\1: files/' \
+				"$NSSWITCH_CONF"
+		) >>$tmp
+		RES=$?
+	else
+		(
+			sed -r -e 's/^ *(passwd|group|shadow|aliases):.*$/\1: files ldap/' \
+				-e 's/^ *(automount):.*$/\1: ldap/' \
+				-e 's/^ *(sudoers):.*$/\1: ldap/' \
+				"$NSSWITCH_CONF"
+		) >>$tmp
+		RES=$?
+	fi
+	if [ $RES -eq 0 ]; then
+		mv "$tmp" "$NSSWITCH_CONF"
+	else
+		echo "Failed to modify $NSSWITCH_CONF"
+	fi
+}
+
+function usage()
+{
+	echo "nsswitch-ldap [OPTIONS] <enable|disable>"
+	echo "    -h, --help      shows this help screen"
+	echo "    -v,--verbose    verbose output"
+	echo "    enable          enables the nss-ldap lookup"
+	echo "    disable         disables the nss-ldap lookup"
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"enable"|"disable") action="$1"; ;;
+		*)
+			echo "Unknown parameter $1"
+			exit 1
+		;;
+	esac
+	shift
+done
+
+if [ -z "$action" ]; then
+	echo "Neither 'enable' nor 'disable' is specified.'"
+	exit 1
+else
+	case "$action" in
+		'enable') nsswitch_ldap_modify 1; ;;
+		'disable') nsswitch_ldap_modify 0; ;;
+	esac
+fi

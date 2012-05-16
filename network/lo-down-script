@@ -1,0 +1,17 @@
+#!/bin/sh -e
+#
+# Called when an interface is going down
+# Written by Andreas Roth <aroth@arsoft-online.com>
+
+# we are only interested in the lo interface
+if [ "$IFACE" != "lo" ]; then
+        exit 0
+fi
+
+# disable LDAP lookup completely when network is down
+/usr/sbin/postfix-ldap --noreload disable
+/usr/sbin/nsswitch-ldap disable
+
+#
+# EOF
+#

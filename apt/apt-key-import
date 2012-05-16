@@ -1,0 +1,140 @@
+#!/bin/bash
+
+keyserver='hkp://keyserver.ubuntu.com'
+keyid=''
+keylist=''
+verbose=0
+
+function usage() {
+	echo "usage: apt-key-import [--keyserver keyserver] [--id keyid] [--keylist filename]"
+	exit 0
+}
+
+function download_key() {
+	keyid="$1"
+	keyserver="$2"
+	
+	is_hkp_protocol=`echo "$keyserver" | awk '/^hkp:\/\//'`
+	
+	if [ -z "$is_hkp_protocol" ]; then
+		[ $verbose -ne 0 ] && echo "Download key $keyserver"
+		gpgkey=`/usr/bin/wget -q -O - "$keyserver"`
+		if [ $? -eq 0 ]; then
+			[ $verbose -ne 0 ] && echo "Downloaded $keyserver successfully."
+			gpgmsg=`echo "$gpgkey" | /usr/bin/apt-key add - 2>&1`
+			if [ $? -eq 0 ]; then
+				[ $verbose -ne 0 ] && echo "Added key $keyid from $keyserver successfully."
+				RET=0
+			else
+				echo "Failed to add key $keyid from $keyserver: error $gpgmsg"
+				RET=1
+			fi
+		else
+			echo "Failed to download key $keyid from $keyserver: error $gpgkey"
+			RET=1
+		fi
+	else
+		if [ ! -z "$SUDO_UID" ]; then
+			HOME='/root'
+		fi
+
+		[ $verbose -ne 0 ] && echo "Retrieve $keyid from $keyserver"
+		gpgmsg=`/usr/bin/gpg -q --keyserver "$keyserver" --recv-keys "$keyid" 2>&1`
+		if [ $? -eq 0 ]; then
+			gpgkey=`/usr/bin/gpg -q --export --armor "$keyid" 2>/dev/null`
+			if [ $? -eq 0 ]; then
+				[ $verbose -ne 0 ] && echo "Got $keyid from $keyserver"
+				gpgmsg=`echo "$gpgkey" | /usr/bin/apt-key add - 2>&1`
+				if [ $? -eq 0 ]; then
+					[ $verbose -ne 0 ] && echo "Added key $keyid from $keyserver successfully."
+					RET=0
+				else
+					echo "Failed to add key $keyid from $keyserver: error $gpgmsg"
+					RET=1
+				fi
+			else
+				echo "Failed to export $keyid: error $gpgkey"
+				RET=1
+			fi
+		else
+			echo "Failed to retrieve $keyid from $keyserver: error $gpgmsg"
+			RET=1
+		fi
+	fi
+	return $RET
+}
+
+
+
+# parse command line arguments
+while [ $# -ne 0 ]; do        
+	case "$1" in          
+	"-?") usage;; 
+	"-h") usage;; 
+	"--help") usage;;
+	"-v"|"--verbose") verbose=1; ;;
+	"-k"|"--keyserver") keyserver="$2"; shift ;;
+	"-i"|"--id") keyid="$2"; shift ;;
+	"-l"|"--keylist") keylist="$2"; shift ;;
+	*)                          
+		if [ -z "$keyid" ]; then            
+			keyid="$1"
+		else                            
+			echo "Unrecognized parameter $1"
+		fi                                  
+	;;                                      
+	esac                                    
+	shift                                   
+done
+
+if [ -z "$keylist" ]; then
+	if [ -z "$keyid" ]; then
+		echo "no keyid given"
+		exit 1
+	fi
+
+	if [ -z "$keyserver" ]; then
+		echo "no keyserver given"
+		exit 1
+	fi
+	
+	present=`/usr/bin/apt-key list | awk "/pub[ ]+[0-9]+[DR]\/$keyid/"`
+	if [ -z "$present" ]; then
+		download_key "$keyid" "$keyserver"
+		RET=$?
+	else
+		RET=0
+	fi
+else
+	
+	if [ ! -f "$keylist" ]; then
+		echo "keylist $keylist not readable."
+		exit 1
+	fi
+	
+	current_list_of_keys=`/usr/bin/apt-key list 2>/dev/null`
+
+	ERR=0
+	IFS=$'\12'
+	for line in $(cat "$keylist"); do 
+
+		keyid=`echo "$line" | awk '{print $1}'`
+		keyserver_or_url=`echo "$line" | awk '{print $2}'`
+		ensure=`echo "$line" | awk '{print $3}'`
+		keyname=`echo "$line" | awk '{print $4}'`
+	
+		present=`echo "$current_list_of_keys" | awk "/pub[ ]+[0-9]+[DR]\/$keyid/"`
+		if [ -z "$present" ]; then
+			[ $verbose -ne 0 ] && echo "$keyid not found. download it from $keyserver_or_url"
+			download_key "$keyid" "$keyserver_or_url"
+			if [ $? -ne 0 ]; then
+				ERR=$((ERR + 1))
+			fi
+		else
+			[ $verbose -ne 0 ] && echo "$keyid already available."
+		fi
+	done
+	RET=$ERR
+fi
+
+exit $RET

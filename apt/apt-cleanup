@@ -1,0 +1,32 @@
+#!/bin/bash
+
+function usage() {
+	echo "usage: apt-cleanup"
+	echo "  this cleans up all temporary data used by apt."
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do        
+	case "$1" in          
+	"-?") usage;; 
+	"-h") usage;; 
+	"--help") usage;;
+	*)                          
+		echo "Unrecognized parameter $1"
+		exit 1
+	;;                                      
+	esac                                    
+	shift                                   
+done                                            
+
+if [[ $EUID -ne 0 ]]; then
+	echo "You must be a root user" 2>&1
+	exit 1
+else
+	/usr/bin/apt-get clean
+	/bin/rm /var/lib/apt/lists/*
+	/bin/rm /var/lib/apt/lists/partial/*
+	/usr/bin/apt-get clean
+	/usr/bin/apt-get update
+fi

@@ -2,20 +2,20 @@
 verbose=0
 files=''
 outdir=''
-config_recipient=''
-override_usermail=0
+force_notify=0
+override_mailnotify=''
+sendmail_active=0
 CONFIG_DIR='/etc/openvpn'
 
 function usage()
 {
 	echo "openvpn-zip-config [OPTIONS] <files>"
-	echo "    -h, --help      shows this help screen"
-	echo "    -v,--verbose    verbose output"
-	echo "    -o, --outdir    name of the output directory"
-	echo "    -b, --basedir   name of the base directory (default: outfiledir)"
-	echo "    --configdir     name of the openvpn config directory (default: $CONFIG_DIR)"
-	echo "    --recipient     default recipient of the configuration zip"
-	echo "    --override-usermail override the mail recipient of each configuration with the given one."
+	echo "    -h, --help        shows this help screen"
+	echo "    -v,--verbose      verbose output"
+	echo "    -o, --outdir      name of the output directory"
+	echo "    -b, --basedir     name of the base directory (default: outfiledir)"
+	echo "    --configdir       name of the openvpn config directory (default: $CONFIG_DIR)"
+	echo "    --notify <addr>   force to send mail notification to given recipient"
 	exit 0
 }
 
@@ -228,18 +228,18 @@ function generate_client_config()
 	fi
 	
 	local ccdfile
-	# $client_line = "${namesafe}\t${ostype}\t${serverconf}\t${serverdir}\t${client_certfile}\t${client_keyfile}\t${usermail}\t${iroute_joined}\n"
+
 	for ccdfile in "$server_ccddir"/*; do
 		local clientname=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$ccdfile"`
 		local clientostype=`awk '/^#[ ]*(ostype)[ ]+.*$/ { print $3; }' "$ccdfile"`
 		local clientcert=`awk '/^#[ ]*(certfile)[ ]+.*$/ { print $3; }' "$ccdfile"`
 		local clientkey=`awk '/^#[ ]*(keyfile)[ ]+.*$/ { print $3; }' "$ccdfile"`
-		local usermail=`awk '/^#[ ]*(usermail)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local mailnotify=`awk '/^#[ ]*(mailnotify)[ ]+.*$/ { print $3; }' "$ccdfile" | tr '\n' ';'`
 		local iroutes=`awk '/^(iroute)[ ]+.*$/ { print $2, $3; }' "$ccdfile"`
-		#clientname clientostype serverconf serverdir clientcert clientkey usermail routes_raw
+		
 		client_zipfile="${client_zip_basename}_${clientname}.zip"
 		echo "Server ${name}: Generate configuration for ${clientname} ($clientostype) to $client_zipfile"
-		[ $verbose -ne 0 ] && echo "client usermail=$usermail"
+		[ $verbose -ne 0 ] && echo "client mailnotify=$mailnotify"
 		[ $verbose -ne 0 ] && echo "client iroutes=$iroutes"
 		case "$clientostype" in
 			'linux')
@@ -356,8 +356,8 @@ CONFEOF
 		# use the config directory of the server (for certs)
 		zip_changed=0
 		zip_config "client" "$client_configdir/${clientname}.${config_ext}" "$client_configdir" "$client_zipfile"
-		if [ $zip_changed -ne 0 ]; then
-			mail_client_config "${clientname}" "$usermail" "$client_zipfile"
+		if [ $zip_changed -ne 0 -o $force_notify -ne 0 ]; then
+			mail_client_config "${clientname}" "$mailnotify" "$client_zipfile" "$clientostype"
 		fi
 		rm -rf "$client_configdir"
 	done
@@ -367,27 +367,94 @@ CONFEOF
 function mail_client_config()
 {
 	local name="$1"
-	local usermail="$2"
+	local mailnotify="$2"
 	local zipfile="$3"
+	local ostype="$4"
 	
 	local mail_sender='root'
 	local mail_recipient=''
 	
-	if [ -z "$usermail" -o $override_usermail -ne 0 ]; then
-		mail_recipient="$config_recipient"
+	if [ -z "$mailnotify" -o ! -z "$override_mailnotify" ]; then
+		mail_recipient="$override_mailnotify"
 	else
-		mail_recipient="$usermail"
+		mail_recipient="$mailnotify"
 	fi
 	
 	if [ ! -z "$mail_recipient" ]; then
 		local mail_subject="OpenVPN configuration $name"
-		local mail_message=`cat <<MAILMSGEND
+		local mail_message_header=`cat <<MAILMSGEND_HEADER
 Your OpenVPN configuration has changed. The attached configuration has
 been automatically generated with the latest configuration.
-MAILMSGEND`
+
+The latest OpenVPN manuals are avialable at:
+http://openvpn.net/index.php/open-source/documentation/manuals.html
+
+MAILMSGEND_HEADER`
+		local mail_message_os=''
+		local mail_message_footer=`cat <<MAILMSGEND_FOOTER
+
+Have a nice day,
+   your administrator
+MAILMSGEND_FOOTER`
+		case "$ostype" in
+			'linux')
+				mail_message_os=`cat <<MAILMSGEND_LINUX
+- extract the attached configuration to
+  /etc/openvpn
+- restart the OpenVPN service
+  service openvpn restart $name
+MAILMSGEND_LINUX`
+				;;
+			'win'|'windows')
+				mail_message_os=`cat <<MAILMSGEND_WINDOWS
+Make sure you have installed the latest version of OpenVPN (Community Version).
+http://openvpn.net/index.php/download/community-downloads.html
+
+- Quit the OpenVPN GUI (click the system tray icon)
+- Unzip the attached configuration to 
+  C:\Program Files\OpenVPN\config
+- Restart the OpenVPN GUI (with Administrator privileges)
+- Right click the system tray icon and click Connect to initiate
+  your VPN connection
+MAILMSGEND_WINDOWS`
+				;;
+			'macosx')
+				mail_message_os=`cat <<MAILMSGEND_MACOSX
+Make sure you have installed the latest version of Tunnelblick.
+http://code.google.com/p/tunnelblick/
+
+The wiki page 'Setting up Tunnelblick' provides the necessary
+instructions to install or update your Tunnelblick configuration.
+http://code.google.com/p/tunnelblick/wiki/cConfigT
+MAILMSGEND_MACOSX`
+				;;
+			'android')
+				mail_message_os=`cat <<MAILMSGEND_ANDROID
+Please install the OpenVPN Settings App from Google Play and unzip the
+attached configuration to 
+/sdcard/openvpn/
+
+OpenVPN Settings Website: http://code.google.com/p/android-openvpn-settings
+Android OpenVPN How to: http://vpnblog.info/android-openvpn-strongvpn.html
+MAILMSGEND_ANDROID`
+				;;
+			*)
+				mail_message_os=`cat <<MAILMSGEND_UNKNOWN_OS
+Your operating system $ostype is not handled (yet) on. 
+Please check the OpenVPN documentation and/or your system documentation for how 
+to use the provided configuration.
+MAILMSGEND_UNKNOWN_OS`
+				;;
+		esac
+
 		[ $verbose -ne 0 ] && echo "Sending $zipfile to $mail_recipient"
-		echo "$mail_message"
-		verbose_exec /usr/bin/postfix-sendmail -f "$mail_sender" -t "$mail_recipient" -s "$mail_subject" -m "$mail_message" --attach "$zipfile"
+		local mail_message=${mail_message_header}${mail_message_os}${mail_message_footer}
+		if [ $sendmail_active -ne 0 ]; then
+			verbose_exec /usr/bin/postfix-sendmail -f "$mail_sender" -t "$mail_recipient" -s "$mail_subject" -m "$mail_message" --attach "$zipfile"
+		else
+			echo "$0 would send the following mail to $mail_recipient"
+			echo "$mail_message"
+		fi
 	else
 		[ $verbose -ne 0 ] && echo "No mail recipient specified"
 	fi
@@ -446,11 +513,6 @@ function main()
 		outdir=`readlink -f "$outdir"`
 	fi
 	
-	if [ $override_usermail -ne 0 -a -z "$config_recipient" ]; then
-		echo "Override user mail is specified, but no recipient is given." >&2
-		exit 1
-	fi
-
 	if [ -z "$selected_configs" ]; then
 		for CONFIG in $CONFIG_DIR/*.conf; do
 			local tmp=`basename $CONFIG`
@@ -472,8 +534,17 @@ while [ $# -ne 0 ]; do
 		"-o"|"--outdir") outdir="$2"; shift ;;
 		"-b"|"--basedir") basedir="$2"; shift ;;
 		"-t"|"--topdir") topdir="$2"; shift ;;
-		"--recipient") config_recipient="$2"; shift ;;
-		"--override-usermail") override_usermail=1; ;;
+		"--notify") 
+			force_notify=1
+			case "$2" in
+				-*)
+					;;
+				*)
+					override_mailnotify="$2"
+					shift
+					;;
+			esac
+			;;
 		*)
 			if [ ! -z "$selected_configs" ]; then
 				selected_configs="$selected_configs $1"
