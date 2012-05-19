@@ -7,7 +7,7 @@ Standards-Version: 3.9.2
 Homepage: http://www.arsoft-online.com
 
 Package: arsoft-base
-Architecture: any
+Architecture: all
 Depends: arsoft-ppa,
  tzdata, mc, 
  unzip, zip, iotop, htop,
@@ -24,25 +24,25 @@ Description: configure the system to use the AR Soft packages.
  AR Soft managed systems.
 
 Package: arsoft-ppa
-Architecture: any
+Architecture: all
 Depends: ${misc:Depends}
 Description: installs the AR Soft package repository
  Installs all files to access the AR Soft package repository.
 
 Package: arsoft-openvpn
-Architecture: any
+Architecture: all
 Depends: arsoft-base, openvpn, ${misc:Depends}
 Description: OpenVPN helper scripts
  Provides a set of script to helper and simplify the OpenVPN configuration.
 
 Package: arsoft-vim
-Architecture: any
+Architecture: all
 Depends: arsoft-base, vim, vim-doc, vim-scripts, ${misc:Depends}
 Description: VIM configuration for AR Soft machines
  Configures VIM to be used as default editor.
 
 Package: arsoft-dhcp-client
-Architecture: any
+Architecture: all
 Replaces: arsoft-scripts-dhcp
 Depends: arsoft-base, isc-dhcp-client, ${misc:Depends}, ${python:Depends} 
 Description: script for network configuration
@@ -50,21 +50,21 @@ Description: script for network configuration
  according to data provided by DHCP, DNS and LDAP.
 
 Package: arsoft-scripts-mythtv
-Architecture: any
+Architecture: all
 Depends: arsoft-mythtv, ${misc:Depends}, ${python:Depends} 
 Description: some helper script to set up MythTV
  installs helper scripts for MythTV to start the frontend
  on tty6.
 
 Package: arsoft-scripts-cyrusimapd
-Architecture: any
+Architecture: all
 Depends: arsoft-cyrusimapd-2.4, ${misc:Depends}, ${python:Depends} 
 Description: backup script for the Cyrus IMAP server
  installs a backup script for the Cyrus IMAP server to
  backup the configuration and data to a different location.
 
 Package: arsoft-scripts-svn
-Architecture: any
+Architecture: all
 Depends: arsoft-base, libimage-exiftool-perl, odt2txt, ${misc:Depends}, ${python:Depends} 
 Description: some helper scripts for Subversion
  a collection of Subversion helper scripts.

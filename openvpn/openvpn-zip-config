@@ -216,6 +216,17 @@ function generate_client_config()
 	local server_dh=`awk '/^(dh)[ ]+.*$/ { print $2; }' "$config_file"`
 	local server_crl=`awk '/^(crl-verify)[ ]+.*$/ { print $2; }' "$config_file"`
 	local server_ccddir=`awk '/^(client-config-dir)[ ]+.*$/ { print $2; }' "$config_file"`
+	local server_plugins=`awk '/^(plugin)[ ]+.*$/ { print $2; }' "$config_file"`
+	
+	local server_userauth=0
+	for server_plugin in $server_plugins; do
+		server_plugin_name=`basename "$server_plugin"`
+		case "$server_plugin_name" in
+			'openvpn-auth-pam.so')
+				server_userauth=1
+				;;
+		esac
+	done
 
 	[ $verbose -ne 0 ] && echo "Server CA: $server_ca"
 	[ $verbose -ne 0 ] && echo "Server DH: $server_dh"
@@ -236,6 +247,7 @@ function generate_client_config()
 		local clientkey=`awk '/^#[ ]*(keyfile)[ ]+.*$/ { print $3; }' "$ccdfile"`
 		local mailnotify=`awk '/^#[ ]*(mailnotify)[ ]+.*$/ { print $3; }' "$ccdfile" | tr '\n' ';'`
 		local iroutes=`awk '/^(iroute)[ ]+.*$/ { print $2, $3; }' "$ccdfile"`
+		local client_auth_pass_file=`awk '/^#[ ]*(auth-user-pass-file)[ ]+.*$/ { print $3; }' "$ccdfile"`
 		
 		client_zipfile="${client_zip_basename}_${clientname}.zip"
 		echo "Server ${name}: Generate configuration for ${clientname} ($clientostype) to $client_zipfile"
@@ -282,6 +294,7 @@ function generate_client_config()
 		local client_crl_line=''
 		local client_cert_line=''
 		local client_key_line=''
+		local client_auth_user_pass_line=''
 		if [ ! -z "$server_ca" -a -f "$server_ca" ]; then
 			verbose_exec cp "$server_ca" "$client_configdir/ca.pem"
 			client_ca_line="ca ${client_file_dir}ca.pem"
@@ -308,6 +321,17 @@ function generate_client_config()
 		if [ -z "client_ca_line" ]; then
 			echo "Missing server certficate $server_ca" >&2
 			continue
+		fi
+		
+		if [ $server_userauth -ne 0 ]; then
+			if [ ! -z "$client_auth_pass_file" -a -f "$client_auth_pass_file" ]; then
+				verbose_exec cp "$client_auth_pass_file" "$client_configdir/auth_pass_file"
+				client_auth_user_pass_line="auth-user-pass ${client_file_dir}auth_pass_file" 
+			else
+				client_auth_user_pass_line="auth-user-pass" 
+			fi
+		else
+			client_auth_user_pass_line=''
 		fi
 
 		cat > "$client_configdir/${clientname}.${config_ext}" <<CONFEOF
@@ -343,6 +367,7 @@ $client_key_line
 $client_ca_line
 $client_dh_line
 $client_crl_line
+$client_auth_user_pass_line
 
 ${status_line}
 ${log_append_line}
@@ -530,7 +555,7 @@ function main()
 while [ $# -ne 0 ]; do
 	case "$1" in
 		"-?"|"-h"|"--help") usage;;
-		"-v"|"--verbose") verbose=1; ;;
+		"-v"|"--verbose") verbose=$(( $verbose + 1 )); ;;
 		"-o"|"--outdir") outdir="$2"; shift ;;
 		"-b"|"--basedir") basedir="$2"; shift ;;
 		"-t"|"--topdir") topdir="$2"; shift ;;
