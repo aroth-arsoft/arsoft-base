@@ -1,0 +1,41 @@
+#!/bin/bash
+
+VERBOSE=0
+
+
+function usage() {
+	echo "usage: $0 <options> <args>"
+	echo "  --help            shows this help message"
+	echo "  --verbose         more information"
+	exit 0
+}
+
+function readFileLineByLine() {
+	filename="$1"
+	IFS=$'\n'
+	for line in $(cat filename); do
+		echo $line
+	done
+
+#cat filename | while read line; do
+#  echo $line
+#done
+
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"--verbose"|"-v") VERBOSE=1; ;;
+		*)
+			echo "Unrecognized parameter $1"
+		;;
+	esac
+	shift
+done
+
+
+

@@ -1,0 +1,112 @@
+#!/bin/bash
+
+if [ -f /usr/share/arsoft/shlib/shlib.sh ]; then
+	source /usr/share/arsoft/shlib/shlib.sh
+else
+	echo "AR Soft shell library not installed. Please install shlib."
+	exit 0
+fi
+
+function usage() {
+	echo "usage: $0 <options> <args>"
+	echo "  --help             shows this help message"
+	echo "  --verbose          enable verbose output"
+	echo "  --debug            enable debug output"
+	echo "  --dir, -d          specifies the backup directory (default: $BAKDIR)"
+	echo "  --list, -l         list all available backups"
+	echo "  --create, -c       create a new backup by using the given list file"
+	echo "  --restore, -r      restores the given backup to the specified directory"
+	echo "  --remove           removes the oldest backups"
+	echo "  --load             loads the backup disk"
+	echo "  --eject            ejects the backup disk"
+	echo "  --prepare devname  prepare the given device for backups (not implemented yet)"	
+	echo "  --showcfg          shows the current configuration"
+	echo "  --autoretain       deletes old backups automatically"
+	exit 0
+}
+
+logging_debug 1
+backup_setup
+
+backup_dir="$backup_default_dir"
+backup_list=0
+backup_create=0
+backup_create_incl=''
+backup_create_excl=''
+backup_restore=''
+backup_remove_oldest=0
+backup_load=0
+backup_eject=0
+backup_prepare_devname=''
+backup_showconfig=0
+backup_auto_retain=0
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"--verbose") logging_verbose 1; ;;
+		"--debug") logging_debug 1; ;;		
+		"--dir"|"-d") backup_dir=`getArg "$2" 'invalid directory'`; [ $? -eq 0 ] && shift; ;;
+		"--list"|"-l") backup_list=1; ;;
+		"--showcfg") backup_showconfig=1; ;;
+		"--autoretain") backup_autoretain=1; ;;
+		"--create"|"-c") 
+			backup_create=1;
+			backup_create_incl=`getArg "$2" "$backup_default_include_file_list"`; [ $? -eq 0 ] && shift;
+			backup_create_excl=`getArg "$2" "$backup_default_exclude_file_list"`; [ $? -eq 0 ] && shift;
+			echo "include $backup_create_incl"
+			;;
+		"--restore"|"-r") backup_restore=`getArg "$2" 'invalid directory'`; [ $? -eq 0 ] && shift; ;;
+		"--remove") backup_remove_oldest=1; ;;
+		"--load") backup_load=1; ;;
+		"--eject") backup_eject=1; ;;
+		"--prepare") backup_prepare_devname=`getArg "$2" 'invalid device specified.'`; [ $? -eq 0 ] && shift; ;;
+		*)
+			echo "Unrecognized parameter $1"
+		;;
+	esac
+	shift
+done
+
+if [ $backup_list -ne 0 ]; then
+	backup_prepare "$backup_dir" "$backup_load"
+	backup_list "$backup_dir"
+	backup_complete "$backup_dir" "$backup_eject"
+elif [ $backup_showconfig -ne 0 ]; then
+	echo "current configuration:"
+    echo "backup device filesystem: $backup_device_filesystem"
+    echo "backup directory: $backup_default_dir"
+    echo "restore directory: $backup_default_restore_dir"
+    echo "include file list: $backup_default_include_file_list"
+    echo "exclude file list: $backup_default_exclude_file_list"
+	days=$[$backup_default_retain_time / 86400 ]
+	remain=$[$backup_default_retain_time % 86400 ]
+	hours=$[$remain / 3600]
+	echo "retain time: $backup_default_retain_time seconds ($days days $hours hours)"
+elif [ ! -z "$backup_prepare_devname" ]; then
+	backup_prepare "$backup_dir" "$backup_load"
+	backup_device_device "$backup_dir" "$backup_prepare_devname" "backup"
+	backup_complete "$backup_dir" "$backup_eject"
+elif [ $backup_create -ne 0 ]; then
+	backup_prepare "$backup_dir" "$backup_load"
+	backup_create "$backup_dir" "$backup_create_incl" "$backup_create_excl"
+	if [ $backup_autoretain -ne 0 ]; then
+		backup_remove_old "$backup_dir" "$backup_default_retain_time" 
+	fi
+	backup_complete "$backup_dir" "$backup_eject"
+elif [ ! -z "$backup_restore" ]; then
+	backup_prepare "$backup_dir" "$backup_load"
+	backup_restore_latest "$backup_dir" "$backup_restore"
+	backup_complete "$backup_dir" "$backup_eject"
+elif [ $backup_remove_oldest -ne 0 ]; then
+	backup_prepare "$backup_dir" "$backup_load"
+	backup_remove_old "$backup_dir" "$backup_default_retain_time"
+	backup_complete "$backup_dir" "$backup_eject"
+else
+	echo "no operation selected."
+	usage
+fi
+

@@ -1,0 +1,76 @@
+#!/bin/bash
+
+BACKUPDIR='/local/backup/svn'
+LATEST_BACKUP_DIR='/local/backup/latest'
+REPO='/local/developer/svn/fastprotect'
+STATEDIR='/var/backups'
+MAX_KEEP_DAYS=30
+
+[ -f ./sshcopy ] && source ./sshcopy || echo "sshcopy scripts are not available"
+
+function svndump() {
+    REPO=$1
+    REVS=$2
+    BAKFILE=$3
+
+    echo -n "Backup $REPO $REVS to $BAKFILE "
+    msg=`/usr/bin/svnadmin dump --revision $REVS $REPO 2>/dev/null | bzip2 > $BAKFILE`
+    RES=$?
+    if [ $RES -eq 0 ]; then
+		echo "[done]"
+    else
+        echo "[failed]"
+    fi
+    return $RES
+}
+
+function remove_old() {
+	find "$BACKUPDIR" -mtime +${MAX_KEEP_DAYS} -exec rm {} \;
+}
+
+remove_old
+
+
+for r in $REPO; do
+	if [ ! -d $r ]; then
+		echo "SVN repository $r not available"
+		continue
+	fi
+
+	rev=`svnlook youngest $r`
+	if [ -z "$rev" ]; then
+		echo "SVN repository $r is corrupt"
+		continue
+	fi
+
+	name=`basename $r`
+
+	BAKSTATE="$STATEDIR/svn_$name"
+	lastrev=0
+	if [ -f $BAKSTATE ]; then
+		lastrev=`cat $BAKSTATE`
+	fi
+
+    name=`basename $r`
+	BAKFILE=$BACKUPDIR/svn_full_${name}_${rev}_`date +%Y%m%d`.bz2
+	fulldumpmsg=`svndump $r "0:$rev" $BAKFILE`
+	if [ $? -eq 0 ]; then
+		putmsg=`putremote $BAKFILE && remove_oldest "svn_full_${name}_*"`
+		if [ $? -ne 0 ]; then
+			echo "$fulldumpmsg"
+			echo "$putmsg"
+		fi
+	else
+		echo "$fulldumpmsg"
+	fi
+	cp "$BAKFILE" "$LATEST_BACKUP_DIR/fast-srv01_svn_${name}.tar.bz2"
+	#if [ $rev -gt $lastrev ]; then
+	#	INCRBAKFILE=$BACKUPDIR/svn_incr_${name}_${lastrev}_${rev}_`date +%Y%m%d`.bz2
+	#	incrdumpmsg=`svndump $r "$lastrev:$rev" $INCRBAKFILE`
+	#	if [ $? -eq 0 ]; then
+	#		echo -n "$rev" > $BAKSTATE
+	#		putmsg=`putremote $INCRBAKFILE`
+	#	fi
+	#fi
+done
+

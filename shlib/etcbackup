@@ -1,0 +1,23 @@
+#!/bin/bash
+
+BACKUPDIR='/local/backup/etc'
+LATEST_BACKUP_DIR='/local/backup/latest'
+
+[ -f ./sshcopy ] && source ./sshcopy || echo "sshcopy scripts are not available"
+
+BAKFILE=$BACKUPDIR/etc_`date +%Y%m%d`.tar.bz2
+msg=`tar cfj $BAKFILE /etc 2>&1`
+RES=$?
+if [ $RES -ne 0 ]; then
+	echo "Failed to create backup of /etc to $BAKFILE"
+	echo "Error: $msg"
+else
+	putmsg=`putremote $BAKFILE && remove_oldest "etc_*"`
+	if [ $? -ne 0 ]; then
+		echo "$putmsg"
+	fi
+fi
+
+cp "$BAKFILE" "$LATEST_BACKUP_DIR/fast-srv01_etc.tar.bz2"
+
+
