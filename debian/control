@@ -2,7 +2,7 @@ Source: arsoft-base
 Section: admin
 Priority: extra
 Maintainer: Andreas Roth <aroth@arsoft-online.com>
-Build-Depends: debhelper (>= 7)
+Build-Depends: debhelper (>= 7.0.50~)
 Standards-Version: 3.9.2
 Homepage: http://www.arsoft-online.com
 
@@ -44,7 +44,7 @@ Description: VIM configuration for AR Soft machines
 Package: arsoft-dhcp-client
 Architecture: all
 Replaces: arsoft-scripts-dhcp
-Depends: arsoft-base, isc-dhcp-client, ${misc:Depends}, ${python:Depends} 
+Depends: arsoft-base, ${dhcpclient:Depends}, ${misc:Depends}, ${python:Depends} 
 Description: script for network configuration
  installs dhcp client scripts to configure your workstations
  according to data provided by DHCP, DNS and LDAP.

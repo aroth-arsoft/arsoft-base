@@ -11,6 +11,7 @@ default_class='IN'
 libdir='/var/lib/bind'
 current_editor="$EDITOR"
 default_editor='/usr/bin/vim.basic'
+zone_frozen=0
 
 function usage() {
 	echo "usage: vizone [options] <zone>"
@@ -26,7 +27,7 @@ function usage() {
 }
 
 function log() {
-	[ $verbose -ne 0 ] && echo $*
+	[ $verbose -ne 0 ] && echo $@
 }
 
 function selectZoneFile() {
@@ -116,6 +117,7 @@ function beginEdit() {
 	fi
 	zonenewserial=`printf "%s%02d" "$zonenewdate" "$zonenewserialno"`
 	if [ $RES -ne 0 ]; then
+		zone_frozen=0
 		if [[ "$msg" =~ "already frozen" ]]; then
 			log "Zone $zone $class $view already frozen."
 			prepareEditFile
@@ -125,19 +127,25 @@ function beginEdit() {
 			false
 		fi
 	else
+		zone_frozen=1
 		prepareEditFile
 	fi
 }
 
 function rollback() {
-	log "$rndcbin" thaw "$zone" "$class" "$view"
-	LANG=C "$rndcbin" thaw "$zone" "$class" "$view"
-	RES=$?
-	if [ $RES -eq 0 ]; then
-		rm "$editfile" && rm "$patchfile"
+	if [ $zone_frozen -ne 0 ]; then
+		log "$rndcbin" thaw "$zone" "$class" "$view"
+		LANG=C "$rndcbin" thaw "$zone" "$class" "$view"
+		RES=$?
+		if [ $RES -eq 0 ]; then
+			rm "$editfile" && rm "$patchfile"
+			zone_frozen=0
+		else
+			log "Failed to thaw zone $zone $class $view on rollback. Error $msg"
+			log "Keeping $editfile and $patchfile for recovery purposes."
+		fi
 	else
-		log "Failed to thaw zone $zone $class $view on rollback. Error $msg"
-		log "Keeping $editfile and $patchfile for recovery purposes."
+		log "Zone $zone $class $view was already frozen. Leave it frozen."
 	fi
 }
 
@@ -151,14 +159,19 @@ function commit() {
 		CHANGED=1
 	fi
 
-	log "$rndcbin" thaw "$zone" "$class" "$view"
-	LANG=C "$rndcbin" thaw "$zone" "$class" "$view"
-	RES=$?
-	if [ $RES -eq 0 ]; then
-		rm "$editfile" && rm "$patchfile"
+	if [ $zone_frozen -ne 0 ]; then
+		log "$rndcbin" thaw "$zone" "$class" "$view"
+		LANG=C "$rndcbin" thaw "$zone" "$class" "$view"
+		RES=$?
+		if [ $RES -eq 0 ]; then
+			rm "$editfile" && rm "$patchfile"
+			zone_frozen=0
+		else
+			log "Failed to thaw zone $zone $class $view on commit. Error $msg"
+			log "Keeping $editfile and $patchfile for recovery purposes."
+		fi
 	else
-		log "Failed to thaw zone $zone $class $view on commit. Error $msg"
-		log "Keeping $editfile and $patchfile for recovery purposes."
+		log "Zone $zone $class $view was already frozen. Leave it frozen."
 	fi
 }
 

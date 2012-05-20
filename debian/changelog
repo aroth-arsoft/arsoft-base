@@ -1,6 +1,24 @@
+arsoft-base (2.2~lucid2) lucid; urgency=low
+
+  * fix lucid depends
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 20 May 2012 15:09:03 +0200
+
+arsoft-base (2.2~oneiric1) oneiric; urgency=low
+
+  * once more for oneiric
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 19 May 2012 17:51:49 +0200
+
+arsoft-base (2.2~lucid1) lucid; urgency=low
+
+  * put version 2.2 into lucid
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 19 May 2012 17:50:01 +0200
+
 arsoft-base (2.1) precise; urgency=low
 
-  * switch to architecture independant packages
+  * switch to architecture independent packages
 
  -- Andreas Roth <aroth@arsoft-online.com>  Sat, 19 May 2012 16:05:13 +0200
 

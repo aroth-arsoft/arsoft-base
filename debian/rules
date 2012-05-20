@@ -4,5 +4,19 @@
 # Uncomment this to turn on verbose mode.
 export DH_VERBOSE=1
 
+TARGET_DISTRIBUTION := $(shell dpkg-parsechangelog  | awk '/Distribution/ { print $$2}')
+SUBSTVARS=
+
+ifeq ($(TARGET_DISTRIBUTION),lucid)
+	SUBSTVARS += -Vdhcpclient:Depends="dhcp3-client"
+	SUBSTVARS += -Vdhcpserver:Depends="dhcp3-server"
+else
+	SUBSTVARS += -Vdhcpclient:Depends="isc-dhcp-client"
+	SUBSTVARS += -Vdhcpserver:Depends="isc-dhcp-server"
+endif
+
 %:
 	dh $@
+
+override_dh_gencontrol:
+	dh_gencontrol -- $(SUBSTVARS)
