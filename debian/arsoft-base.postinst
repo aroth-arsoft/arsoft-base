@@ -6,6 +6,9 @@ case "$1" in
 	configure|upgrade)
 		rm /etc/bash.bashrc
 		ln -s /usr/share/arsoft-base/bash/bash.bashrc /etc/bash.bashrc
+		# delete old network up/down scripts
+		[ -f /etc/network/if-down.d/00-lo-down ] && rm /etc/network/if-down.d/00-lo-down
+		[ -f /etc/network/if-up.d/zz-lo-up ] && rm /etc/network/if-up.d/zz-lo-up
 		;;
     abort-upgrade|abort-remove|abort-deconfigure)
 		;;

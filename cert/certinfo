@@ -102,376 +102,437 @@ def parse_date(datestring, default_timezone=UTC):
 
 
 class certinfo:
-	def __init__(self):
-		self.m_begin_or_end_cert_pattern = re.compile('^-----(?P<cmd>BEGIN|END) CERTIFICATE-----$')
-		self.m_verbose = False
-		self.m_certificate_filename = None
-		self.m_certificate_list_filename = None
-		self.m_certificates = []
-		self.m_certificate_list = []
-		
-	def _readCertFile(self, cert_filename):
-		ret = []
-		certbuffer = ''
-		got_begin = False
-		lineno = 0
-		try:
-			f = open(cert_filename, 'r')
-			for line in f:
-				result = self.m_begin_or_end_cert_pattern.match(line)
-				if result is not None:
-					cmd = result.group('cmd')
-					if cmd == "BEGIN":
-						# clear the cert buffer
-						certbuffer = ''
-						certbuffer += line
-						got_begin = True
-					elif cmd == "END":
-						if got_begin:
-							certbuffer += line
-							cert = crypto.load_certificate(crypto.FILETYPE_PEM, certbuffer) 
-							if cert is not None:
-								ret.append( (cert_filename, cert) )
-							# prepare for next cert
-							got_begin = False
-							certbuffer = ''
-				else:
-					if got_begin:
-						certbuffer += line
-				lineno = lineno + 1
-			f.close()
-		except:
-			ret = []
-			pass
-		return ret
-		
-	def _writeCertFile(self, cert_filename, certs):
-		filedata = ''
-		for cert in certs:
-			certbuf = crypto.dump_certificate(crypto.FILETYPE_PEM, cert) 
-			filedata = filedata + certbuf
-		try:
-			f = open(cert_filename, 'w')
-			f.write(filedata)
-			f.close()
-			ret = True
-		except:
-			ret = False
-			pass
-		return ret
-		
-	def _getAllCertFilesInDir(self, dirname):
-		ret = []
-		exclude_dirs = ['.svn', 'CVS', '.git' ]
-		cert_file_exts = ['.pem', '.crt' ]
-		for direntry in os.listdir(dirname):
-			fullname = os.path.join(dirname, direntry)
-			if os.path.isdir(fullname):
-				if not direntry in exclude_dirs:
-					ret.extend( self._getAllCertFilesInDir(fullname) )
-			else:
-				(basename, ext) = os.path.splitext(direntry)
-				if ext in cert_file_exts:
-					ret.append(fullname)
-		return ret
+    def __init__(self):
+        self.m_begin_or_end_pattern = re.compile('^-----(?P<cmd>BEGIN|END) (?P<type>CERTIFICATE|RSA PRIVATE KEY|RSA PUBLIC KEY|DSA PRIVATE KEY|DSA PUBLIC KEY|CERTIFICATE REQUEST|X509 CRL)-----$')
+        self.m_verbose = False
+        self.m_certificate_filename = None
+        self.m_certificate_list_filename = None
+        self.m_certificates = []
+        self.m_certificate_list = []
+        
+    def _readCertFile(self, cert_filename, passphrase=None):
+        ret = []
+        blockbuffer = ''
+        blocktype = None
+        lineno = 0
+        try:
+            f = open(cert_filename, 'r')
+            for line in f:
+                result = self.m_begin_or_end_pattern.match(line)
+                if result is not None:
+                    cmd = result.group('cmd')
+                    blocktype = result.group('type')
+                    if cmd == "BEGIN":
+                        # clear the cert buffer
+                        blockbuffer = ''
+                        blockbuffer += line
+                        got_begin = True
+                    elif cmd == "END":
+                        if blocktype:
+                            blockbuffer += line
+                            if blocktype == 'CERTIFICATE':
+                                cert = crypto.load_certificate(crypto.FILETYPE_PEM, blockbuffer) 
+                                if cert is not None:
+                                    ret.append( (cert_filename, cert) )
+                            elif blocktype == 'RSA PRIVATE KEY' or blocktype == 'RSA PUBLIC KEY' or
+                                blocktype == 'DSA PRIVATE KEY' or blocktype == 'DSA PUBLIC KEY':
+                                privkey = crypto.load_privatekey(crypto.FILETYPE_PEM, blockbuffer, passphrase) 
+                                if privkey is not None:
+                                    ret.append( (cert_filename, privkey) )
+                            elif blocktype == 'X509 CRL':
+                                crl = crypto.load_crl(crypto.FILETYPE_PEM, blockbuffer) 
+                                if crl is not None:
+                                    ret.append( (cert_filename, crl) )
+                        # prepare for next cert
+                        blocktype = None
+                        blockbuffer = ''
+                else:
+                    if got_begin:
+                        blockbuffer += line
+                lineno = lineno + 1
+            f.close()
+        except:
+            ret = []
+            pass
+        return ret
+        
+    def _writeCertFile(self, cert_filename, certs):
+        filedata = ''
+        for cert in certs:
+            certbuf = crypto.dump_certificate(crypto.FILETYPE_PEM, cert) 
+            filedata = filedata + certbuf
+        try:
+            f = open(cert_filename, 'w')
+            f.write(filedata)
+            f.close()
+            ret = True
+        except:
+            ret = False
+            pass
+        return ret
+        
+    def _getAllCertFilesInDir(self, dirname):
+        ret = []
+        exclude_dirs = ['.svn', 'CVS', '.git' ]
+        cert_file_exts = ['.pem', '.crt' ]
+        for direntry in os.listdir(dirname):
+            fullname = os.path.join(dirname, direntry)
+            if os.path.isdir(fullname):
+                if not direntry in exclude_dirs:
+                    ret.extend( self._getAllCertFilesInDir(fullname) )
+            else:
+                (basename, ext) = os.path.splitext(direntry)
+                if ext in cert_file_exts:
+                    ret.append(fullname)
+        return ret
 
-	def _loadCerts(self, cert_filenames):
-		certbuffer = ''
-		got_begin = False
-		lineno = 0
-		newcerts = []
-		for certfile in cert_filenames:
-			if os.path.isdir(certfile):
-				dir_files = self._getAllCertFilesInDir(certfile)
-				
-				for file_in_dir in dir_files:
-					newcerts.extend( self._readCertFile(file_in_dir) )
-			else:
-				newcerts.extend( self._readCertFile(certfile) )
-		if newcerts:
-			self.m_certificates.extend(newcerts)
-			ret = True
-		else:
-			ret = False
-		return ret
-	
-	def _loadCertList(self, list_filename):
-		got_begin = False
-		lineno = 0
-		self.m_certificate_list = []
-		try:
-			f = open(cert_filename, 'r')
-			for line in f:
-				if line[0] == '#':
-					# it's a comment, so skip this line but keep it for later
-					# (comment, certfile, active)
-					line_obj = (True, line[1:].rstrip(), False)
-				elif line[0] == '!':
-					line_obj = (False, line[1:].rstrip(), False)
-				else:
-					line_obj = (False, line.rstrip(), True)
+    def _loadCerts(self, cert_filenames):
+        certbuffer = ''
+        got_begin = False
+        lineno = 0
+        newcerts = []
+        for certfile in cert_filenames:
+            if os.path.isdir(certfile):
+                dir_files = self._getAllCertFilesInDir(certfile)
+                
+                for file_in_dir in dir_files:
+                    newcerts.extend( self._readCertFile(file_in_dir) )
+            else:
+                newcerts.extend( self._readCertFile(certfile) )
+        if newcerts:
+            self.m_certificates.extend(newcerts)
+            ret = True
+        else:
+            ret = False
+        return ret
+    
+    def _loadCertList(self, list_filename):
+        got_begin = False
+        lineno = 0
+        self.m_certificate_list = []
+        try:
+            f = open(cert_filename, 'r')
+            for line in f:
+                if line[0] == '#':
+                    # it's a comment, so skip this line but keep it for later
+                    # (comment, certfile, active)
+                    line_obj = (True, line[1:].rstrip(), False)
+                elif line[0] == '!':
+                    line_obj = (False, line[1:].rstrip(), False)
+                else:
+                    line_obj = (False, line.rstrip(), True)
 
-				self.m_certificate_list.append(line_obj)
-				lineno = lineno + 1
-			f.close()
-		except:
-			pass
-		
-	def _saveCertList(self, list_filename):
-		got_begin = False
-		lineno = 0
-		try:
-			f = open(cert_filename, 'w')
-			for (comment, certfile, active) in self.m_certificate_list:
-				if comment:
-					f.write('#' + certfile + '\n')
-				else:
-					if active:
-						f.write(certfile + '\n')
-					else:
-						f.write('!' + certfile + '\n')
-			f.close()
-		except:
-			pass
+                self.m_certificate_list.append(line_obj)
+                lineno = lineno + 1
+            f.close()
+        except:
+            pass
+        
+    def _saveCertList(self, list_filename):
+        got_begin = False
+        lineno = 0
+        try:
+            f = open(cert_filename, 'w')
+            for (comment, certfile, active) in self.m_certificate_list:
+                if comment:
+                    f.write('#' + certfile + '\n')
+                else:
+                    if active:
+                        f.write(certfile + '\n')
+                    else:
+                        f.write('!' + certfile + '\n')
+            f.close()
+        except:
+            pass
 
-	def _enableCertInList(self, cert_filename, enable=True):
-		i = 0
-		ret = False
-		while i < len(self.m_certificate_list):
-			(comment, current_cert_filename, active) = self.m_certificate_list[i]
-			if current_cert_filename == cert_filename:
-				self.m_certificate_list[i] = (comment, cert_filename, enable)
-				ret = True
-			i = i + 1
-		return ret
+    def _enableCertInList(self, cert_filename, enable=True):
+        i = 0
+        ret = False
+        while i < len(self.m_certificate_list):
+            (comment, current_cert_filename, active) = self.m_certificate_list[i]
+            if current_cert_filename == cert_filename:
+                self.m_certificate_list[i] = (comment, cert_filename, enable)
+                ret = True
+            i = i + 1
+        return ret
 
-	def _addCertToList(self, cert_filename, enable=True):
-		i = 0
-		ret = False
-		while i < len(self.m_certificate_list):
-			(comment, current_cert_filename, active) = self.m_certificate_list[i]
-			if current_cert_filename == cert_filename:
-				self.m_certificate_list[i] = (comment, cert_filename, enable)
-				ret = True
-			i = i + 1
-		if not ret:
-			cert_tuple = (comment, cert_filename, enable)
-			self.m_certificate_list.append( cert_tuple )
-		return ret
+    def _addCertToList(self, cert_filename, enable=True):
+        i = 0
+        ret = False
+        while i < len(self.m_certificate_list):
+            (comment, current_cert_filename, active) = self.m_certificate_list[i]
+            if current_cert_filename == cert_filename:
+                self.m_certificate_list[i] = (comment, cert_filename, enable)
+                ret = True
+            i = i + 1
+        if not ret:
+            cert_tuple = (comment, cert_filename, enable)
+            self.m_certificate_list.append( cert_tuple )
+        return ret
 
-	def _removeCertFromList(self, cert_filename, enable=True):
-		ret = False
-		i = 0
-		while i < len(self.m_certificate_list):
-			(comment, current_cert_filename, active) = self.m_certificate_list[i]
-			if current_cert_filename == cert_filename:
-				self.m_certificate_list.pop(i)
-				ret = True
-			i = i + 1
-		return ret
+    def _removeCertFromList(self, cert_filename, enable=True):
+        ret = False
+        i = 0
+        while i < len(self.m_certificate_list):
+            (comment, current_cert_filename, active) = self.m_certificate_list[i]
+            if current_cert_filename == cert_filename:
+                self.m_certificate_list.pop(i)
+                ret = True
+            i = i + 1
+        return ret
 
-	def _matchName(self, name, term):
-		ret = False
-		for (key, value) in name.get_components():
-			if value.count(term) != 0:
-				ret = True
-				break
-		return ret
+    def _matchName(self, name, term):
+        if term is None or term == 'all':
+            ret = True
+        else:
+            ret = False
+            for (key, value) in name.get_components():
+                if value.count(term) != 0:
+                    ret = True
+                    break
+        return ret
 
-	def _matchCert(self, cert, term):
-		issuer = cert.get_issuer()
-		subject = cert.get_subject()
-		return self._matchName(issuer, term) or self._matchName(subject, term)
-		
-	def _printName(self, prefix, name):
-		text = ''
-		for (key, value) in name.get_components():
-			if len(text) != 0:
-				text += ', '
-			text += key + '=' + value
-		print(prefix + text)
-		
-	def _printNamePretty(self, label, name, indent=0):
-		prefix = ' ' * indent
-		
-		where = ''
-		if name.localityName:
-			where = name.localityName
-		if name.countryName:
-			if len(where) != 0:
-				where += ', '
-			where += name.countryName
-		if name.stateOrProvinceName:
-			if len(where) != 0:
-				where += ', '
-			where += name.stateOrProvinceName
-			
-		org = ''
-		if name.organizationName:
-			org = name.organizationName
-		if name.organizationalUnitName:
-			if len(org) != 0:
-				org += ', '
-			org += name.organizationalUnitName
-		if name.emailAddress:
-			if len(org) != 0:
-				org += ' '
-			org += '(' + name.emailAddress + ')'
+    def _matchCert(self, cert, term):
+        issuer = cert.get_issuer()
+        subject = cert.get_subject()
+        return self._matchName(issuer, term) or self._matchName(subject, term)
+        
+    def _printName(self, prefix, name):
+        text = ''
+        for (key, value) in name.get_components():
+            if len(text) != 0:
+                text += ', '
+            text += key + '=' + value
+        print(prefix + text)
+        
+    def _printNamePretty(self, label, name, indent=0):
+        prefix = ' ' * indent
+        
+        where = ''
+        if name.localityName:
+            where = name.localityName
+        if name.countryName:
+            if len(where) != 0:
+                where += ', '
+            where += name.countryName
+        if name.stateOrProvinceName:
+            if len(where) != 0:
+                where += ', '
+            where += name.stateOrProvinceName
+            
+        org = ''
+        if name.organizationName:
+            org = name.organizationName
+        if name.organizationalUnitName:
+            if len(org) != 0:
+                org += ', '
+            org += name.organizationalUnitName
+        if name.emailAddress:
+            if len(org) != 0:
+                org += ' '
+            org += '(' + name.emailAddress + ')'
 
-		print(prefix + label + str(name.commonName))
-		if len(org):
-			print(prefix + "  " + org)
-		if len(where):
-			print(prefix + "  " + where)
-	
-	def _printCert(self, cert, indent=0, filename=None, short=False):
-		issuer = cert.get_issuer()
-		serial = cert.get_serial_number() 
-		try:
-			signature_algorithm = cert.get_signature_algorithm()
-		except:
-			signature_algorithm = 'Unknown'
-		subject = cert.get_subject()
-		version = cert.get_version()
-		time_format = "%Y%m%d%H%M%S"
-		not_before = parse_date(cert.get_notBefore())
-		not_after = parse_date(cert.get_notAfter())
-		has_expired = cert.has_expired() 
-		num_extension = cert.get_extension_count()
-		# cert.get_extension(index) 
-		
-		prefix = ' ' * indent
+        print(prefix + label + str(name.commonName))
+        if len(org):
+            print(prefix + "  " + org)
+        if len(where):
+            print(prefix + "  " + where)
+    
+    def _printCert(self, cert, indent=0, filename=None, certno=None, short=False):
+        issuer = cert.get_issuer()
+        serial = cert.get_serial_number() 
+        try:
+            signature_algorithm = cert.get_signature_algorithm()
+        except:
+            signature_algorithm = 'Unknown'
+        subject = cert.get_subject()
+        version = cert.get_version()
+        time_format = "%Y%m%d%H%M%S"
+        not_before = parse_date(cert.get_notBefore())
+        not_after = parse_date(cert.get_notAfter())
+        has_expired = cert.has_expired() 
+        num_extension = cert.get_extension_count()
+        # cert.get_extension(index) 
+        
+        prefix = ' ' * indent
 
-		if short:
-			print(filename)
-		else:
-			if filename:
-				print(prefix + "Certificate " + filename + ": ")
-			else:
-				print(prefix + "Certificate: ")
-			print(prefix + "  Version: " + str(version))
-			print(prefix + "  Serial Number: " + str(serial))
-			print(prefix + "  Signature Algorithm: " + str(signature_algorithm))
-			self._printName('  Issuer:  ', issuer)
-			print(prefix + "  Validity")
-			print(prefix + "    Not Before: " + not_before.ctime())
-			print(prefix + "    Not After : " + not_after.ctime())
-			self._printName('  Subject: ', subject)
+        if short:
+            print(filename)
+        else:
+            if filename:
+                if certno:
+                    print(prefix + "Certificate " + filename + " #" + str(certno) + ": ")
+                else:
+                    print(prefix + "Certificate " + filename + ": ")
+            else:
+                if certno:
+                    print(prefix + "Certificate #" + str(certno) + ": ")
+                else:
+                    print(prefix + "Certificate: ")
+            print(prefix + "  Version: " + str(version))
+            print(prefix + "  Serial Number: " + str(serial))
+            print(prefix + "  Signature Algorithm: " + str(signature_algorithm))
+            self._printName('  Issuer:  ', issuer)
+            print(prefix + "  Validity")
+            print(prefix + "    Not Before: " + not_before.ctime())
+            print(prefix + "    Not After : " + not_after.ctime())
+            self._printName('  Subject: ', subject)
 
-	def list_certificates(self, expired_only=False, valid_only=False, output_number=True, short=False):
-		if not short:
-			print("Certificates within " + ','.join(self.m_certificate_filename))
+    def list_certificates(self, expired_only=False, valid_only=False, output_number=True, short=False):
+        if not short:
+            print("Certificates within " + ','.join(self.m_certificate_filename))
 
-		num_certs = 0
-		for (certfile, cert) in self.m_certificates:
-			if expired_only:
-				if cert.has_expired():
-					self._printCert(cert, filename=certfile, short=short)
-					num_certs = num_certs + 1
-			elif valid_only:
-				if not cert.has_expired():
-					self._printCert(cert, filename=certfile, short=short)
-					num_certs = num_certs + 1
-			else:
-				self._printCert(cert, filename=certfile, short=short)
-				num_certs = num_certs + 1
+        num_certs = 0
+        for (certfile, cert) in self.m_certificates:
+            if expired_only:
+                if cert.has_expired():
+                    self._printCert(cert, filename=certfile, certno=num_certs, short=short)
+                    num_certs = num_certs + 1
+            elif valid_only:
+                if not cert.has_expired():
+                    self._printCert(cert, filename=certfile, certno=num_certs, short=short)
+                    num_certs = num_certs + 1
+            else:
+                self._printCert(cert, filename=certfile, certno=num_certs, short=short)
+                num_certs = num_certs + 1
 
-		if output_number and not short:
-			print("Number of certificates: " + str(num_certs))
+        if output_number and not short:
+            print("Number of certificates: " + str(num_certs))
 
-	def find(self, term, output_number=True):
-		num_certs = 0
-		for (certfile, cert) in self.m_certificates:
-			if self._matchCert(cert, term):
-				self._printCert(cert, filename=certfile)
-				num_certs = num_certs + 1
+    def find(self, term, output_number=True):
+        num_certs = 0
+        for (certfile, cert) in self.m_certificates:
+            if self._matchCert(cert, term):
+                self._printCert(cert, filename=certfile)
+                num_certs = num_certs + 1
 
-		if output_number:
-			print("Number of certificates: " + str(num_certs))
+        if output_number:
+            print("Number of certificates: " + str(num_certs))
 
-	def addcertfile(self, cert_filename, directory=None, enable=True):
-		(tmp, certs) = self._readCertFile(cert_filename)
-		if len(certs) > 0:
-			basename = os.path.basename(cert_filename)
-			if directory is not None:
-				dest_cert_filename = os.path.join('/usr/share/ca-certificates', directory, basename)
-			else:
-				dest_cert_filename = os.path.join('/usr/share/ca-certificates', basename)
-			ret = self._writeCertFile(dest_cert_filename, certs)
-			if ret:
-				if directory is not None:
-					short_cert_filename = os.path.join(directory, basename)
-				else:
-					short_cert_filename = basename
-				self._loadCertList(self.m_certificate_list_filename)
-				self._addCertToList(short_cert_filename, enable)
-				self._saveCertList(self.m_certificate_list_filename)
-		else:
-			ret = False
-		return ret
+    def addcertfile(self, cert_filename, directory=None, enable=True):
+        (tmp, certs) = self._readCertFile(cert_filename)
+        if len(certs) > 0:
+            basename = os.path.basename(cert_filename)
+            if directory is not None:
+                dest_cert_filename = os.path.join('/usr/share/ca-certificates', directory, basename)
+            else:
+                dest_cert_filename = os.path.join('/usr/share/ca-certificates', basename)
+            ret = self._writeCertFile(dest_cert_filename, certs)
+            if ret:
+                if directory is not None:
+                    short_cert_filename = os.path.join(directory, basename)
+                else:
+                    short_cert_filename = basename
+                self._loadCertList(self.m_certificate_list_filename)
+                self._addCertToList(short_cert_filename, enable)
+                self._saveCertList(self.m_certificate_list_filename)
+        else:
+            ret = False
+        return ret
 
-	def removecertfile(self, cert_filename, directory=None, enable=True):
-		basename = os.path.basename(cert_filename)
-		if directory is not None:
-			dest_cert_filename = os.path.join('/usr/share/ca-certificates', directory, basename)
-		else:
-			dest_cert_filename = os.path.join('/usr/share/ca-certificates', basename)
-		os.unlink(dest_cert_filename)
-		if directory is not None:
-			short_cert_filename = os.path.join(directory, basename)
-		else:
-			short_cert_filename = basename
-		self._loadCertList(self.m_certificate_list_filename)
-		self._removeCertToList(short_cert_filename, enable)
-		self._saveCertList(self.m_certificate_list_filename)
-		return True
+    def removecertfile(self, cert_filename, directory=None, enable=True):
+        basename = os.path.basename(cert_filename)
+        if directory is not None:
+            dest_cert_filename = os.path.join('/usr/share/ca-certificates', directory, basename)
+        else:
+            dest_cert_filename = os.path.join('/usr/share/ca-certificates', basename)
+        os.unlink(dest_cert_filename)
+        if directory is not None:
+            short_cert_filename = os.path.join(directory, basename)
+        else:
+            short_cert_filename = basename
+        self._loadCertList(self.m_certificate_list_filename)
+        self._removeCertToList(short_cert_filename, enable)
+        self._saveCertList(self.m_certificate_list_filename)
+        return True
+        
+    def _getFilenameForCert(self, cert, extension='.pem'):
+        subject = cert.get_subject()
+        serial = cert.get_serial_number() 
+        ret = ('%08x' % serial) + '_' + str(subject.commonName) + extension
+        ret = ret.replace(' ', '_')
+        
+        return ret
 
-	def main(self):
-		#=============================================================================================
-		# process command line
-		#=============================================================================================
-		parser = argparse.ArgumentParser(description='shows information about certificates')
-		parser.add_argument('certfile', help='input certificate file or directory', metavar='certfile', nargs='+')
-		parser.add_argument('--listfile', dest='listfile', help='input certificate list file', metavar='listfile')
-		parser.add_argument('--verbose', dest='verbose', action='store_true', help='enable verbose output of this script.')
-		parser.add_argument('--find', dest='findbyname', help='find a certificate by name', metavar='term')
-		parser.add_argument('--expired', dest='list_expired', action='store_true', help='lists all expired ceritificates')
-		parser.add_argument('--short', dest='short', action='store_true', help='lists only the certificate file names')
-		parser.add_argument('--valid', dest='list_valid', action='store_true', help='lists only valid ceritificates')
-		parser.add_argument('--add', dest='addcertfile', help='add the given certificate file', metavar='certfile')
-		parser.add_argument('--remove', dest='removecertfile', help='remove the given certificate file', metavar='certfile')
+    def extract(self, term, outdir, expired_only=False, valid_only=True, output_number=True):
+        if outdir is None:
+            outdir = os.getcwd()
 
-		args = parser.parse_args()
+        num_certs = 0
+        for (certfile, cert) in self.m_certificates:
+            if self._matchCert(cert, term):
+                perform_extract = False
+                if expired_only:
+                    if cert.has_expired():
+                        perform_extract = True
+                elif valid_only:
+                    if not cert.has_expired():
+                        perform_extract = True
+                else:
+                    perform_extract = True
+                    
+                if perform_extract:
+                    cert_basename = self._getFilenameForCert(cert)
+                
+                    certfile = os.path.join(outdir, cert_basename)
+                    print("extract to " + certfile)
+                    self._writeCertFile(certfile, [cert] )
+                    num_certs = num_certs + 1
 
-		self.m_verbose = args.verbose
-		
-		if args.certfile is None:
-			self.m_certificate_filename = [ '/etc/ssl/certs/ca-certificates.crt' ]
-		else:
-			self.m_certificate_filename = args.certfile
-			
-		if args.listfile is None:
-			self.m_certificate_list_filename = '/etc/ca-certificates.conf'
-		else:
-			self.m_certificate_list_filename = args.listfile
-		
-		if args.addcertfile:
-			self.addcertificate(args.addcertfile)
-		elif args.removecertfile:
-			self.addcertificate(args.addcertfile)
-		else:
-			self._loadCerts(self.m_certificate_filename)
+        if output_number:
+            print("Number of certificates: " + str(num_certs))
+        return False
 
-		if args.findbyname:
-			self.find(args.findbyname, short=args.short)
-		else:
-			if args.list_expired:
-				self.list_certificates(expired_only=True, short=args.short)
-			elif args.list_valid:
-				self.list_certificates(valid_only=True, short=args.short)
-			else:
-				self.list_certificates(short=args.short)
+    def main(self):
+        #=============================================================================================
+        # process command line
+        #=============================================================================================
+        parser = argparse.ArgumentParser(description='shows information about certificates')
+        parser.add_argument('certfile', help='input certificate file or directory', metavar='certfile', nargs='+')
+        parser.add_argument('--listfile', dest='listfile', help='input certificate list file', metavar='listfile')
+        parser.add_argument('--verbose', dest='verbose', action='store_true', help='enable verbose output of this script.')
+        parser.add_argument('--find', dest='findbyname', help='find a certificate by name', metavar='term')
+        parser.add_argument('--expired', dest='list_expired', action='store_true', help='lists all expired ceritificates')
+        parser.add_argument('--short', dest='short', action='store_true', help='lists only the certificate file names')
+        parser.add_argument('--valid', dest='list_valid', action='store_true', help='lists only valid ceritificates')
+        parser.add_argument('--add', dest='addcertfile', help='add the given certificate file', metavar='certfile')
+        parser.add_argument('--remove', dest='removecertfile', help='remove the given certificate file', metavar='certfile')
+        parser.add_argument('--outdir', dest='outdir', help='specifies the output directory', metavar='dir')
+        parser.add_argument('--extract', dest='extract', help='extracts all matching certicates into separate files', metavar='term')
+
+        args = parser.parse_args()
+
+        self.m_verbose = args.verbose
+        
+        if args.certfile is None:
+            self.m_certificate_filename = [ '/etc/ssl/certs/ca-certificates.crt' ]
+        else:
+            self.m_certificate_filename = args.certfile
+            
+        if args.listfile is None:
+            self.m_certificate_list_filename = '/etc/ca-certificates.conf'
+        else:
+            self.m_certificate_list_filename = args.listfile
+        
+        if args.addcertfile:
+            self.addcertificate(args.addcertfile)
+        elif args.removecertfile:
+            self.addcertificate(args.addcertfile)
+        else:
+            self._loadCerts(self.m_certificate_filename)
+
+        if args.findbyname:
+            self.find(args.findbyname, short=args.short)
+        elif args.extract:
+            self.extract(args.extract, args.outdir)
+        else:
+            if args.list_expired:
+                self.list_certificates(expired_only=True, short=args.short)
+            elif args.list_valid:
+                self.list_certificates(valid_only=True, short=args.short)
+            else:
+                self.list_certificates(short=args.short)
 
 if __name__ == "__main__":
-	app =  certinfo()
-	app.main()
+    app =  certinfo()
+    app.main()
