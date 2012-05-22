@@ -2,6 +2,7 @@
 verbose=0
 files=''
 outdir=''
+certificates=''
 force_notify=0
 override_mailnotify=''
 sendmail_active=0
@@ -241,6 +242,7 @@ function generate_client_config()
 	local ccdfile
 
 	for ccdfile in "$server_ccddir"/*; do
+		local clientcommonname=`basename "$ccdfile"`
 		local clientname=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$ccdfile"`
 		local clientostype=`awk '/^#[ ]*(ostype)[ ]+.*$/ { print $3; }' "$ccdfile"`
 		local clientcert=`awk '/^#[ ]*(certfile)[ ]+.*$/ { print $3; }' "$ccdfile"`
@@ -559,6 +561,8 @@ while [ $# -ne 0 ]; do
 		"-o"|"--outdir") outdir="$2"; shift ;;
 		"-b"|"--basedir") basedir="$2"; shift ;;
 		"-t"|"--topdir") topdir="$2"; shift ;;
+		"--configdir") configdir="$2"; shift ;;
+		"--certs") certificates="$2"; shift ;;
 		"--notify") 
 			force_notify=1
 			case "$2" in
@@ -569,6 +573,10 @@ while [ $# -ne 0 ]; do
 					shift
 					;;
 			esac
+			;;
+		-*)
+			echo "Unknown option $1." >&2
+			exit 1
 			;;
 		*)
 			if [ ! -z "$selected_configs" ]; then
