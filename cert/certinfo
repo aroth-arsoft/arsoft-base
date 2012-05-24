@@ -100,6 +100,16 @@ def parse_date(datestring, default_timezone=UTC):
         int(groups["hour"]), int(groups["minute"]), int(groups["second"]),
         int(groups["fraction"]), tz)
         
+    
+class PEMItem(object):
+    def __init__(self, blockindex, blocktype, blockdata):
+        self.blockindex = blockindex
+        self.blocktype = blocktype
+        self.blockdata = blockdata
+        
+    def write(self, fobj):
+        fobj.write(self.blockdata)
+        
 class PEMFile:
     def __init__(self, filename=None, passphrase=None):
         self.m_begin_or_end_pattern = re.compile('^-----(?P<cmd>BEGIN|END) (?P<type>[A-Za-z ]+)-----$')
@@ -131,7 +141,8 @@ class PEMFile:
                     elif cmd == "END":
                         if blocktype:
                             blockdata += line
-                            self.m_blocks.append( (blocktype, blockdata) )
+                            blockindex = len(self.m_blocks)
+                            self.m_blocks.append( PEMItem(blockindex, blocktype, blockdata) )
                         # prepare for next cert
                         blocktype = None
                         blockdata = ''
@@ -152,8 +163,8 @@ class PEMFile:
 
         try:
             f = open(cert_filename, 'w')
-            for (blocktype, blockdata) in self.m_blocks:
-                f.write(blockdata)
+            for pemitem in self.m_blocks:
+                pemitem.write(f)
             f.close()
             ret = True
         except:
@@ -168,24 +179,164 @@ class PEMFile:
         
     def getBlocks(self, blocktype):
         ret = []
-        for (blocktype, blockdata) in self.m_blocks:
-            ret.append(blockdata)
+        for pemitem in self.m_blocks:
+            if pemitem.blocktype == blocktype:
+                ret.append(pemitem)
         return ret
         
     def appendBlock(self, blocktype, blockdata):
-        self.m_blocks.append( (blocktype, blockdata) )
+        blockindex = len(self.m_blocks)
+        self.m_blocks.append( PEMItem(blockindex, blocktype, blockdata) )
 
+class Certificate(PEMItem):
+    def __init__(self, pemitem):
+        PEMItem.__init__(self, pemitem.blockindex, pemitem.blocktype, pemitem.blockdata)
+        self.cert = crypto.load_certificate(crypto.FILETYPE_PEM, self.blockdata) 
+
+    def _is_same_cert(self, rhs_cert):
+        lhs_issuer = self.cert.get_issuer()
+        lhs_subject = self.cert.get_subject()
+        rhs_issuer = rhs_cert.get_issuer()
+        rhs_subject = rhs_cert.get_subject()
+        
+#        self._printName('  LHS Issuer:  ', lhs_issuer)
+#        self._printName('  RHS Issuer:  ', rhs_issuer)
+#        self._printName('  LHS Subject: ', lhs_subject)
+#        self._printName('  RHS Subject: ', rhs_subject)
+        
+        return lhs_issuer.hash() == rhs_issuer.hash() and lhs_subject.hash() == rhs_subject.hash()
+
+    def _matchName(self, name, term):
+        if term is None or term == 'all':
+            ret = True
+        else:
+            ret = False
+            for (key, value) in name.get_components():
+                if value.count(term) != 0:
+                    ret = True
+                    break
+        return ret
+
+    def _matchCert(self, term):
+        issuer = self.cert.get_issuer()
+        subject = self.cert.get_subject()
+        return self._matchName(issuer, term) or self._matchName(subject, term)
+
+    def _is_identical_cert(self, rhs_cert):
+        return self._is_same_cert(rhs_cert) and self.get_serial_number() == rhs_cert.get_serial_number()
+        
+    def get_subject(self):
+        return self.cert.get_subject()
+
+    def get_issuer(self):
+        return self.cert.get_issuer()
+        
+    def get_version(self):
+        return self.cert.get_version()
+
+    def get_serial_number(self):
+        return self.cert.get_serial_number()
+        
+    def get_notBefore(self):
+        return parse_date(self.cert.get_notBefore())
+        
+    def get_notAfter(self):
+        return parse_date(self.cert.get_notAfter())
+    
+    def _writeName(self, fobj, prefix, name):
+        text = ''
+        for (key, value) in name.get_components():
+            if len(text) != 0:
+                text += ', '
+            text += key + '=' + value
+        fobj.write(prefix + text + '\n')
+        
+    def _writeNamePretty(self, fobj, label, name, indent=0):
+        prefix = ' ' * indent
+        
+        where = ''
+        if name.localityName:
+            where = name.localityName
+        if name.countryName:
+            if len(where) != 0:
+                where += ', '
+            where += name.countryName
+        if name.stateOrProvinceName:
+            if len(where) != 0:
+                where += ', '
+            where += name.stateOrProvinceName
+            
+        org = ''
+        if name.organizationName:
+            org = name.organizationName
+        if name.organizationalUnitName:
+            if len(org) != 0:
+                org += ', '
+            org += name.organizationalUnitName
+        if name.emailAddress:
+            if len(org) != 0:
+                org += ' '
+            org += '(' + name.emailAddress + ')'
+
+        fobj.write(prefix + label + unicode(name.commonName))
+        if len(org):
+            fobj.write(', ' + org)
+        if len(where):
+            fobj.write(' at ' + where)
+        fobj.write('\n')
+    
+    def writePretty(self, fobj, indent=0, filename=None, certno=None, short=False):
+        issuer = self.cert.get_issuer()
+        serial = self.get_serial_number() 
+        try:
+            signature_algorithm = cert.get_signature_algorithm()
+        except:
+            signature_algorithm = 'Unknown'
+        subject = self.get_subject()
+        version = self.get_version()
+        not_before = self.get_notBefore()
+        not_after = self.get_notAfter()
+        has_expired = self.cert.has_expired() 
+        num_extension = self.cert.get_extension_count()
+        # cert.get_extension(index) 
+        
+        prefix = ' ' * indent
+
+        if short:
+            fobj.write(filename + '\n')
+        else:
+            if filename:
+                if certno:
+                    fobj.write(prefix + "Certificate " + filename + " #" + str(certno) + ":\n")
+                else:
+                    fobj.write(prefix + "Certificate " + filename + ":\n")
+            else:
+                if certno:
+                    fobj.write(prefix + "Certificate #" + str(certno) + ":\n")
+                else:
+                    fobj.write(prefix + "Certificate:\n")
+            fobj.write(prefix + "  Version: " + str(version) + '\n')
+            fobj.write(prefix + "  Serial Number: " + str(serial) + '\n')
+            fobj.write(prefix + "  Signature Algorithm: " + str(signature_algorithm) + '\n')
+            self._writeNamePretty(fobj, '  Issuer:  ', issuer)
+            fobj.write(prefix + "  Validity" + '\n')
+            fobj.write(prefix + "    Not Before: " + not_before.ctime() + '\n')
+            fobj.write(prefix + "    Not After : " + not_after.ctime() + '\n')
+            self._writeNamePretty(fobj, '  Subject: ', subject)
+        
 class CertificatePEMFile(PEMFile):
     def __init__(self, filename=None):
         PEMFile.__init__(self, filename)
         
-    def getCerticates(self):
+    def getCertificates(self):
         ret = []
-        for (blocktype, blockdata) in self.m_blocks:
-            if blocktype == 'CERTIFICATE':
-                cert = crypto.load_certificate(crypto.FILETYPE_PEM, blockdata) 
-                if cert is not None:
-                    ret.append( cert )
+        i = 0
+        while i < len(self.m_blocks):
+            pemitem = self.m_blocks[i]
+            if pemitem.blocktype == 'CERTIFICATE':
+                cert = Certificate(pemitem)
+                ret.append( cert )
+            i = i + 1
         return ret
 
 class CertificateList:
@@ -216,7 +367,7 @@ class CertificateList:
     def addFile(self, filename):
         pemfile = CertificatePEMFile(filename)
         if pemfile.open():
-            for cert in pemfile.getCerticates():
+            for cert in pemfile.getCertificates():
                 cert_tuple = (filename, cert)
                 self.m_certificates.append(cert_tuple)
             ret = True
@@ -232,22 +383,6 @@ class CertificateList:
             if self.addFile(file_in_dir):
                 ret = True
         return ret
-
-    def _matchName(self, name, term):
-        if term is None or term == 'all':
-            ret = True
-        else:
-            ret = False
-            for (key, value) in name.get_components():
-                if value.count(term) != 0:
-                    ret = True
-                    break
-        return ret
-
-    def _matchCert(self, cert, term):
-        issuer = cert.get_issuer()
-        subject = cert.get_subject()
-        return self._matchName(issuer, term) or self._matchName(subject, term)
     
     def _cert_expire_later(self, lhs_cert, rhs_cert):
         lhs_not_before = parse_date(lhs_cert.get_notBefore())
@@ -261,104 +396,7 @@ class CertificateList:
         print('  RHS Not Before: ', rhs_not_before.ctime())
         return lhs_not_after < rhs_not_after
         
-    def _is_same_cert(self, lhs_cert, rhs_cert):
-        lhs_issuer = lhs_cert.get_issuer()
-        lhs_subject = lhs_cert.get_subject()
-        rhs_issuer = rhs_cert.get_issuer()
-        rhs_subject = rhs_cert.get_subject()
-        
-#        self._printName('  LHS Issuer:  ', lhs_issuer)
-#        self._printName('  RHS Issuer:  ', rhs_issuer)
-#        self._printName('  LHS Subject: ', lhs_subject)
-#        self._printName('  RHS Subject: ', rhs_subject)
-        
-        return lhs_issuer.hash() == rhs_issuer.hash() and lhs_subject.hash() == rhs_subject.hash()
-
-    def _is_identical_cert(self, lhs_cert, rhs_cert):
-        return _is_same_cert(lhs_cert, rhs_cert) and lhs_cert.get_serial_number() == rhs_cert.get_serial_number()
-        
-    def _printName(self, prefix, name):
-        text = ''
-        for (key, value) in name.get_components():
-            if len(text) != 0:
-                text += ', '
-            text += key + '=' + value
-        print(prefix + text)
-        
-    def _printNamePretty(self, label, name, indent=0):
-        prefix = ' ' * indent
-        
-        where = ''
-        if name.localityName:
-            where = name.localityName
-        if name.countryName:
-            if len(where) != 0:
-                where += ', '
-            where += name.countryName
-        if name.stateOrProvinceName:
-            if len(where) != 0:
-                where += ', '
-            where += name.stateOrProvinceName
-            
-        org = ''
-        if name.organizationName:
-            org = name.organizationName
-        if name.organizationalUnitName:
-            if len(org) != 0:
-                org += ', '
-            org += name.organizationalUnitName
-        if name.emailAddress:
-            if len(org) != 0:
-                org += ' '
-            org += '(' + name.emailAddress + ')'
-
-        print(prefix + label + str(name.commonName))
-        if len(org):
-            print(prefix + "  " + org)
-        if len(where):
-            print(prefix + "  " + where)
-    
-    def printCert(self, cert, indent=0, filename=None, certno=None, short=False):
-        issuer = cert.get_issuer()
-        serial = cert.get_serial_number() 
-        try:
-            signature_algorithm = cert.get_signature_algorithm()
-        except:
-            signature_algorithm = 'Unknown'
-        subject = cert.get_subject()
-        version = cert.get_version()
-        time_format = "%Y%m%d%H%M%S"
-        not_before = parse_date(cert.get_notBefore())
-        not_after = parse_date(cert.get_notAfter())
-        has_expired = cert.has_expired() 
-        num_extension = cert.get_extension_count()
-        # cert.get_extension(index) 
-        
-        prefix = ' ' * indent
-
-        if short:
-            print(filename)
-        else:
-            if filename:
-                if certno:
-                    print(prefix + "Certificate " + filename + " #" + str(certno) + ": ")
-                else:
-                    print(prefix + "Certificate " + filename + ": ")
-            else:
-                if certno:
-                    print(prefix + "Certificate #" + str(certno) + ": ")
-                else:
-                    print(prefix + "Certificate: ")
-            print(prefix + "  Version: " + str(version))
-            print(prefix + "  Serial Number: " + str(serial))
-            print(prefix + "  Signature Algorithm: " + str(signature_algorithm))
-            self._printName('  Issuer:  ', issuer)
-            print(prefix + "  Validity")
-            print(prefix + "    Not Before: " + not_before.ctime())
-            print(prefix + "    Not After : " + not_after.ctime())
-            self._printName('  Subject: ', subject)
-
-    def list(self, expired_only=False, valid_only=False, output_number=True, short=False):
+    def write(self, fobj, expired_only=False, valid_only=False, output_number=True, short=False):
 #        if not short:
  #           print("Certificates within " + ','.join(self.m_certificate_filename))
 
@@ -366,18 +404,18 @@ class CertificateList:
         for (certfile, cert) in self.m_certificates:
             if expired_only:
                 if cert.has_expired():
-                    self.printCert(cert, filename=certfile, certno=num_certs, short=short)
+                    cert.writePretty(fobj, filename=certfile, certno=num_certs, short=short)
                     num_certs = num_certs + 1
             elif valid_only:
                 if not cert.has_expired():
-                    self.printCert(cert, filename=certfile, certno=num_certs, short=short)
+                    cert.writePretty(fobj, filename=certfile, certno=num_certs, short=short)
                     num_certs = num_certs + 1
             else:
-                self.printCert(cert, filename=certfile, certno=num_certs, short=short)
+                cert.writePretty(fobj, filename=certfile, certno=num_certs, short=short)
                 num_certs = num_certs + 1
 
         if output_number and not short:
-            print("Number of certificates: " + str(num_certs))        
+            fobj.write("Number of certificates: " + str(num_certs) + "\n")
 
     def find(self, term):
         ret = []
@@ -395,7 +433,17 @@ class CertificateList:
                         print('certfile='+certfile + ' replace ' + rhs_certfile)
                         ret.m_certificates.append( (certfile, cert) )
         return ret
-        
+
+    def replace(self, term, newcert):
+        ret = False
+        i = 0
+        while i < len(self.m_certificates):
+            (certfile, cert) = self.m_certificates[i]
+            if self._matchCert(cert, term):
+                ret = True
+                self.m_certificates[i] = (certfile, newcert)
+            i = i + 1
+        return ret
         
 class CertificateListFile:
     def __init__(self, filename=None):
@@ -657,11 +705,11 @@ class certinfo:
             self.update(args.update)
         else:
             if args.list_expired:
-                self.m_certificate_list.list(expired_only=True, short=args.short)
+                self.m_certificate_list.write(sys.stdout, expired_only=True, short=args.short)
             elif args.list_valid:
-                self.m_certificate_list.list(valid_only=True, short=args.short)
+                self.m_certificate_list.write(sys.stdout, valid_only=True, short=args.short)
             else:
-                self.m_certificate_list.list(short=args.short)
+                self.m_certificate_list.write(sys.stdout, short=args.short)
 
 if __name__ == "__main__":
     app =  certinfo()

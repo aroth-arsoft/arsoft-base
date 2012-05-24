@@ -9,7 +9,7 @@ Homepage: http://www.arsoft-online.com
 Package: arsoft-base
 Architecture: all
 Depends: arsoft-ppa,
- tzdata, mc, 
+ tzdata, mc, screen,
  unzip, zip, iotop, htop,
  ntfsprogs, xfsprogs, cryptsetup,
  update-manager-core, update-notifier-common, 
