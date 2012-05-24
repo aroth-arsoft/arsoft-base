@@ -7,6 +7,7 @@ import argparse
 import sys
 import re
 import io
+import hashlib
 from datetime import datetime, timedelta, tzinfo
 from OpenSSL import crypto
 
@@ -110,6 +111,11 @@ class PEMItem(object):
     def write(self, fobj):
         fobj.write(self.blockdata)
         
+    def getHash(self):
+        m = hashlib.md5()
+        m.update(self.blockdata)
+        return m.hexdigest()
+        
 class PEMFile:
     def __init__(self, filename=None, passphrase=None):
         self.m_begin_or_end_pattern = re.compile('^-----(?P<cmd>BEGIN|END) (?P<type>[A-Za-z ]+)-----$')
@@ -162,7 +168,7 @@ class PEMFile:
             filename = self.m_filename
 
         try:
-            f = open(cert_filename, 'w')
+            f = open(filename, 'w')
             for pemitem in self.m_blocks:
                 pemitem.write(f)
             f.close()
@@ -340,6 +346,7 @@ class Certificate(PEMItem):
                     fobj.write(prefix + "Certificate #" + str(certno) + ":\n")
                 else:
                     fobj.write(prefix + "Certificate:\n")
+            fobj.write(prefix + "  Hash: " + str(self.getHash()) + '\n')
             fobj.write(prefix + "  Version: " + str(version) + '\n')
             fobj.write(prefix + "  Serial Number: " + str(serial) + '\n')
             fobj.write(prefix + "  Signature Algorithm: " + str(signature_algorithm) + '\n')
@@ -420,7 +427,6 @@ class CertificateList:
                 unique_files[certfile] = [ cert ]
         
         for certfile, certlist in unique_files.iteritems():
-            print('write new pemfile ' + certfile)
             pemfile = PEMFile()
             for cert in certlist:
                 pemfile.append(cert)
@@ -461,7 +467,7 @@ class CertificateList:
             for (rhs_certfile, rhs_cert) in rhs.m_certificates:
                 if cert.is_same_cert(rhs_cert):
                     if rhs_cert.expires_later(cert):
-                        print(rhs_certfile + ' replaces ' + certfile)
+                        #print(rhs_certfile + ' replaces ' + certfile)
                         cert.update(rhs_cert)
                         ret = ret + 1
         return ret
@@ -679,24 +685,23 @@ class certinfo:
         if outdir is None:
             outdir = os.getcwd()
             
-        print('outdir=' + outdir)
+        #print('outdir=' + outdir)
         outdir_certificate_list = CertificateList()
         outdir_certificate_list.add(outdir)
         
-        print('current certicates')
-        self.m_certificate_list.write(sys.stdout)
-        print('outdir certicates')
-        outdir_certificate_list.write(sys.stdout)
+        #print('current certicates')
+        #self.m_certificate_list.write(sys.stdout)
+        #print('outdir certicates')
+        #outdir_certificate_list.write(sys.stdout)
         
-        print('update certicates')
+        #print('update certicates')
         num_updated = self.m_certificate_list.update(outdir_certificate_list)
-        print('updated certicates ' + str(num_updated) + ' and list:')
-        self.m_certificate_list.write(sys.stdout)
+        #print('updated certicates ' + str(num_updated) + ' and list:')
+        #self.m_certificate_list.write(sys.stdout)
         
-        self.m_certificate_list.save()
+        ret = self.m_certificate_list.save()
         
-        
-        return False
+        return ret
 
     def main(self):
         #=============================================================================================
