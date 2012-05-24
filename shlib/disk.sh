@@ -2,7 +2,6 @@
 
 DISK_ETAB_FILE='/var/lib/nfs/etab'
 DISK_LSSCSI='/usr/bin/lsscsi'
-DISK_SCSIADD='/usr/sbin/scsiadd'
 DISK_BLKID='/sbin/blkid'
 DISK_DEVKIT_DISKS='/usr/bin/devkit-disks'
 DISK_UDEVADM='/sbin/udevadm'
@@ -10,10 +9,6 @@ DISK_UDEVADM='/sbin/udevadm'
 if [ ! -x "$DISK_LSSCSI" ]; then
 	echo "lsscsi not installed."
 	DISK_LSSCSI=''
-fi
-if [ ! -x "$DISK_SCSIADD" ]; then
-	echo "scsiadd not installed."
-	DISK_SCSIADD=''
 fi
 if [ ! -f "$DISK_ETAB_FILE" ]; then
 	echo "nfs export tab $DISK_ETAB_FILE not found."
@@ -199,27 +194,23 @@ function rescanEmptySCSIHosts() {
 }
 
 function rescanSCSIHost() {
-	[ -z "$DISK_SCSIADD" ] && return
 	local msg
-	# keep all output of the scsiadd command
-	msg=`$DISK_SCSIADD -s $1 2>&1`
+	msg=`echo "scsi add-single-device $1" > "/proc/scsi/scsi" 2>&1`
 }
 
 function ejectSCSIDevice() {
-	[ -z "$DISK_SCSIADD" ] && return
 	local msg
 	local hcil=`echo "$1" | awk '{split($0,a,":"); print a[1], a[2], a[3], a[4]}'`
-	msg=`$DISK_SCSIADD -r $hcil`
+	msg=`echo "scsi remove-single-device $hcil" > "/proc/scsi/scsi" 2>&1`
 }
 
 function ejectSCSIDeviceByDevName() {
-	[ -z "$DISK_SCSIADD" ] && return
 	local msg
 	local scsi_host_id=`getSCSIId "$1"`
 	local hcil=`echo "$scsi_host_id" | awk '{split($0,a,":"); print a[1], a[2], a[3], a[4]}'`
-	echo "eject $DISK_SCSIADD -r $hcil"
+
 	[ -z "$hcil" ] && return 1
-	msg=`$DISK_SCSIADD -r $hcil`
+	msg=`echo "scsi remove-single-device $hcil" > "/proc/scsi/scsi" 2>&1`
 	return 0
 }
 
