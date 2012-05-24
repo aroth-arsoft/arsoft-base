@@ -188,12 +188,22 @@ class PEMFile:
         blockindex = len(self.m_blocks)
         self.m_blocks.append( PEMItem(blockindex, blocktype, blockdata) )
 
+    def append(self, pemitem):
+        self.m_blocks.append( pemitem )
+        
 class Certificate(PEMItem):
     def __init__(self, pemitem):
         PEMItem.__init__(self, pemitem.blockindex, pemitem.blocktype, pemitem.blockdata)
         self.cert = crypto.load_certificate(crypto.FILETYPE_PEM, self.blockdata) 
+        
+    def update(self, newcert):
+        if isinstance(newcert, Certificate):
+            self.cert = newcert.cert
+        else:
+            self.cert = newcert
+        self.blockdata = crypto.dump_certificate(crypto.FILETYPE_PEM, self.cert) 
 
-    def _is_same_cert(self, rhs_cert):
+    def is_same_cert(self, rhs_cert):
         lhs_issuer = self.cert.get_issuer()
         lhs_subject = self.cert.get_subject()
         rhs_issuer = rhs_cert.get_issuer()
@@ -205,6 +215,18 @@ class Certificate(PEMItem):
 #        self._printName('  RHS Subject: ', rhs_subject)
         
         return lhs_issuer.hash() == rhs_issuer.hash() and lhs_subject.hash() == rhs_subject.hash()
+    
+    def expires_later(self, rhs_cert):
+        lhs_not_before = self.get_notBefore()
+        lhs_not_after = self.get_notAfter()
+        rhs_not_before = rhs_cert.get_notBefore()
+        rhs_not_after = rhs_cert.get_notAfter()
+
+        print('  LHS Not After:  ', lhs_not_after.ctime())
+        print('  RHS Not After:  ', rhs_not_after.ctime())
+        print('  LHS Not Before: ', lhs_not_before.ctime())
+        print('  RHS Not Before: ', rhs_not_before.ctime())
+        return lhs_not_after > rhs_not_after
 
     def _matchName(self, name, term):
         if term is None or term == 'all':
@@ -223,7 +245,7 @@ class Certificate(PEMItem):
         return self._matchName(issuer, term) or self._matchName(subject, term)
 
     def _is_identical_cert(self, rhs_cert):
-        return self._is_same_cert(rhs_cert) and self.get_serial_number() == rhs_cert.get_serial_number()
+        return self.is_same_cert(rhs_cert) and self.get_serial_number() == rhs_cert.get_serial_number()
         
     def get_subject(self):
         return self.cert.get_subject()
@@ -237,6 +259,9 @@ class Certificate(PEMItem):
     def get_serial_number(self):
         return self.cert.get_serial_number()
         
+    def has_expired(self):
+        return self.cert.has_expired()
+
     def get_notBefore(self):
         return parse_date(self.cert.get_notBefore())
         
@@ -383,18 +408,24 @@ class CertificateList:
             if self.addFile(file_in_dir):
                 ret = True
         return ret
-    
-    def _cert_expire_later(self, lhs_cert, rhs_cert):
-        lhs_not_before = parse_date(lhs_cert.get_notBefore())
-        lhs_not_after = parse_date(lhs_cert.get_notAfter())
-        rhs_not_before = parse_date(rhs_cert.get_notBefore())
-        rhs_not_after = parse_date(rhs_cert.get_notAfter())
-
-        print('  LHS Not After:  ', lhs_not_after.ctime())
-        print('  RHS Not After:  ', rhs_not_after.ctime())
-        print('  LHS Not Before: ', lhs_not_before.ctime())
-        print('  RHS Not Before: ', rhs_not_before.ctime())
-        return lhs_not_after < rhs_not_after
+        
+    def save(self):
+        ret = True
+        # find all unique certfiles
+        unique_files = {}
+        for (certfile, cert) in self.m_certificates:
+            if certfile in unique_files:
+                unique_files[certfile].append(cert)
+            else:
+                unique_files[certfile] = [ cert ]
+        
+        for certfile, certlist in unique_files.iteritems():
+            print('write new pemfile ' + certfile)
+            pemfile = PEMFile()
+            for cert in certlist:
+                pemfile.append(cert)
+            ret = pemfile.save(certfile)
+        return ret
         
     def write(self, fobj, expired_only=False, valid_only=False, output_number=True, short=False):
 #        if not short:
@@ -424,25 +455,23 @@ class CertificateList:
                 ret.append( (certfile, cert) )
         return ret
         
-    def union(self, rhs, only_updated=True):
-        ret = CertificateList()
+    def update(self, rhs):
+        ret = 0
         for (certfile, cert) in self.m_certificates:
             for (rhs_certfile, rhs_cert) in rhs.m_certificates:
-                if self._is_same_cert(cert, rhs_cert):
-                    if self._cert_expire_later(cert, rhs_cert):
-                        print('certfile='+certfile + ' replace ' + rhs_certfile)
-                        ret.m_certificates.append( (certfile, cert) )
+                if cert.is_same_cert(rhs_cert):
+                    if rhs_cert.expires_later(cert):
+                        print(rhs_certfile + ' replaces ' + certfile)
+                        cert.update(rhs_cert)
+                        ret = ret + 1
         return ret
 
     def replace(self, term, newcert):
         ret = False
-        i = 0
-        while i < len(self.m_certificates):
-            (certfile, cert) = self.m_certificates[i]
+        for (certfile, cert) in self.m_certificates:
             if self._matchCert(cert, term):
+                cert.update(newcert)
                 ret = True
-                self.m_certificates[i] = (certfile, newcert)
-            i = i + 1
         return ret
         
 class CertificateListFile:
@@ -650,11 +679,22 @@ class certinfo:
         if outdir is None:
             outdir = os.getcwd()
             
+        print('outdir=' + outdir)
         outdir_certificate_list = CertificateList()
         outdir_certificate_list.add(outdir)
         
-        union_certificae_list = self.m_certificate_list.union(outdir_certificate_list)
-        union_certificae_list.list()
+        print('current certicates')
+        self.m_certificate_list.write(sys.stdout)
+        print('outdir certicates')
+        outdir_certificate_list.write(sys.stdout)
+        
+        print('update certicates')
+        num_updated = self.m_certificate_list.update(outdir_certificate_list)
+        print('updated certicates ' + str(num_updated) + ' and list:')
+        self.m_certificate_list.write(sys.stdout)
+        
+        self.m_certificate_list.save()
+        
         
         return False
 
@@ -674,7 +714,7 @@ class certinfo:
         parser.add_argument('--remove', dest='removecertfile', help='remove the given certificate file', metavar='certfile')
         parser.add_argument('--outdir', dest='outdir', help='specifies the output directory', metavar='dir')
         parser.add_argument('--extract', dest='extract', help='extracts all matching certicates into separate files', metavar='term')
-        parser.add_argument('--update', dest='update', help='updates all certificates in the given directory', metavar='dir')
+        parser.add_argument('--update', dest='update', help='updates all certificates from the specified certificates', metavar='file')
 
         args = parser.parse_args()
 
