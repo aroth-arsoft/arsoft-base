@@ -10,7 +10,6 @@ usr/sbin/apt-key-import
 usr/sbin/apt-purge-removed
 usr/bin/dpkg-info
 usr/sbin/apt-proxy
-usr/bin/certinfo
 usr/sbin/kmesg
 usr/bin/puppet-template-check
 usr/bin/puppet-function-check

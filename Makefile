@@ -1,5 +1,5 @@
-SUBDIRS = apt bash bind cert cyrusimapd desktop \
-	dhcp kernel ldap mythtv network \
+SUBDIRS = apt bash bind cyrusimapd desktop \
+	dhcp devel kernel ldap mythtv network \
 	openvpn postfix puppet svn sysinfo \
 	vim
 

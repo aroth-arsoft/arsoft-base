@@ -1,0 +1,138 @@
+#!/bin/bash
+# Build and publish Ubuntu/Debian source packages for several releases
+# without manually editing debian/changelog each time
+#
+# Original written by TJ <ubuntu@tjworld.net> July 2008
+# http://tjworld.net/attachment/wiki/Linux/Ubuntu/Packages/PPAPublishMultipleReleases/ppa_publish
+#
+# Enhancements by <aroth@arsoft-online.com> May 2012
+#  - improved command line parsing
+#  - dput target is now optional, using default from ~/.dput.cf
+#  - check the given releases against the current ubuntu releases
+
+SCRIPTFILE=`readlink -f "$0"`
+SCRIPTDIR=`dirname "$SCRIPTFILE"`
+DPUT_TARGET=''
+RELEASES=''
+PKG=''
+DEFAULT_RELEASES=`lsb_release -cs`
+VALID_RELEASE='hardy intrepid jaunty lucid karmic maverick natty oneiric precise quantal'
+
+function usage() {
+	echo -e "\nUsage: $(basename $0) dput-ppa release-a [[release-b] [release-c]]\n"
+	echo -e "\tE.g. $(basename $0) my-ppa gutsy hardy intrepid\n"
+	echo "Edits the changelog before calling debuild and dput to publish"
+	echo -e "the source package to the buildd system for each release\n"
+	echo -e "\tRun from the package source directory\n"
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do        
+	case "$1" in          
+	"-?") usage;; 
+	"-h") usage;; 
+	"--help") usage;;
+	"--target") DPUT_TARGET="$2"; shift; ;;
+	'hardy'|'intrepid'|'jaunty'|'lucid'|'karmic'|'maverick'|'natty'|'oneiric'|'precise'|'quantal')
+		if [ -z "$RELEASES" ]; then
+			RELEASES="$1"
+		else
+			RELEASES="$RELEASES $1"
+		fi
+		;;
+	*)
+		echo "Unrecognized parameter $1" >&2
+		exit 1
+	;;                                      
+	esac                                    
+	shift                                   
+done
+
+if [ -z "$DPUT_TARGET" ]; then
+	if [ -f "$HOME/.dput.cf" ]; then
+		DPUT_TARGET=`awk -F '=' '/^default_host_main[[:space:]]*=[[:space:]]*.*$/ { gsub(/^[[:space:]]*/,"",$2); print $2 }' "$HOME/.dput.cf"`
+	fi
+fi
+
+if [ -z "$DPUT_TARGET" ]; then
+	echo "No target for dput specified or configured in $HOME/.dput.cf" >&2
+	exit 1
+fi
+
+[ -z "$RELEASES" ] && RELEASES="$DEFAULT_RELEASES"
+
+PKGDIR=`readlink -f "$PWD"`
+PKG=`basename "$PKGDIR"`
+if [ ! -f "$PKGDIR/debian/changelog" ]; then
+	echo "Cannot find changelog for package $PKG at $PKGDIR/debian/changelog" >&2
+	exit 1
+fi
+
+echo "Publishing $PKG to dput target $DPUT_TARGET"
+
+changelog_original=`mktemp /tmp/ppa_publish.XXXXXX`
+control_original=`mktemp /tmp/ppa_publish.XXXXXX`
+cp -p "$PKGDIR/debian/changelog" "$changelog_original"
+cp -p "$PKGDIR/debian/control" "$control_original"
+echo "Backed up $PKGDIR/debian/changelog to $changelog_original"
+original_version_line=`head -n 1 "$changelog_original"`
+original_pkgname=`echo "$original_version_line" | awk '{ print $1; }'`
+original_version=`echo "$original_version_line" | awk '{ print substr($2, 2, length($2) - 2); }'`
+original_release=`echo "$original_version_line" | awk '{ print substr($3, 1, length($3) - 1); }'`
+original_flags=`echo "$original_version_line" | awk '{ print $4; }'`
+echo "Original version: $original_version"
+
+if [[ "$original_version" =~ .*~(hardy|intrepid|jaunty|lucid|karmic|maverick|natty|oneiric|precise|quantal)[0-9]* ]]; then
+	original_version=`echo "$original_version" | sed -r 's/(.*)~[a-z0-9]+/\1/'`
+	echo "Original version without release: $original_version"
+fi
+
+RELEASE_COUNT=1
+for RELEASE in $RELEASES; do
+	
+	new_version="${original_version}~${RELEASE}${RELEASE_COUNT}"
+	new_version_line="${original_pkgname} (${new_version}) ${RELEASE}; ${original_flags}"
+	echo "Building for $RELEASE ($new_version)"
+	# prepare new changelog with a replaced first line
+	(echo "${new_version_line}"; cat "$changelog_original" | sed '1,1d') > "$PKGDIR/debian/changelog"
+	
+	CONTROL_MODIFIED=0
+	# check if a special control file exists for this release
+	if [ -f "$PKGDIR/debian/control.${RELEASE}" ]; then
+		cp -p "$PKGDIR/debian/control.${RELEASE}" "$PKGDIR/debian/control"
+		CONTROL_MODIFIED=1
+		echo "Using $PKGDIR/debian/control.${RELEASE}"
+	fi
+	export BUILD_TEST=1
+
+	debuild_log=`mktemp /tmp/ppa_publish.XXXXXX`
+	pushd "$PKGDIR"
+	debuild -i -I -S -sa 2>&1 | tee "$debuild_log"
+	CHANGES=`readlink -f "$PKGDIR/../$(sed -n 's/^.*signfile \(.*\.changes\).*$/\1/p' "$debuild_log")"`
+	if [ -f "$CHANGES" ]; then
+		echo -e "\nPublishing to $DPUT_TARGET with $CHANGES"
+		#dput "$DPUT_TARGET" "$CHANGES"
+		echo -e "\nRemove all generated files"
+		find "$PKGDIR/.." -maxdepth 1 -type f -name "$(basename $CHANGES _source.changes)*" -print -exec rm {} \;
+	else
+		echo "No changes file found, assume build failed."
+	fi
+	rm -rf "$debuild_log"
+
+	if [ $CONTROL_MODIFIED -eq 1 ]; then
+		# put the original control back
+		cp -p "$control_original" "$PKGDIR/debian/control"
+		CONTROL_MODIFIED=0
+		echo "Retire debian/control.${RELEASE}"
+	fi
+	
+#	cat "$PKGDIR/debian/changelog"
+done
+
+echo "Restore original control and changelog"
+cp -p  "$changelog_original" "$PKGDIR/debian/changelog"
+cp -p  "$control_original" "$PKGDIR/debian/control"
+rm -f "$changelog_original"
+rm -f "$control_original"
+exit 0
