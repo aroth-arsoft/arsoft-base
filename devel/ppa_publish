@@ -112,7 +112,7 @@ for RELEASE in $RELEASES; do
 	CHANGES=`readlink -f "$PKGDIR/../$(sed -n 's/^.*signfile \(.*\.changes\).*$/\1/p' "$debuild_log")"`
 	if [ -f "$CHANGES" ]; then
 		echo -e "\nPublishing to $DPUT_TARGET with $CHANGES"
-		#dput "$DPUT_TARGET" "$CHANGES"
+		dput "$DPUT_TARGET" "$CHANGES"
 		echo -e "\nRemove all generated files"
 		find "$PKGDIR/.." -maxdepth 1 -type f -name "$(basename $CHANGES _source.changes)*" -print -exec rm {} \;
 	else
