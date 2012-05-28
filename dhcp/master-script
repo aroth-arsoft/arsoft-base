@@ -3,8 +3,8 @@
 verbose=1
 debug=0
 
-ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR='/usr/lib/arsoft-scripts/dhclient-enter'
-ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-scripts/dhclient-exit'
+ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR='/usr/lib/arsoft-dhcp/dhclient-enter'
+ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-dhcp/dhclient-exit'
 ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_ENTER='apt cups heimdal postfix ldap puppet'
 ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_EXIT='apt cups heimdal postfix ldap puppet'
 
@@ -102,7 +102,8 @@ function run_hook() {
 
 function run_enter_scripts() {
 	local exit_status
-	[ $debug -ne 0 ] && local basescriptdir=`dirname "$realscriptfile"`'/../'
+	local basescriptdir=''
+	[ $debug -ne 0 ] && basescriptdir=`dirname "$realscriptfile"`'/../'
 	for current_script in $ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_ENTER; do
 		[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
 		run_hook "$ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR/$current_script" "$@" || true
@@ -114,7 +115,8 @@ function run_enter_scripts() {
 
 function run_exit_scripts() {
 	local exit_status
-	[ $debug -ne 0 ] && local basescriptdir=`dirname "$realscriptfile"`'/../'
+	local basescriptdir=''
+	[ $debug -ne 0 ] && basescriptdir=`dirname "$realscriptfile"`'/../'
 	for current_script in $ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_EXIT; do
 		[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
 		run_hook "$ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR/$current_script" "$@" || true

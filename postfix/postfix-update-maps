@@ -28,8 +28,8 @@ done
 
 function runcmd()
 {
-	[ $verbose -ne 0 ] && echo $*
-	$*
+	[ $verbose -ne 0 ] && echo $@
+	$@
 }
 
 #all_map_types=`/usr/sbin/postconf -m 2>/dev/null`
