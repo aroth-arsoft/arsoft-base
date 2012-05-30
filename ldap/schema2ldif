@@ -1,0 +1,108 @@
+#!/bin/bash
+
+function usage()
+{
+	echo "schema2ldif <schemafile> [ldiffile]"
+	exit 0
+}
+
+schemafile=''
+ldiffile=''
+slaptest_bin='/usr/sbin/slaptest'
+quiet=0
+verbose=0
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+        "-?") usage;;
+        "-h") usage;;
+        "--help") usage;;
+		"-q"|"--quiet") quiet=1; ;;
+		"-v"|"--verbose") verbose=1; ;;
+        *)
+            if [ -z "$schemafile" ]; then
+                schemafile="$1"
+			elif [ -z "$ldiffile" ]; then
+				ldiffile="$1"
+            else
+                echo "Too many arguments: $1"
+				exit 1
+            fi
+        ;;
+    esac
+    shift
+done
+
+if [ -z "$schemafile" ]; then
+	echo "no schema file given"
+	exit 1
+else
+	d=`dirname "$schemafile"`
+	b=`basename "$schemafile"`
+	if [ "$d" == "." ]; then
+		d=`pwd`
+	fi
+	schemafile="$d/$b"
+fi
+
+if [ -z "$ldiffile" ]; then
+	ldiffile=`echo "$schemafile" | sed 's/\.schema$/.ldif/'`
+fi
+
+if [ ! -x "$slaptest_bin" ]; then
+	echo "$slaptest_bin is not installed. Please install slapd"
+	exit 1
+fi
+
+[ $quiet -eq 0 ] && echo "Convert $schemafile to $ldiffile"
+
+tmpdir=`mktemp -d -t ldif.XXXXXXXXX`
+conffile=`mktemp -t slapd.XXXXXXXXX`
+
+default_schema_files='core.schema collective.schema corba.schema cosine.schema duaconf.schema dyngroup.schema inetorgperson.schema java.schema misc.schema nis.schema openldap.schema ppolicy.schema'
+echo "# schema2ldif configuration file" > "$conffile"
+
+for f in $default_schema_files; do
+	full="/etc/ldap/schema/$f"
+	if [ ! -f "$full" ]; then
+		echo "Default schema $full is missing."
+	else
+		echo "include $full" >> "$conffile"
+	fi
+done
+
+if [ -f $schemafile ]; then
+	# check of the schemafile is already in there
+	tmp=`grep "$schemafile" "$conffile"`
+	if [ $? -ne 0 ]; then
+		echo "include $schemafile" >> "$conffile"
+	fi
+fi
+
+[ $verbose -ne 0 ] && cat "$conffile"
+
+#echo "/usr/sbin/slaptest -f $conffile -F $tmpdir 2>&1"
+msg=`$slaptest_bin -f $conffile -F $tmpdir 2>&1`
+if [ $? -eq 0 ]; then
+	name=`basename $schemafile .schema`
+	#echo "find \"$tmpdir/cn=config/cn=schema\" -regex \".*$name\.ldif\""
+	ldiftmp=`find "$tmpdir/cn=config/cn=schema" -regex ".*$name\.ldif"`
+	if [ ! -z "$ldiftmp" ]; then
+		cat $ldiftmp | sed -r -e 's/(structuralObjectClass|entryUUID|creatorsName|createTimestamp|entryCSN|modifiersName|modifyTimestamp).*//' -e 's/^([a-zA-Z]+\: )\{[0-9]+\}/\1/' -e 's/dn\: cn=\{[0-9]+\}(.*)/dn: cn=\1,cn=schema,cn=config/' > $ldiffile
+		RET=$?
+	else
+		echo "Could not find converted ldif file for $schemafile"
+		RET=1
+	fi
+else
+	echo "failed to convert $schemafile to $ldiffile"
+	echo "error: $msg"
+	RET=1
+fi
+rm -rf $tmpdir
+rm $conffile
+exit $RET
+
+
+

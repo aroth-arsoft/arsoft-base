@@ -1,0 +1,36 @@
+#!/bin/bash
+
+verbose=0
+slapd_dbdir='/var/lib/ldap'
+force=0
+
+function usage()
+{
+    echo "slapd-clean-db [OPTIONS]"
+    echo "    -h, --help      shows this help screen"
+	echo "    -v, --verbose   enable verbose output"
+    exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		"-f"|"--force") force=1; ;;
+		*)
+			if [ -z "$configfile" ]; then
+				configfile="$1"
+			else
+				echo "config file $configfile already given. ignoring $1"
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ $force -ne 0 ]; then
+	rm "$slapd_dbdir/*"
+fi

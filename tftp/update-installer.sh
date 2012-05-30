@@ -1,0 +1,187 @@
+#!/bin/bash
+
+DISTS=`/usr/bin/lsb_release -cs`
+CURL_BIN=`which curl`
+ARCHS=`/bin/uname -m`
+UBUNTU_BASE_URL='http://ftp.ubuntulinux.org/ubuntu/dists/'
+TFTPBOOT_DIR='/var/lib/tftpboot'
+TEMP_DIR='/tmp'
+VERBOSE=0
+
+function usage()
+{
+	echo "update-installer.sh [OPTIONS]"
+	echo "    -h, --help          shows this help screen"
+	echo "    -d, --dist <dist>   add one or more distributions to download (default: $DISTS)"
+	echo "    -a, --arch <arch>   add one or more architectures to download (default: $ARCHS)"
+	echo "    --target <DIR>      target directory (default: $TFTPBOOT_DIR)"
+	echo "    --verbose           verbose output"
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"-d"|"--dist") DISTS="$2"; shift ;;
+		"-a"|"--arch") ARCHS="$2"; shift ;;
+		"--target") TFTPBOOT_DIR="$2"; shift ;;
+		"-v"|"--verbose") VERBOSE=1; ;;
+		*)
+			echo "Unknown argument: $1"
+			exit 1
+		;;
+	esac
+	shift
+done
+
+if [ -z "$CURL_BIN" ]; then
+	echo "curl not available. Please install the package curl."
+	exit 1
+fi
+
+UBUNTU_DEST_DIR="${TFTPBOOT_DIR}/ubuntu-installer"
+INSTALLER_FILES='./ubuntu-installer'
+UPDATE_CACHE_FILE="${TFTPBOOT_DIR}/update_cache"
+
+# helper functions
+download_file() {
+	URL="$1"
+	DEST="$2"
+	if [ ! -z "$URL" -a ! -z "$DEST" ]; then
+		wget -q -O $DEST "$URL" 2>&1
+		RES=$?
+	else
+		RES=1
+	fi
+	return $RES
+}
+
+
+get_last_update_time() {
+	URL="$1"
+	if [ -f ${UPDATE_CACHE_FILE} ]; then
+		RET=`grep "$URL" ${UPDATE_CACHE_FILE} | cut -d ' ' -f 2`
+      	if [ -z "$RET" ]; then
+            RET='0'
+   		fi
+	else
+		RET=0
+	fi
+	echo $RET
+}
+
+remove_last_update_time() {
+	URL="$1"
+    grep -v "$URL" $UPDATE_CACHE_FILE > ${UPDATE_CACHE_FILE}.tmp
+    mv ${UPDATE_CACHE_FILE}.tmp ${UPDATE_CACHE_FILE}
+}
+
+update_file() {
+	URL="$1"
+	DEST="$2"
+
+	[ $VERBOSE -ne 0 ] && echo "update_ubuntu_installer $URL $DEST"
+	if [ ! -z "$URL" -a ! -z "$DEST" ]; then
+		info=`curl -s -I "$URL" 2>/dev/null`
+		RES=$?
+		if [ $RES -eq 0 -a ! -z "$info" ]; then
+			#[ $VERBOSE -ne 0 ] && echo -e "$URL info:\n$info"
+			HTTP_ERROR=`echo "$info" | awk '/^HTTP\/[0-1]\.[0-9]/ { print $2; }'`
+			if [ "$HTTP_ERROR" != '200' ]; then
+				echo "HTTP Error $HTTP_ERROR on $URL"
+				REMOTE_DATE_RAW=''
+			else
+				REMOTE_DATE_RAW=`echo "$info" | awk '/Last-Modified:/ { print $2; }'`
+			fi
+		else
+			echo "curl error $info on $URL"
+			HTTP_ERROR=500
+			REMOTE_DATE_RAW=''
+		fi
+		if [ -z "$REMOTE_DATE_RAW" ]; then
+			RES=1
+		else
+			REMOTE_DATE=$(date -d "$REMOTE_DATE_RAW" +%s)
+			REMOTE_DATE_STR=$(date -d "$REMOTE_DATE_RAW")
+
+			if [ -f $DEST ]; then
+				LAST_DATE=$(stat -c%y "$DEST" | date -f - +%s)
+				LAST_DATE_STR=$(stat -c%y "$DEST" | date -f -)
+			else
+				LAST_DATE_STR='none'
+				LAST_DATE=0
+			fi
+
+			if [ "$REMOTE_DATE" -gt "$LAST_DATE" ]; then
+				[ $VERBOSE -ne 0 ] && echo "update file $URL ($REMOTE_DATE_STR) -> $DEST ($LAST_DATE_STR)"
+				msg=`curl -s -o "$DEST" "$URL" 2>&1`
+				RES=$?
+				if [ $RES -eq 0 ]; then
+					touch -d "$REMOTE_DATE_STR" "$DEST"
+				else
+					echo "Failed to retrieve file from $URL. Error:"
+					echo "$tmp"
+					RES=1
+				fi
+			else
+				RES=0
+			fi
+		fi
+	else
+		# source or destination url are empty
+		RES=1
+	fi
+	if [ $RES -ne 0 ]; then
+		[ $VERBOSE -ne 0 ] && echo "update_file $URL failed. delete $DEST"
+		[ -f $DEST ] && rm $DEST
+	fi
+	return $RES
+}
+
+update_ubuntu_installer() {
+	DIST="$1"
+	ARCH="$2"
+
+	SOURCE="${UBUNTU_BASE_URL}${DIST}/main/installer-${ARCH}/current/images/netboot/netboot.tar.gz"
+	DEST="${UBUNTU_DEST_DIR}/${DIST}_${ARCH}_netboot.tar.gz"
+
+	[ $VERBOSE -ne 0 ] && echo "update_ubuntu_installer $DIST $ARCH"
+
+	update_file "${SOURCE}" "${DEST}"
+	RES=$?
+	if [ $RES -eq 0 ]; then
+		if [ -f ${DEST} ]; then
+			if [ ! -d $TFTPBOOT_DIR/$DIST ]; then
+				mkdir -p $TFTPBOOT_DIR/$DIST
+			fi
+			msg=`/bin/tar xfz "$DEST" --overwrite -C "$TFTPBOOT_DIR/$DIST" "$INSTALLER_FILES" 2>&1`
+			RES=$?
+			if [ $RES -eq 0 ]; then
+				[ $VERBOSE -ne 0 ] && echo "${ARCH} installer for $DIST updated"
+			else
+				echo "Failed to extract ${ARCH} installer for $DIST. Error:"
+				echo "$msg"
+			fi
+		else
+			[ $VERBOSE -ne 0 ] && echo "${ARCH} installer for $DIST up-to-date"
+		fi
+	else
+		echo "Failed to update ${ARCH} installer for $DIST"
+	fi
+	return $RES
+}
+
+RES=0
+for DIST in $DISTS; do
+	for ARCH in $ARCHS; do
+		if [ "$ARCH" == "x86_64" ]; then
+			ARCH='amd64'
+		fi
+		update_ubuntu_installer "$DIST" "$ARCH"
+		RES=$?
+	done
+done
+exit $RES
+
+

@@ -1,0 +1,2 @@
+#!/bin/sh
+ssh -o GSSAPIAuthentication=no -o GSSAPIDelegateCredentials=no -o GSSAPIKeyExchange=no $*

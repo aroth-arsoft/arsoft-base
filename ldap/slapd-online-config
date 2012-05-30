@@ -1,0 +1,70 @@
+#!/bin/bash
+
+verbose=0
+configfile=''
+outdir=''
+force=0
+slapd_user='openldap'
+slapd_group='openldap'
+debuglevel=1
+
+function usage()
+{
+    echo "slapd-online-config [OPTIONS] <configfile> <outdir>"
+    echo "    -h, --help      shows this help screen"
+	echo "    -v, --verbose   enable verbose output"
+    exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		"-f"|"--force") force=1; ;;
+		*)
+			if [ -z "$configfile" ]; then
+				configfile="$1"
+			elif [ -z "$outdir" ]; then
+				outdir="$1"
+			else
+				echo "config file $configfile and output directory $outdir already given. ignoring $1"
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$configfile" ]; then
+	echo "No config file specified."
+	exit 1
+fi
+
+if [ -z "$outdir" ]; then
+	echo "No output directory specified."
+	exit 1
+else
+	outdir=`readlink -f "$outdir"`
+fi
+
+if [ -d "$outdir" ]; then
+	if [ $force -eq 0 ]; then
+		echo "ERROR: output directory already exists." 1>&2
+		exit 1
+	else
+		echo "WARNING: output directory already exists." 1>&2
+	fi
+else
+	# create the output directory, because slaptest does not create it
+	mkdir -p "$outdir"
+fi
+
+/usr/sbin/slaptest -f "$configfile" -F "$outdir" -d "$debuglevel"
+RES=$?
+if [ $RES -eq 0 ]; then
+	chown "${slapd_user}.${slapd_group}" -R "$outdir"
+fi
+
+exit $RES
