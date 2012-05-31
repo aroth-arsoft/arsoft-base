@@ -16,7 +16,7 @@ Depends: arsoft-ppa,
  language-pack-en-base, 
  console-data, console-setup, gawk,
  strace, 
- openssh-server,
+ openssh-server, ethtool, wget, resolvconf,
  ${misc:Depends}, ${python:Depends} 
 Replaces: arsoft-scripts
 Description: configure the system to use the AR Soft packages.

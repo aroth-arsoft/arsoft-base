@@ -20,7 +20,6 @@ usr/sbin/openvpn-status
 usr/sbin/slapd-clean-db
 usr/sbin/apt-proxy
 usr/sbin/autofs-ldap-auth
-usr/sbin/openvpn-zip-config
 usr/sbin/schema2ldif
 usr/sbin/tftp-update-installers
 usr/sbin/vizone
