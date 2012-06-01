@@ -6,7 +6,6 @@ usr/bin/postfix-sendmail
 usr/bin/postfix-mailstat
 usr/bin/puppet-clean-ssl
 usr/bin/dpkg-info
-usr/bin/mythtv-startx-tty
 usr/bin/puppet-function-check
 usr/bin/postfix-queue-rm
 usr/bin/xpid
@@ -35,3 +34,5 @@ usr/sbin/nsswitch-ldap
 usr/sbin/dns-update
 usr/sbin/nfs-control
 usr/sbin/apt-purge-removed
+usr/share/arsoft-base/vim/vimrc
+usr/share/arsoft-base/bash/bash.bashrc
