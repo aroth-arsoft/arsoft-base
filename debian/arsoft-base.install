@@ -15,7 +15,6 @@ usr/bin/puppet-template-check
 usr/bin/postfix-delete
 usr/sbin/postfix-ldap
 usr/sbin/biosinfo
-usr/sbin/openvpn-status
 usr/sbin/slapd-clean-db
 usr/sbin/apt-proxy
 usr/sbin/autofs-ldap-auth
