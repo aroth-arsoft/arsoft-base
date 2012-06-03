@@ -1,3 +1,9 @@
+arsoft-base (2.8) quantal; urgency=low
+
+  * more conflicts fixed 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 03 Jun 2012 17:20:20 +0200
+
 arsoft-base (2.7) quantal; urgency=low
 
   * improved slapd-backup script
