@@ -1,3 +1,9 @@
+arsoft-base (2.9) quantal; urgency=low
+
+  * use dpkg-divert to handle /etc/bash.bashrc, /etc/profile and /etc/vim/vimrc
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 08 Jun 2012 14:15:07 +0200
+
 arsoft-base (2.8) quantal; urgency=low
 
   * more conflicts fixed 

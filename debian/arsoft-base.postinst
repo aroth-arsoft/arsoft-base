@@ -1,22 +1,23 @@
 #!/bin/sh -e
+PKG=arsoft-base
 
-#DEBHELPER#
+if [ "$1" = configure ] ; then
+	dpkg-divert --add --package ${PKG} --rename \
+				--divert /etc/bash.bashrc.distrib /etc/bash.bashrc
+	[ \! -e /etc/bash.bashrc -o -L /etc/bash.bashrc ] && ln -sf /usr/share/arsoft-base/bash/bash.bashrc /etc/bash.bashrc
+	dpkg-divert --add --package ${PKG} --rename \
+				--divert /etc/profile.distrib /etc/profile
+	[ \! -e /etc/profile -o -L /etc/profile ] && ln -sf /usr/share/arsoft-base/profile /etc/profile
+fi
 
 case "$1" in
 	configure|upgrade)
-		rm /etc/bash.bashrc
-		ln -s /usr/share/arsoft-base/bash/bash.bashrc /etc/bash.bashrc
 		# delete old network up/down scripts
 		[ -f /etc/network/if-down.d/00-lo-down ] && rm /etc/network/if-down.d/00-lo-down
 		[ -f /etc/network/if-up.d/zz-lo-up ] && rm /etc/network/if-up.d/zz-lo-up
 		;;
-    abort-upgrade|abort-remove|abort-deconfigure)
-		;;
-
-    *)
-		echo "postinst called with unknown argument \`$1'" >&2
-		exit 1
-		;;
 esac
+
+#DEBHELPER#
 
 exit 0

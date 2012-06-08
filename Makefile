@@ -1,7 +1,7 @@
-SUBDIRS = apt bash bind cyrusimapd desktop \
+SUBDIRS = apt bind cyrusimapd desktop \
 	dhcp devel kernel ldap mythtv network nfs \
-	openvpn postfix puppet spamassassin ssh \
-	svn sysinfo tftp vim
+	openvpn postfix puppet shell spamassassin \
+	ssh svn sysinfo tftp vim
 
 .PHONY: all
 

@@ -51,14 +51,14 @@ if [ ! -e "$HOME/.sudo_as_admin_successful" ] && [ ! -e "$HOME/.hushlogin" ] ; t
 fi
 
 # if the command-not-found package is installed, use it
-if [ -x /usr/lib/command-not-found -o -x /usr/share/command-not-found ]; then
+if [ -x /usr/lib/command-not-found -o -x /usr/share/command-not-found/command-not-found ]; then
 function command_not_found_handle {
 	# check because c-n-f could've been removed in the meantime
 	if [ -x /usr/lib/command-not-found ]; then
 		/usr/bin/python /usr/lib/command-not-found -- "$1"
 		return $?
-	elif [ -x /usr/share/command-not-found ]; then
-		/usr/bin/python /usr/share/command-not-found -- "$1"
+	elif [ -x /usr/share/command-not-found/command-not-found ]; then
+		/usr/bin/python /usr/share/command-not-found/command-not-found -- "$1"
 		return $?
 	else
 		return 127
@@ -98,6 +98,31 @@ fi
 
 alias ls="/bin/ls $LS_OPTIONS"
 export LS_OPTIONS
+
+alias cd..="cd .."
+alias ..="cd .."
+alias ..2="cd ../.."
+alias ..3="cd ../../.."
+alias ..4="cd ../../../.."
+alias ..5="cd ../../../../.."
+
+function mkdircd () { mkdir -p "$@" && eval cd "\"\$$#\""; }
+
+# ignore from trival commands from history
+export HISTIGNORE="&:ls:[bf]g:exit"
+# limit the number of commands rememberd by bash to 300
+export HISTSIZE=300
+export HISTFILESIZE=300
+# don't put duplicate lines in the history and ignore same sucessive entries.
+export HISTCONTROL=ignoreboth
+
+# append to the history file, don't overwrite it
+shopt -s histappend
+
+# check the window size after each command and, if necessary,
+# update the values of LINES and COLUMNS.
+shopt -s checkwinsize
+
 #
 # End of /etc/bash.bashrc
 #

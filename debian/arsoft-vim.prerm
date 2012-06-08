@@ -1,0 +1,10 @@
+#!/bin/sh -e
+PKG=arsoft-vim
+
+if [ "$1" = remove ] ; then
+	[ -L /etc/vim/vimrc ] && rm /etc/vim/vimrc
+	dpkg-divert --remove --package ${PKG} --rename \
+				--divert /etc/vim/vimrc.distrib /etc/vim/vimrc
+fi
+#DEBHELPER#
+exit 0
