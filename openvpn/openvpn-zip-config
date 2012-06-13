@@ -35,27 +35,26 @@ function get_config_name()
 	# check if a config_file is given; its empty when the server
 	# client zip configs should be prepared.
 	if [ -z "$config_file" ]; then
-		fallback_name=`basename "$config_dir"`
 		local more_than_one_config_file=0
-		for f in "$config_dir"/*.conf "$config_dir"/*.ovpn; do
-			if [ -f "$f" ]; then
-				[ -z "$config_file" ] && config_file="$f" || more_than_one_config_file=1
+		if [ -d "$config_dir" ]; then
+			fallback_name=`basename "$config_dir"`
+			for f in "$config_dir"/*.conf "$config_dir"/*.ovpn; do
+				if [ -f "$f" ]; then
+					[ -z "$config_file" ] && config_file="$f" || more_than_one_config_file=1
+				fi
+			done
+			if [ $more_than_one_config_file -ne 0 ]; then
+				return 1
 			fi
-		done
-		if [ $more_than_one_config_file -ne 0 ]; then
-			return 1
+		else
+			fallback_name=`basename "${config_file%.*}"`
 		fi
 	else
 		fallback_name=`basename "${config_file%.*}"`
 	fi
-	local name=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$config_file"`
-	
-	if [ -z "$name" ]; then
-		name="$fallback_name"
-	else
-		name=`basename "${name%.*}"`
-	fi
-	echo -n "$name"
+	local name=''
+	[ -f "$config_file" ] && name=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$config_file"`
+	[ -z "$name" ] && echo -n "$fallback_name" || echo -n "$name"
 	return 0
 }
 
@@ -137,8 +136,20 @@ function zip_config()
 				fi
 			done
 			;;
+		'macosx')
+			verbose_exec cp -p "$config_file" "$zipdir/$name.conf"
+			local pem_files=`ls -1 "$config_dir"/*.{crt,pem} 2>/dev/null`
+			for f in $pem_files; do
+				if [ -r "$f" ]; then
+					verbose_exec cp -p "$f" "$zipdir"
+				else
+					echo "Cannot read $f" >&2
+					(( num_errors++ ))
+				fi
+			done
+			;;
 		*)
-			[ $verbose -ne 0 ] && echo "unhandled ostype $ostype"
+			echo "unhandled ostype $ostype" >&2
 			;;
 	esac
 
@@ -272,6 +283,12 @@ function generate_client_config()
 				status_line="# status ${clientname}-status.log"
 				log_append_line="# log-append ${clientname}.log"
 				config_ext='ovpn'
+				client_file_dir=''
+				;;
+			'macosx')
+				status_line="# status ${clientname}-status.log"
+				log_append_line="# log-append ${clientname}.log"
+				config_ext='conf'
 				client_file_dir=''
 				;;
 			*)
