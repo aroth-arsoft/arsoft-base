@@ -8,7 +8,7 @@
 
 echo "" > $HOME/.xsession-errors
 
-[ -x '/usr/bin/unclutter' ] && /usr/bin/unclutter -idle 5 &
+#[ -x '/usr/bin/unclutter' ] && /usr/bin/unclutter -idle 5 &
 
 # Loop the call of mythfrontend.
 while [ /bin/true ]; do

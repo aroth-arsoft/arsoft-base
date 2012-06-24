@@ -6,9 +6,11 @@ action=''
 
 function usage() {
 	echo "usage: dpkg-info <action> [params]"
+	echo "action must be one of the following:"
 	echo "   size           displays all install packages by size"
 	echo "   files <pkgs>   lists the files of the given packages"
 	echo "   restore <pkgs> restores the configuration of the given packages"
+	echo "   depends <pkgs> shows all depends of the specified packages."
 }
 
 function action_size() {
@@ -79,6 +81,81 @@ function action_restore() {
 	done
 }
 
+function pkg_status() {
+	local only_missing=0
+	local only_present=0
+	local prefix=''
+	while [ $# -ne 0 ]; do
+		case "$1" in
+			"--missing") only_missing=1; ;;
+			"--present") only_present=1; ;;
+			"--prefix") prefix="$2"; shift; ;;
+			*)
+				status=`dpkg-query --show "$1" 2>&1`
+				if [ $? -eq 0 ]; then
+					# package is installed
+					if [ $only_missing -eq 0 -o $only_present -ne 0 ]; then
+						echo "${prefix}$status"
+					fi
+				else
+					# package is not installed
+					if [ $only_present -eq 0 ]; then
+						echo "${prefix}$1"
+					fi
+				fi
+				;;                                      
+		esac                                    
+		
+		shift                                   
+	done
+}
+
+function show_pkg_depends() {
+	local pkgs="$1"
+	
+	# parse command line arguments
+	while [ $# -ne 0 ]; do        
+		case "$1" in
+			-*) [ -z "$opts" ] && opts="$1" || opts="$opts $1"; ;;
+			*)
+				[ -z "$pkgs" ] && pkgs="$1" || pkgs="$pkgs $1"
+				;;                                      
+		esac                                    
+		shift                                   
+	done
+	
+	local pkginfo=`/usr/bin/apt-cache depends "$pkg"`
+	depends=`echo "$pkginfo" | awk -F ':' '/Depends/ { print $2 }'`
+	recommends=`echo "$pkginfo" | awk -F ':' '/Recommends/ { print $2 }'`
+	conflicts=`echo "$pkginfo" | awk -F ':' '/Conflicts/ { print $2 }'`
+	replaces=`echo "$pkginfo" | awk -F ':' '/Replaces/ { print $2 }'`
+	
+	pkg_status --missing --prefix 'Depends' $depends
+	pkg_status --missing --prefix 'Recommends' $recommends
+	pkg_status --present --prefix 'Conflicts' $conflicts
+	pkg_status --present --prefix 'Replaces' $replaces
+}
+
+function action_depends() {
+	local pkgs=''
+	local opts=''
+	# parse command line arguments
+	while [ $# -ne 0 ]; do        
+		case "$1" in
+			-*) [ -z "$opts" ] && opts="$1" || opts="$opts $1"; ;;
+			*)
+				[ -z "$pkgs" ] && pkgs="$1" || pkgs="$pkgs $1"
+				;;                                      
+		esac                                    
+		shift                                   
+	done
+	
+	all_depends=''
+	for pkg in $pkgs; do
+		show_pkg_depends "$opts" "$pkg"
+	done
+}
+
 # parse command line arguments
 while [ $# -ne 0 ]; do        
 	case "$1" in          
@@ -103,6 +180,9 @@ case $action in
 		;;
 	'restore')
 		action_restore $args
+		;;
+	'depends')
+		action_depends $args
 		;;
 	'')
 		echo "No action specified."

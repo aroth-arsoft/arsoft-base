@@ -1,3 +1,10 @@
+arsoft-base (2.10) quantal; urgency=low
+
+  * fixed missing file /etc/profile
+  * improved mythtv webradio script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 10 Jun 2012 17:20:10 +0200
+
 arsoft-base (2.9) quantal; urgency=low
 
   * use dpkg-divert to handle /etc/bash.bashrc, /etc/profile and /etc/vim/vimrc

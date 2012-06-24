@@ -7,7 +7,7 @@ test_only=0
 list_keys=''
 vlc_args=''
 
-brigde_keys='quit:Global/ESCAPE play-pause:Music/PAUSE stop:Music/STOP next:Music/NEXTTRACK prev:Music/PREVTRACK fullscreen:Music/BLANKSCR'
+brigde_keys='quit:Global/ESCAPE play-pause:Music/PAUSE stop:Music/STOP next:Music/NEXTTRACK prev:Music/PREVTRACK toggle-fullscreen:Music/BLANKSCR'
 
 function usage() {
 	echo "mythtv-webradio [file|url]"
@@ -70,6 +70,7 @@ function mapKeyName() {
 		'Return') qtkeyname='Enter'; ;;
 		'XF86AudioPlay') qtkeyname='Play'; ;;
 		'XF86AudioStop') qtkeyname='Stop'; ;;
+#		[0-9]) qtkeyname=''; ;;
 		*) ;;
 	esac
 	echo "$qtkeyname"
@@ -104,8 +105,9 @@ function buildKeyOpts() {
 		mythtv_key_context=`echo "$k" | awk -F '[:/]' '{print $2}'`
 		mythtv_key_name=`echo "$k" | awk -F '[:/]' '{print $3}'`
 		vlc_key_name=$(getMappedKey "$mythtv_key_context" "$mythtv_key_name")
-		
-		keyopts="$keyopts --key-${vlc_key_arg} '${vlc_key_name}'"
+		if [ ! -z "$vlc_key_name" ]; then
+			keyopts="$keyopts --key-${vlc_key_arg} '${vlc_key_name}'"
+		fi
 	done
 	echo -n "$keyopts"
 }
@@ -115,7 +117,13 @@ if [ ! -x '/usr/bin/vlc' ]; then
 	exit 1
 fi
 
-[ -f /etc/mythtv/mysql.txt ] && source /etc/mythtv/mysql.txt
+if [ -f "$HOME/.mythtv/mysql.txt" ]; then
+	source "$HOME/.mythtv/mysql.txt"
+elif [ -f /etc/mythtv/mysql.txt ]; then
+	source /etc/mythtv/mysql.txt
+else
+	echo "WARNING: no configuration for MythTV mysql database found." 1>&2
+fi
 
 if [ -z "$myhostname" ]; then
 	myhostname=`hostname`
