@@ -19,9 +19,11 @@ function logging_debug() {
 }
 
 function log() {
-	echo $*
-	if [ $LOGGING_SYSLOG -ne 0 ]; then
-		$LOGGING_LOGGER -t "$LOGGING_NAME" "$*"
+	if [ $LOGGING_LEVEL -ge $LOGGING_LEVEL_INFO ]; then
+		echo $*
+		if [ $LOGGING_SYSLOG -ne 0 ]; then
+			$LOGGING_LOGGER -t "$LOGGING_NAME" "$*"
+		fi
 	fi
 }
 
