@@ -1,7 +1,7 @@
 SUBDIRS = apt bind cyrusimapd desktop \
 	dhcp devel kernel ldap mythtv network nfs \
 	openvpn postfix puppet shell spamassassin \
-	ssh svn sysinfo tftp vim
+	ssh svn sysinfo tftp vim wine
 
 .PHONY: all
 

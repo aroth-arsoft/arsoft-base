@@ -1,3 +1,9 @@
+arsoft-base (2.11) quantal; urgency=low
+
+  * show certificate in openvpn-status
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 08 Jul 2012 10:12:03 +0200
+
 arsoft-base (2.10) quantal; urgency=low
 
   * fixed missing file /etc/profile

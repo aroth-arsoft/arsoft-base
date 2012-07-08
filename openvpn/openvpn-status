@@ -2,6 +2,7 @@
 
 vpnnames=''
 verbose=0
+show_cert=0
 vpnlogdir='/var/log/openvpn'
 CONFIG_DIR='/etc/openvpn'
 
@@ -10,15 +11,17 @@ function usage()
 	echo "openvpn-status [vpnname]"
 	echo "    -h, --help      shows this help screen"
 	echo "    -v,--verbose    verbose output"
+	echo "    --cert          shows all certificates of the VPN"
 	exit 0
 }
 
 function show_vpn_status() 
 {
 	local vpn="$1"
-	config_file="$CONFIG_DIR/${vpn}.conf"
-	statusfile=`awk '/^(status)[ ]+.*$/ { print $2; }' "$config_file"`
-	statusversion=`awk '/^(status-version)[ ]+.*$/ { print $2; }' "$config_file"`
+	local config_file="$CONFIG_DIR/${vpn}.conf"
+	local type=`awk '/^(server[ ]+.*|client[ ]*)$/ { print $1; }' "$config_file"`
+	local statusfile=`awk '/^(status)[ ]+.*$/ { print $2; }' "$config_file"`
+	local statusversion=`awk '/^(status-version)[ ]+.*$/ { print $2; }' "$config_file"`
 	[ -z "$statusversion" ] && statusversion=1
 
 	if [ ! -z "$statusfile" ]; then
@@ -32,20 +35,51 @@ function show_vpn_status()
 		else
 			echo "Unable to retrieve status for VPN $vpn" >&2
 		fi
+	else
+		echo "Status file for VPN $name not available." >&2
 	fi
+}
+
+function show_vpn_certs()
+{
+	local vpn="$1"
+	local config_file="$CONFIG_DIR/${vpn}.conf"
+	local type=`awk '/^(server[ ]+.*|client[ ]*)$/ { print $1; }' "$config_file"`
+	local certfile=`awk '/^(cert)[ ]+.*$/ { print $2; }' "$config_file"`
+	local cafile=`awk '/^(ca)[ ]+.*$/ { print $2; }' "$config_file"`
+	
+	local cert_list=''
+	if [ "$type" == 'server' ]; then
+		local server_ccddir=`awk '/^(client-config-dir)[ ]+.*$/ { print $2; }' "$config_file"`
+		local server_dh=`awk '/^(dh)[ ]+.*$/ { print $2; }' "$config_file"`
+		local server_crl=`awk '/^(crl-verify)[ ]+.*$/ { print $2; }' "$config_file"`
+		cert_list="$cafile $certfile"
+		for ccdfile in "$server_ccddir"/*; do
+			local clientcommonname=`basename "$ccdfile"`
+			local clientname=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$ccdfile"`
+			local clientostype=`awk '/^#[ ]*(ostype)[ ]+.*$/ { print $3; }' "$ccdfile"`
+			local clientcert=`awk '/^#[ ]*(certfile)[ ]+.*$/ { print $3; }' "$ccdfile"`
+			cert_list="$cert_list $clientcert"
+		done
+	elif [ "$type" == 'client' ]; then
+		cert_list="$cafile $certfile"
+	else
+		echo "Unrecognized type for VPN $vpn." >&2
+	fi
+
+	#echo "certlist $cert_list"
+	certinfo $cert_list
+
 }
 
 # parse command line arguments
 while [ $# -ne 0 ]; do
 	case "$1" in
-		"-?"|"-h"|"--help") usage;;
-		"-v"|"--verbose") verbose=1; ;;
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
+		'--cert') show_cert=1; ;;
 		*)
-			if [ ! -z "$vpnnames" ]; then
-				vpnnames="$vpnnames $1"
-			else
-				vpnnames="$1"
-			fi
+			[ ! -z "$vpnnames" ] && vpnnames="$vpnnames $1" || vpnnames="$1"
 		;;
 	esac
 	shift
@@ -54,11 +88,33 @@ done
 if [ -z "$vpnnames" ]; then
 	for vpn in "$CONFIG_DIR"/*.conf; do
 		name=`basename "$vpn" .conf`
-		show_vpn_status "$name"
+		if [ -r "$CONFIG_DIR/${name}.conf" ]; then
+			[ ! -z "$final_vpnnames" ] && final_vpnnames="$final_vpnnames $name" || final_vpnnames="$name"
+		else
+			echo "Configuration of VPN $name is not readable." >&2
+			exit 1
+		fi
 	done
 else
-	for vpn in $vpnnames; do
-		show_vpn_status "$vpn"
+	for name in $vpnnames; do
+		if [ -r "$CONFIG_DIR/${name}.conf" ]; then
+			[ ! -z "$final_vpnnames" ] && final_vpnnames="$final_vpnnames $name" || final_vpnnames="$name"
+		else
+			echo "VPN $name does not exist." >&2
+			exit 1
+		fi
 	done
 fi
 
+if [ -z "$final_vpnnames" ]; then
+	echo "No OpenVPN configurations found." >&2
+	exit 1
+fi
+
+for name in $final_vpnnames; do
+	if [ $show_cert -eq 0 ]; then
+		show_vpn_status "$name"
+	else
+		show_vpn_certs "$name"
+	fi
+done

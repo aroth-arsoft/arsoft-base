@@ -35,3 +35,4 @@ usr/sbin/nfs-control
 usr/sbin/apt-purge-removed
 usr/share/arsoft-base/bash/bash.bashrc
 usr/share/arsoft-base/profile
+usr/bin/wine-rebuild-menu
