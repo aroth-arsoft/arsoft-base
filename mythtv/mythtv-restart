@@ -4,6 +4,9 @@
 
 verbose=0
 action=''
+control_socket='/tmp/mythtv-restart'
+control_buffer='/tmp/mythtv-restart.buffer'
+config_file='/etc/default/mythtv-frontend'
 
 function usage()
 {
@@ -36,10 +39,16 @@ function perform_stop_backend()
 	fi
 }
 
+function read_default_config_frontend()
+{
+	[ -f "$config_file" ] && awk -F '=' "/^ *(MYTHTV_FRONTEND)/ { gsub(\"'\",\"\",\$2); print \$2 }" "$config_file"
+}
+
 function cleanup()
 {
-	rm -f "/tmp/mythtv-restart"
-	echo "Cleanup"
+	[ -p "$control_socket" ] && rm -f "$control_socket"
+	[ -f "$control_buffer" ] && rm -f "$control_buffer"
+	[ $verbose -ne 0 ] && echo "Cleanup"
 	exit 0
 }
 
@@ -62,42 +71,86 @@ while [ $# -ne 0 ]; do
 	shift
 done
 
+[ -f "$config_file" ] && source "$config_file"
+
 if [ ! -z "$action" ]; then
-	if [ ! -p "/tmp/mythtv-restart" ]; then
-		echo "mythtv-restart not running."
+	if [ ! -p "$control_socket" ]; then
+		echo "mythtv-restart not running ($control_socket does not exist)."
 		exit 1
 	else
-		echo "$action" > "/tmp/mythtv-restart"
+		echo "write $action to $control_socket"
+		echo "$action" > "$control_socket"
 	fi
 else
+	if [ ! -p "$control_socket" ]; then
+		mkfifo "$control_socket"
+	else
+		echo "mythtv-restart already running."
+		exit 1
+	fi
+
 	set -m # Enable Job Control
 
 	trap cleanup EXIT
+	trap cleanup SIGINT
 
 	# clear the X session error log
 	echo "" > $HOME/.xsession-errors
 
-	if [ ! -p "/tmp/mythtv-restart" ]; then
-		mkfifo "/tmp/mythtv-restart"
-	fi
-
 	last_command_pid=0
+	last_read_pid=0
+	quit=0
+	
 	# Loop to get the correct application running
-	while [ /bin/true ]; do
-		if read line  2> /dev/null < "/tmp/mythtv-restart"; then
+	while [ $quit -eq 0 ]; do
+		if [ $last_read_pid -ne 0 ]; then
+			#echo "last read is dead $last_read_pid"
+			kill -0 $last_read_pid 2>/dev/null || last_read_pid=0
+		fi
+		if [ $last_read_pid -eq 0 ]; then
+			if [ -f "$control_buffer" ]; then
+				line=`cat "$control_buffer"`
+				echo -n > "$control_buffer"
+			fi
+			(read private_line 2> /dev/null < "$control_socket"; echo "$private_line" > "$control_buffer") &
+			last_read_pid=$!
+			[ $verbose -ne 0 ] && echo "started read as pid $last_read_pid; $line"
+		fi
+
+		if [ $last_command_pid -ne 0 ]; then
+			kill -0 $last_command_pid 2>/dev/null && is_running=1 || is_running=0
+		else
+			is_running=0
+		fi
+		[ $verbose -ne 0 ] && echo "process running $is_running"
+		if [ $is_running -eq 0 ]; then
+			config_line=`read_default_config_frontend`
+		fi
+		
+		if [ ! -z "$line" -o ! -z "$config_line" ]; then
 			if [ $last_command_pid -ne 0 ]; then
-				kill $last_command_pid
-				echo "Done with $last_command_pid"
+				# signal last command to terminate, but do not
+				# care about errors like already terminated.
+				kill $last_command_pid 2>/dev/null
+				[ $verbose -ne 0 ] && echo "Done with $last_command_pid"
 			fi
 			
-			echo "Got $line"
+			if [ ! -z "$line" ]; then
+				command_line="$line"
+				line=''
+			elif [ ! -z "$config_line" ]; then
+				command_line="$config_line"
+				config_line=''
+			fi
+			
+			[ $verbose -ne 0 ] && echo "Got $command_line"
 
 			start_backend=0
 			start_command=''
 			kill_process=''
 			post_delay=0
 			
-			case "$line" in
+			case "$command_line" in
 				'frontend')
 					start_backend=1
 					start_command='/usr/bin/mythfrontend'
@@ -114,30 +167,41 @@ else
 				'vlc')
 					start_command='/usr/bin/vlc --ignore-config'
 					;;
+				'eyes'|'xeyes')
+					start_command='/usr/bin/xeyes'
+					;;
+				'quit'|'exit')
+					quit=1
+					;;
 				*)
-					start_command="$*"
+					start_command="$command_line"
 					;;
 			esac
 			
-		#	[ $start_backend -ne 0 ] && perform_start_backend || perform_stop_backend
+			[ $start_backend -ne 0 ] && perform_start_backend || perform_stop_backend
 
 			[ ! -z "$kill_process" ] && killall "$kill_process"
-			if [ ! -z "$start_command" ]; then
-				$start_command &
-				last_command_pid=$!
+			if [ $quit -eq 0 ]; then
+				if [ ! -z "$start_command" ]; then
+					#echo "got command $start_command"
+					$start_command &
+					last_command_pid=$!
+					[ $verbose -ne 0 ] && echo "Started command $start_command with id $last_command_pid"
+				else
+					last_command_pid=0
+					[ $verbose -ne 0 ] && echo "empty command"
+				fi
 			else
-				last_command_pid=0
+				[ $verbose -ne 0 ] && echo "quit"
 			fi
-
-			echo "Started command with id $last_command_pid"
+		else
+			[ $verbose -ne 0 ] && echo "sleep for one second"
+			sleep 1
 		fi
 	done
 
 	cleanup
 fi
-
-
-
 
 #
 # EOF

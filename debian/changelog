@@ -1,3 +1,10 @@
+arsoft-base (2.12) quantal; urgency=low
+
+  * improved mythtv-restart script to allow to start frontend, setup or xterm
+    as mythtv user
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 14 Jul 2012 16:15:49 +0200
+
 arsoft-base (2.11) quantal; urgency=low
 
   * show certificate in openvpn-status
