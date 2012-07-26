@@ -1,3 +1,9 @@
+arsoft-base (2.13) precise; urgency=low
+
+  * update puppet labs GPG key
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 26 Jul 2012 07:36:56 +0200
+
 arsoft-base (2.12) quantal; urgency=low
 
   * improved mythtv-restart script to allow to start frontend, setup or xterm
