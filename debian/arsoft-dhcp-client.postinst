@@ -1,0 +1,11 @@
+#!/bin/sh -e
+PKG=arsoft-dhcp-client
+
+if [ "$1" = configure ] ; then
+    dpkg-divert --add --package ${PKG} --rename \
+                --divert /sbin/dhclient-script.distrib /sbin/dhclient-script
+fi
+
+#DEBHELPER#
+
+exit 0

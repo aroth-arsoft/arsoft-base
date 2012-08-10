@@ -17,6 +17,9 @@ endif
 
 %:
 	dh $@
+	
+override_dh_auto_install:
+	dh_auto_install -- TARGET_DISTRIBUTION=$(TARGET_DISTRIBUTION)
 
 override_dh_gencontrol:
 	dh_gencontrol -- $(SUBSTVARS)
