@@ -25,14 +25,7 @@ heimdal_check_server() {
 
 	if [ ! -z "$newrealm" ]; then
 		log_info "newrealm=$newrealm"
-		tmp=$(mktemp "$KRB5_CONF.XXXXXX") || return
-		chmod --reference="$KRB5_CONF" "$tmp"
-		chown --reference="$KRB5_CONF" "$tmp"
-		(
-			sed -r \
-				-e "s/^ *(default_realm) *=.*$/\1 = $newrealm/" \
-				"$KRB5_CONF"
-		) >>"$tmp"
+		ini-util --edit "libdefaults/default_realm=$newrealm" "$KRB5_CONF"
 		if [ $? -eq 0 ]; then
 			mv "$tmp" "$KRB5_CONF"
 		fi

@@ -24,15 +24,10 @@ puppet_update_conf() {
 	log_info "puppet server: $newserver"
 	log_info "puppet configtimeout: $newconfigtimeout"
 	if [ "$oldserver" != "$newserver" -o "$oldconfigtimeout" != "$newconfigtimeout" ]; then
-		tmp=$(mktemp "$PUPPET_CONF.XXXXXX") || return
-		(
-			sed -r -e "s/server=.*/server=$newserver/" \
-					-e "s/configtimeout=.*/configtimeout=$newconfigtimeout/" \
-				"$PUPPET_CONF"
-		) >>$tmp
+		ini-util --edit "main/server=$newserver" --edit "main/configtimeout=$newconfigtimeout" "$PUPPET_CONF"
 		RES=$?
 		if [ $RES -eq 0 ]; then
-			mv "$tmp" "$PUPPET_CONF" && /usr/sbin/service puppet reload
+			/usr/sbin/service puppet reload
 		else
 			false
 		fi
