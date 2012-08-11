@@ -22,6 +22,10 @@ nssldap_conf_update() {
 	local newldap_base="$2"
 	local ldap_start_tls="$3"
 	local ldap_tls_reqcert="$4"
+	
+	# if the /etc/ldap.conf does not exist, a vital package is 
+	# not installed and it's pointless to continue
+	[ ! -f "$NSSLDAP_CONF" ] && return
 
 	if [ ! -z "$newldapserver_uri" ]; then
 		newbase=`nssldap_conf_update_base base`
@@ -149,6 +153,9 @@ postfix_ldap_conf() {
 	local ldap_start_tls="$3"
 	local ldap_tls_reqcert="$4"
 	local postfix_reload=0
+	
+	# bail out when postfix is not installed
+	[ ! -d /etc/postfix ] && return
 
 	# update all /etc/postfix/ldap-*.cf files
 	for cf_file in /etc/postfix/ldap-*.cf; do
@@ -274,13 +281,13 @@ ldap_update_conf() {
 		fi
 
 		newldap_base=`get_dns_txt_record "_base._ldap._config.$new_domain_name."`
-		[ -z "$newldap_base" ] && newldap_base=`awk '/^ *(BASE)/ { print $2 }' "$OPENLDAP_LDAP_CONF"`
+		[ -z "$newldap_base" -a -r "$OPENLDAP_LDAP_CONF"] && newldap_base=`awk '/^ *(BASE)/ { print $2 }' "$OPENLDAP_LDAP_CONF"`
 
-		oldldap_tls_require_cert=`awk '/^ *(TLS_REQCERT)/ { print $2 }' "$NSSLDAP_CONF"`
+		[ -r "$NSSLDAP_CONF" ] && oldldap_tls_require_cert=`awk '/^ *(TLS_REQCERT)/ { print $2 }' "$NSSLDAP_CONF"` || oldldap_tls_require_cert=''
 		# set a sensable default
 		[ -z "$oldldap_tls_require_cert" ] && oldldap_tls_require_cert='no'
 		
-		oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSSLDAP_CONF"`
+		[ -r "$NSSLDAP_CONF" ] && oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSSLDAP_CONF"` || oldldap_start_tls=''
 		# set a sensable default
 		[ -z "$oldldap_start_tls" ] && oldldap_start_tls='no'
 
@@ -323,6 +330,10 @@ STATE_FILE_EOF
 }
 
 ldap_release_conf() {
+
+	# if state file does not exist bail out
+	[ ! -r "$STATE_FILE" ] && return
+	
 	ldap_interface=`awk -F '=' '/interface/ { print $2 }' "$STATE_FILE"`
 	if [ "$interface" == "$ldap_interface" ]; then
 		# got release on the interface on which we got the LDAP information

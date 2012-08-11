@@ -16,8 +16,13 @@ puppet_update_conf() {
 		fi
 		newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$new_domain_name."`
 	fi
-	oldserver=`awk -F '=' '/^ *(server)/ { print $2 }' "$PUPPET_CONF"`
-	oldconfigtimeout=`awk -F '=' '/^ *(configtimeout)/ { print $2 }' "$PUPPET_CONF"`
+	if [ -r "$PUPPET_CONF" ]; then
+		oldserver=`awk -F '=' '/^ *(server)/ { print $2 }' "$PUPPET_CONF"`
+		oldconfigtimeout=`awk -F '=' '/^ *(configtimeout)/ { print $2 }' "$PUPPET_CONF"`
+	else
+		oldserver=''
+		oldconfigtimeout='120'
+	fi
 	[ -z "$newconfigtimeout" ] && newconfigtimeout="$oldconfigtimeout"
 	
 	log_info "puppet server: $newserver"
