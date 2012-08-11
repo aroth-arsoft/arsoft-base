@@ -39,9 +39,16 @@ network_update_conf() {
 }
 
 case $reason in
-	BOUND|RENEW|REBIND|REBOOT)                                                                                                                                                                           
+	# events from dhclient
+	BOUND|RENEW|REBIND|REBOOT)
 		network_update_conf
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
 		;;
+	# events from network-manager
+	up|vpn-up|hostname)
+		network_update_conf
+		;;
+    down|vpn-down|dhcp4-change|dhcp6-change)
+        ;;
 esac

@@ -1,2 +1,19 @@
 #!/bin/sh
+
+case $reason in
+	# events from dhclient
+	BOUND|RENEW|REBIND|REBOOT)
+		domain_name="$new_domain_name"
+		[ -z "$domain_name" ] && domain_name=`dnsdomainname`
+        host_name="$new_host_name"
+        [ -z "$host_name" ] && host_name=`hostname`
+		;;
+	EXPIRE|FAIL|RELEASE|STOP)
+		domain_name="$old_domain_name"
+		[ -z "$domain_name" ] && domain_name=`dnsdomainname`
+        host_name="$old_host_name"
+        [ -z "$host_name" ] && host_name=`hostname`
+		;;
+esac
+
 /usr/lib/arsoft-dhcp/dhclient-master-script exit interface "$interface" "$reason"

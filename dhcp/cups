@@ -75,4 +75,13 @@ case $reason in
 	NETWORK_DOWN)
 		cups_restore_conf
 		;;
+	# events from network-manager
+	up|vpn-up)
+		[ $CUPS_USE_DNS_INFO -ne 0 ] && cups_update_conf
+		;;
+    down|vpn-down)
+		cups_restore_conf
+		;;
+    hostname|dhcp4-change|dhcp6-change)
+        ;;
 esac

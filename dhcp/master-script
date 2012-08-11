@@ -2,6 +2,7 @@
 
 verbose=1
 debug=0
+dispatcher=''
 
 ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR='/usr/lib/arsoft-dhcp/dhclient-enter'
 ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-dhcp/dhclient-exit'
@@ -33,6 +34,15 @@ function log_err() {
 function verbose_exec() {
 	[ $verbose -ne 0 ] && echo "$@"
 	"$@"
+}
+
+function wait_for_process() {
+	local PNAME="$1"
+	local PID=`/usr/bin/pgrep "$PNAME"`
+	while [ -z "$PID" ]; do
+		sleep 2;
+		PID=`/usr/bin/pgrep "$PNAME"`
+	done
 }
 
 function is_ipv4() {
@@ -160,8 +170,10 @@ function usage() {
 	echo "        enter         run the enter hook scripts"
 	echo "        if|interface|iface"
 	echo "                      specified the interface to run the scripts for."
-	echo "the following reason can be specified:"
+	echo "the following reason can be specified for dhclient dispatcher operation:"
 	echo "  MEDIUM, PREINIT, BOUND, RENEW, REBIND, REBOOT, EXPIRE, FAIL, STOP, RELEASE, NBI, TIMEOUT"
+	echo "the following reason can be specified for NetworkManager dispatcher operation:"
+	echo "  up, vpn-up, down, vpn-down, hostname, dhcp4-change, dhcp6-change"
 	exit 0
 }
 
@@ -172,22 +184,18 @@ while [ $# -ne 0 ]; do
 	'-v'|'--verbose') verbose=1; ;;
 	'-d'|'--debug') debug=1; ;;
 	'enter'|'exit') phase="$1"; ;;
-	'MEDIUM'|'PREINIT'|'BOUND'|'RENEW'|'REBIND'|'REBOOT'|'EXPIRE'|'FAIL'|'STOP'|'RELEASE'|'NBI'|'TIMEOUT') reason="$1"; ;;
+	'MEDIUM'|'PREINIT'|'BOUND'|'RENEW'|'REBIND'|'REBOOT'|'EXPIRE'|'FAIL'|'STOP'|'RELEASE'|'NBI'|'TIMEOUT') dispatcher='dhclient'; reason="$1"; ;;
+	'up'|'vpn-up'|'down'|'vpn-down'|'hostname'|'dhcp4-change'|'dhcp6-change') dispatcher='NetworkManager'; reason="$1"; ;;
 	'if'|'interface'|'iface') interface="$2"; shift; ;;
-	*)                          
+	*)
 		echo "Unrecognized parameter $1"
 		exit 1
-	;;                                      
-	esac                                    
-	shift                                   
+	;;
+	esac
+	shift
 done
 
 if [ $debug -ne 0 ]; then
-	# if debug is requested, guess the common parameters to simplify testing
-	[ -z "$interface" ] && interface='eth0'
-	[ -z "$reason" ] && reason='RENEW'
-	[ -z "$phase" ] && phase='exit'
-	
 	prepare_testing
 else
 	if [ -z "$phase" ]; then

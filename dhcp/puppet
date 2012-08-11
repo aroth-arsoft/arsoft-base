@@ -15,11 +15,11 @@ puppet_update_conf() {
 			newserver=''
 		fi
 		newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$new_domain_name."`
-		[ -z "$newconfigtimeout" ] && newconfigtimeout=`awk -F '=' '/^ *(configtimeout)/ { print $2 }' "$PUPPET_CONF"`
-
 	fi
 	oldserver=`awk -F '=' '/^ *(server)/ { print $2 }' "$PUPPET_CONF"`
 	oldconfigtimeout=`awk -F '=' '/^ *(configtimeout)/ { print $2 }' "$PUPPET_CONF"`
+	[ -z "$newconfigtimeout" ] && newconfigtimeout="$oldconfigtimeout"
+	
 	log_info "puppet server: $newserver"
 	log_info "puppet configtimeout: $newconfigtimeout"
 	if [ "$oldserver" != "$newserver" -o "$oldconfigtimeout" != "$newconfigtimeout" ]; then
@@ -41,9 +41,15 @@ puppet_update_conf() {
 }
 
 case $reason in
-	BOUND|RENEW|REBIND|REBOOT)                                                                                                                                                                           
+	BOUND|RENEW|REBIND|REBOOT)
 		puppet_update_conf
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
+		;;
+	# events from network-manager
+	up|vpn-up)
+		puppet_update_conf
+		;;
+    down|vpn-down|hostname|dhcp4-change|dhcp6-change)
 		;;
 esac

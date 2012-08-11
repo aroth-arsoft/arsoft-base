@@ -1,0 +1,21 @@
+#!/bin/sh
+interface=$1
+status=$2
+
+# Run the right scripts
+case "$2" in
+    up|vpn-up)
+        # CONNECTION_UUID holds the UUID of the connection coming up.
+        host_name="$DHCP4_HOST_NAME"
+        [ -z "$host_name" ] && host_name=`hostname`
+        domain_name="$DHCP4_DOMAIN_NAME"
+        [ -z "$domain_name" ] && domain_name=`dnsdomainname`
+        ;;
+    down|vpn-down)
+        ;;
+    hostname|dhcp4-change|dhcp6-change)
+        # Do nothing special here
+        ;;
+esac
+
+/usr/lib/arsoft-dhcp/dhclient-master-script exit interface "$interface" "$status"
