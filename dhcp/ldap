@@ -281,7 +281,7 @@ ldap_update_conf() {
 		fi
 
 		newldap_base=`get_dns_txt_record "_base._ldap._config.$new_domain_name."`
-		[ -z "$newldap_base" -a -r "$OPENLDAP_LDAP_CONF"] && newldap_base=`awk '/^ *(BASE)/ { print $2 }' "$OPENLDAP_LDAP_CONF"`
+		[ -z "$newldap_base" -a -r "$OPENLDAP_LDAP_CONF" ] && newldap_base=`awk '/^ *(BASE)/ { print $2 }' "$OPENLDAP_LDAP_CONF"`
 
 		[ -r "$NSSLDAP_CONF" ] && oldldap_tls_require_cert=`awk '/^ *(TLS_REQCERT)/ { print $2 }' "$NSSLDAP_CONF"` || oldldap_tls_require_cert=''
 		# set a sensable default
