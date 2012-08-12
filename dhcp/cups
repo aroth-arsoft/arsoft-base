@@ -18,8 +18,8 @@ if [ "$CUPS_USE_DNS_INFO" == 'auto' ]; then
 fi
 
 cups_update_conf() {
-	if [ ! -z "$new_domain_name" ]; then
-		srv_record=`LANG=C /usr/bin/host -t SRV "_ipp._tcp.$new_domain_name."`
+	if [ ! -z "$domain_name" ]; then
+		srv_record=`LANG=C /usr/bin/host -t SRV "_ipp._tcp.$domain_name."`
 		if [ $? -eq 0 ]; then
 			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
 			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
@@ -28,7 +28,7 @@ cups_update_conf() {
 			cups_server=''
 		fi
 		
-		cups_encryption=`get_dns_txt_record "_encryption._ipp._config.$new_domain_name."`
+		cups_encryption=`get_dns_txt_record "_encryption._ipp._config.$domain_name."`
 		[ -z "$cups_encryption" -a -r "$CUPS_CLIENT_CONF" ] && cups_encryption=`awk '/^ *(Encryption)/ { print $2 }' "$CUPS_CLIENT_CONF"`
 		[ -z "$cups_encryption" ] && cups_encryption='IfRequested'
 	else

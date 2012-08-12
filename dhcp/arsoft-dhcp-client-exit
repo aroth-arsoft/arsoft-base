@@ -1,24 +1,8 @@
 #!/bin/sh
 
-[ -f /etc/default/arsoft-dhcp-client ] && source /etc/default/arsoft-dhcp-client
+[ -f /etc/default/arsoft-dhcp-client ] && . /etc/default/arsoft-dhcp-client
 
 # bail out when dhclient should not be used
-[ "$ARSOFT_DHCP_DISPATCHER" != 'dhclient' ] && return
-
-case $reason in
-	# events from dhclient
-	BOUND|RENEW|REBIND|REBOOT)
-		domain_name="$new_domain_name"
-		[ -z "$domain_name" ] && domain_name=`dnsdomainname`
-        host_name="$new_host_name"
-        [ -z "$host_name" ] && host_name=`hostname`
-		;;
-	EXPIRE|FAIL|RELEASE|STOP)
-		domain_name="$old_domain_name"
-		[ -z "$domain_name" ] && domain_name=`dnsdomainname`
-        host_name="$old_host_name"
-        [ -z "$host_name" ] && host_name=`hostname`
-		;;
-esac
+[ "$ARSOFT_DHCP_DISPATCHER" != 'dhclient' ]  && exit 0
 
 /usr/lib/arsoft-dhcp/dhclient-master-script exit interface "$interface" "$reason"

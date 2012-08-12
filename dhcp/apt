@@ -1,8 +1,8 @@
 #!/bin/bash
 
 apt_update_conf() {
-	if [ ! -z "$new_domain_name" ]; then
-		srv_record=`LANG=C /usr/bin/host -t SRV "_apt-proxy._tcp.$new_domain_name."`
+	if [ ! -z "$domain_name" ]; then
+		srv_record=`LANG=C /usr/bin/host -t SRV "_apt-proxy._tcp.$domain_name."`
 		if [ $? -eq 0 ]; then
 			srv_port=`echo "$srv_record" | awk '{ print $7 '}`
 			srv_name=`echo "$srv_record" | awk '{ print $8 '}`

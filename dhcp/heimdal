@@ -3,8 +3,8 @@ KRB5_CONF='/etc/krb5.conf'
 #KRB5_CONF_ORG='/var/run/krb5.conf'
 
 heimdal_check_server() {
-	if [ ! -z "$new_domain_name" ]; then
-#		srv_record=`LANG=C /usr/bin/host -t SRV "_kerberos._tcp.$new_domain_name."`
+	if [ ! -z "$domain_name" ]; then
+#		srv_record=`LANG=C /usr/bin/host -t SRV "_kerberos._tcp.$domain_name."`
 #		if [ $? -eq 0 ]; then
 #			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
 #			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
@@ -12,7 +12,7 @@ heimdal_check_server() {
 #		else
 #			newkerberosserver=''
 #		fi
-#		srv_record=`LANG=C /usr/bin/host -t SRV "_kerberos-adm._tcp.$new_domain_name."`
+#		srv_record=`LANG=C /usr/bin/host -t SRV "_kerberos-adm._tcp.$domain_name."`
 #		if [ $? -eq 0 ]; then
 #			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
 #			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
@@ -20,10 +20,10 @@ heimdal_check_server() {
 #		else
 #			newkerberosadmserver=''
 #		fi
-		newrealm=`get_dns_txt_record "_kerberos.$new_domain_name."`
+		newrealm=`get_dns_txt_record "_kerberos.$domain_name."`
 	fi
 
-	if [ ! -z "$newrealm" ]; then
+	if [ ! -z "$newrealm" -a -f "$KRB5_CONF" ]; then
 		log_info "newrealm=$newrealm"
 		tmp=$(mktemp "$KRB5_CONF.XXXXXX") || return
 		chmod --reference="$KRB5_CONF" "$tmp"
@@ -40,7 +40,7 @@ heimdal_check_server() {
 }
 
 case $reason in
-	BOUND|RENEW|REBIND|REBOOT)                                                                                                                                                                           
+	BOUND|RENEW|REBIND|REBOOT)
 		heimdal_check_server
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)

@@ -267,8 +267,8 @@ ldap_update_conf() {
 	local newldap_start_tls=''
 	local newldap_tls_require_cert=''
 	local newautofs_search_base=''
-	if [ ! -z "$new_domain_name" ]; then
-		local srv_record=`LANG=C /usr/bin/host -t SRV "_ldap._tcp.$new_domain_name."`
+	if [ ! -z "$domain_name" ]; then
+		local srv_record=`LANG=C /usr/bin/host -t SRV "_ldap._tcp.$domain_name."`
 		if [ $? -eq 0 ]; then
 			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
 			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
@@ -280,7 +280,7 @@ ldap_update_conf() {
 			fi
 		fi
 
-		newldap_base=`get_dns_txt_record "_base._ldap._config.$new_domain_name."`
+		newldap_base=`get_dns_txt_record "_base._ldap._config.$domain_name."`
 		[ -z "$newldap_base" -a -r "$OPENLDAP_LDAP_CONF" ] && newldap_base=`awk '/^ *(BASE)/ { print $2 }' "$OPENLDAP_LDAP_CONF"`
 
 		[ -r "$NSSLDAP_CONF" ] && oldldap_tls_require_cert=`awk '/^ *(TLS_REQCERT)/ { print $2 }' "$NSSLDAP_CONF"` || oldldap_tls_require_cert=''
@@ -291,13 +291,13 @@ ldap_update_conf() {
 		# set a sensable default
 		[ -z "$oldldap_start_tls" ] && oldldap_start_tls='no'
 
-		newldap_start_tls=`get_dns_txt_record "_start_tls._ldap._config.$new_domain_name."`
+		newldap_start_tls=`get_dns_txt_record "_start_tls._ldap._config.$domain_name."`
 		[ -z "$newldap_start_tls" ] && newldap_start_tls="$oldldap_start_tls"
 
-		newldap_tls_require_cert=`get_dns_txt_record "_tls_reqcert._ldap._config.$new_domain_name."`
+		newldap_tls_require_cert=`get_dns_txt_record "_tls_reqcert._ldap._config.$domain_name."`
 		[ -z "$newldap_tls_require_cert" ] && newldap_tls_require_cert="$oldldap_tls_require_cert"
 
-		newautofs_search_base=`get_dns_txt_record "_search_base._autofs._config.$new_domain_name."`
+		newautofs_search_base=`get_dns_txt_record "_search_base._autofs._config.$domain_name."`
 		[ -z "$newautofs_search_base" ] && newautofs_search_base="$newldap_base"
 		
 		log_info "newautofs_search_base=$newautofs_search_base"

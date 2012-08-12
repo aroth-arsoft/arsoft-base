@@ -3,8 +3,8 @@ PUPPET_CONF='/etc/puppet/puppet.conf'
 
 puppet_update_conf() {
 
-	if [ ! -z "$new_domain_name" ]; then
-		srv_record=`LANG=C /usr/bin/host -t SRV "_puppet._tcp.$new_domain_name."`
+	if [ ! -z "$domain_name" ]; then
+		srv_record=`LANG=C /usr/bin/host -t SRV "_puppet._tcp.$domain_name."`
 		if [ $? -eq 0 ]; then
 			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
 			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
@@ -14,7 +14,7 @@ puppet_update_conf() {
 		else
 			newserver=''
 		fi
-		newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$new_domain_name."`
+		newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$domain_name."`
 	fi
 	[ -r "$PUPPET_CONF" ] && oldserver=`ini-util "$PUPPET_CONF" --value --get "main/server"` || oldserver=''
 	[ -r "$PUPPET_CONF" ] && oldconfigtimeout=`ini-util "$PUPPET_CONF" --value --get "main/configtimeout"` || oldconfigtimeout=''

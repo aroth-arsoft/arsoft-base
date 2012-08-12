@@ -9,30 +9,34 @@ ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-dhcp/dhclient-exit'
 ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_ENTER='apt cups heimdal postfix ldap puppet'
 ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_EXIT='apt cups heimdal postfix ldap puppet'
 
-[ -f /etc/default/arsoft-dhcp-client ] && source /etc/default/arsoft-dhcp-client
+[ -f /etc/default/arsoft-dhcp-client ] && . /etc/default/arsoft-dhcp-client
 
 scriptdir='/usr/sbin'
 realscriptfile=`readlink -f "$0"`
 
 function log_debug() {
 	[ $debug -ne 0 ] && echo "$@"
+	[ $debug -ne 0 ] && logger -i -t 'arsoft-dhcp' -p daemon.debug "$@"
 }
 
 function log_info() {
 	[ $verbose -ne 0 ] && echo "$@"
+	[ $verbose -ne 0 ] && logger -i -t 'arsoft-dhcp' -p daemon.info "$@"
 }
 
 function log_warn() {
 	echo "$@"
+	logger -i -t 'arsoft-dhcp' -p daemon.warn "$@"
 }
 
 function log_err() {
 	echo "$@" 1>&2
-	logger -p daemon.err "$@"
+	logger -i -t 'arsoft-dhcp' -p daemon.err "$@"
 }
 
 function verbose_exec() {
 	[ $verbose -ne 0 ] && echo "$@"
+	[ $verbose -ne 0 ] && logger -i -t 'arsoft-dhcp' -p daemon.info "$@"
 	"$@"
 }
 
@@ -145,6 +149,9 @@ function perform_action() {
 	log_info "new_domain_name $new_domain_name"
 	log_info "old_host_name $old_host_name"
 	log_info "old_domain_name $old_domain_name"
+
+	log_info "host_name $host_name"
+	log_info "domain_name $domain_name"
 	
 	if [ "$phase" == 'enter' ]; then
 		run_enter_scripts "$@"
@@ -186,6 +193,42 @@ function usage() {
 	exit 0
 }
 
+function import_variables() {
+	case "$dispatcher" in
+		'dhclient')
+			host_name="$new_host_name"
+			domain_name="$new_domain_name"
+			dns_servers="$new_domain_name_servers"
+			dhcp_server_name="$new_dhcp_server"
+			ntp_servers="$new_ntp_servers"
+			ip_address0="$new_ip_address"
+			;;
+		'NetworkManager')
+			host_name="$DHCP4_HOST_NAME"
+			domain_name="$DHCP4_DOMAIN_NAME"
+			dns_servers="$DHCP4_DOMAIN_NAME_SERVERS"
+			dhcp_server_name="$DHCP4_SERVER_NAME"
+			ntp_servers="$DHCP4_NTP_SERVERS"
+			routers="$DHCP4_ROUTERS"
+			ip_address0="$IP4_ADDRESS_0"
+			;;
+		*)
+			log_err "Unrecognized dispatcher $dispatcher"
+			exit 1
+	esac
+	
+	# use the current hostname, because the hostname
+	# cannot become empty. 
+	[ -z "$host_name" ] && host_name=`hostname`
+	
+	# the domain name on the other hand can become empty 
+	# when dhcp server does not provide one.
+	# but currently all the script relay on a valid domain
+	# name for further lookup of configuration data,so
+	# use the current domain name if not was provided.
+	[ -z "$domain_name" ] && domain_name=`dnsdomainname`
+}
+
 # parse command line arguments
 while [ $# -ne 0 ]; do        
 	case "$1" in          
@@ -197,7 +240,7 @@ while [ $# -ne 0 ]; do
 	'up'|'vpn-up'|'down'|'vpn-down'|'hostname'|'dhcp4-change'|'dhcp6-change') dispatcher='NetworkManager'; reason="$1"; ;;
 	'if'|'interface'|'iface') interface="$2"; shift; ;;
 	*)
-		echo "Unrecognized parameter $1"
+		log_err "Unrecognized parameter $1"
 		exit 1
 	;;
 	esac
@@ -221,6 +264,9 @@ else
 		log_err "$realscriptfile: no reason specified."
 		exit 1
 	fi
+	
+	# import all variables from either NetworkManager or dhclient
+	import_variables
 fi
 
 # ready to do the action

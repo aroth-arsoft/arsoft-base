@@ -2,13 +2,13 @@
 interface=$1
 status=$2
 
-[ -f /etc/default/arsoft-dhcp-client ] && source /etc/default/arsoft-dhcp-client
+[ -f /etc/default/arsoft-dhcp-client ] && . /etc/default/arsoft-dhcp-client
 
 # bail out when dhclient should not be used
-[ "$ARSOFT_DHCP_DISPATCHER" != 'NetworkManager' ] && return
+[ "$ARSOFT_DHCP_DISPATCHER" != 'NetworkManager' ] && exit 0
 
 # Run the right scripts
-case "$2" in
+case "$status" in
     up|vpn-up)
         # CONNECTION_UUID holds the UUID of the connection coming up.
         host_name="$DHCP4_HOST_NAME"

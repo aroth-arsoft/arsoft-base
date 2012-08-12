@@ -5,17 +5,11 @@ POSTFIX_CONFIG_DIR='/etc/postfix'
 
 postfix_setup() {
 
-	if [ -z "$new_host_name" ]; then
-		# retrieve the current hostname
-		myhostname=`hostname`
+	if [ ! -z "$domain_name" ]; then
+		mailname="${host_name}.${domain_name}"
+		maildomain="${domain_name}"
 	else
-		myhostname="$new_host_name"
-	fi
-	if [ ! -z "$new_domain_name" ]; then
-		mailname="${myhostname}.${new_domain_name}"
-		maildomain="${new_domain_name}"
-	else
-		mailname="${myhostname}"
+		mailname="${host_name}"
 		maildomain=""
 	fi
 
@@ -27,7 +21,7 @@ postfix_setup() {
 	if [ "$old_mailname" != "$mailname" ]; then
 		echo "$mailname" > $MAILNAME_FILE
 		# maybe postfix is not installed
-		[ -x /usr/sbin/postconf ] && /usr/sbin/postconf -c "$POSTFIX_CONFIG_DIR" -e "myhostname=$mailname" "mydomain=$maildomain" && /usr/sbin/service postfix reload
+		[ -x /usr/sbin/postconf ] && /usr/sbin/postconf -c "$POSTFIX_CONFIG_DIR" -e "myhostname=$mailname" "mydomain=$maildomain" && /usr/sbin/service postfix reload || true
 	fi
 }
 
