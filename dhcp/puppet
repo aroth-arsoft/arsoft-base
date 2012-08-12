@@ -16,15 +16,15 @@ puppet_update_conf() {
 		fi
 		newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$new_domain_name."`
 	fi
-	[ -r "$PUPPET_CONF" ] && oldserver=`awk -F '=' '/^ *(server)/ { print $2 }' "$PUPPET_CONF"` || oldserver=''
-	[ -r "$PUPPET_CONF" ] && oldconfigtimeout=`awk -F '=' '/^ *(configtimeout)/ { print $2 }' "$PUPPET_CONF"` || oldconfigtimeout=''
+	[ -r "$PUPPET_CONF" ] && oldserver=`ini-util "$PUPPET_CONF" --value --get "main/server"` || oldserver=''
+	[ -r "$PUPPET_CONF" ] && oldconfigtimeout=`ini-util "$PUPPET_CONF" --value --get "main/configtimeout"` || oldconfigtimeout=''
 	[ -z "$oldconfigtimeout" ] && oldconfigtimeout='300'
 	[ -z "$newconfigtimeout" ] && newconfigtimeout="$oldconfigtimeout"
 	
 	log_info "puppet server: $newserver"
 	log_info "puppet configtimeout: $newconfigtimeout"
 	if [ "$oldserver" != "$newserver" -o "$oldconfigtimeout" != "$newconfigtimeout" ]; then
-		ini-util "$PUPPET_CONF" --edit "main/server=$newserver" --edit "main/configtimeout=$newconfigtimeout"
+		ini-util "$PUPPET_CONF" --edit "main/server=$newserver" "main/configtimeout=$newconfigtimeout"
 		RES=$?
 		if [ $RES -eq 0 ]; then
 			/usr/sbin/service puppet reload
