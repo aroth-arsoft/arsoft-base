@@ -29,7 +29,7 @@ cups_update_conf() {
 		fi
 		
 		cups_encryption=`get_dns_txt_record "_encryption._ipp._config.$new_domain_name."`
-		[ -z "$cups_encryption" ] && cups_encryption=`awk '/^ *(Encryption)/ { print $2 }' "$CUPS_CLIENT_CONF"`
+		[ -z "$cups_encryption" -a -r "$CUPS_CLIENT_CONF" ] && cups_encryption=`awk '/^ *(Encryption)/ { print $2 }' "$CUPS_CLIENT_CONF"`
 		[ -z "$cups_encryption" ] && cups_encryption='IfRequested'
 	else
 		cups_encryption=''
@@ -40,8 +40,8 @@ cups_update_conf() {
 	
 	if [ ! -z "$cups_server" -a ! -z "$cups_encryption" ]; then
 		tmp=$(mktemp "$CUPS_CLIENT_CONF.XXXXXX") || return
-		chmod --reference=$CUPS_CLIENT_CONF $tmp
-		chown --reference=$CUPS_CLIENT_CONF $tmp
+		[ -f "$CUPS_CLIENT_CONF" ] && chmod --reference="$CUPS_CLIENT_CONF" $tmp
+		[ -f "$CUPS_CLIENT_CONF" ] && chown --reference="$CUPS_CLIENT_CONF" $tmp
 		#[ $verbose -ne 0 ] && echo "apply config from $CUPS_CLIENT_CONF to $tmp"
 		(
 			sed -r -e "s@^[ ]*ServerName[ ]+(.*)\$@ServerName $cups_server@" \

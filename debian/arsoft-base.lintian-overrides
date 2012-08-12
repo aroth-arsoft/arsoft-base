@@ -33,3 +33,4 @@ arsoft-base binary: binary-without-manpage usr/bin/ssh-nogss
 arsoft-base binary: binary-without-manpage usr/sbin/tftp-update-installers
 arsoft-base binary: binary-without-manpage usr/sbin/vizone
 arsoft-base binary: binary-without-manpage usr/bin/xpid
+arsoft-base binary: binary-without-manpage usr/bin/wine-rebuild-menu

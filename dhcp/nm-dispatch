@@ -2,6 +2,11 @@
 interface=$1
 status=$2
 
+[ -f /etc/default/arsoft-dhcp-client ] && source /etc/default/arsoft-dhcp-client
+
+# bail out when dhclient should not be used
+[ "$ARSOFT_DHCP_DISPATCHER" != 'NetworkManager' ] && return
+
 # Run the right scripts
 case "$2" in
     up|vpn-up)

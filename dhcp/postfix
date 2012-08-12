@@ -26,7 +26,8 @@ postfix_setup() {
 
 	if [ "$old_mailname" != "$mailname" ]; then
 		echo "$mailname" > $MAILNAME_FILE
-		/usr/sbin/postconf -c "$POSTFIX_CONFIG_DIR" -e "myhostname=$mailname" "mydomain=$maildomain" && /usr/sbin/service postfix reload
+		# maybe postfix is not installed
+		[ -x /usr/sbin/postconf ] && /usr/sbin/postconf -c "$POSTFIX_CONFIG_DIR" -e "myhostname=$mailname" "mydomain=$maildomain" && /usr/sbin/service postfix reload
 	fi
 }
 

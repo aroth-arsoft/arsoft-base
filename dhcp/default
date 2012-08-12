@@ -1,0 +1,10 @@
+#
+# configuration file for the arsoft-dhcp-client scripts
+#
+
+ARSOFT_DHCP_DISPATCHER='dhclient'
+ARSOFT_DHCLIENT_INVOKE_NM=1
+
+#
+# EOF
+#

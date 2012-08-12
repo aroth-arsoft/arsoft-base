@@ -9,7 +9,7 @@ ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-dhcp/dhclient-exit'
 ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_ENTER='apt cups heimdal postfix ldap puppet'
 ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_EXIT='apt cups heimdal postfix ldap puppet'
 
-[ -r /etc/default/arsoft-scripts ] && source /etc/default/arsoft-scripts
+[ -f /etc/default/arsoft-dhcp-client ] && source /etc/default/arsoft-dhcp-client
 
 scriptdir='/usr/sbin'
 realscriptfile=`readlink -f "$0"`
@@ -141,6 +141,11 @@ function perform_action() {
 	log_info "phase $phase"
 	log_info "reason $reason"
 
+	log_info "new_host_name $new_host_name"
+	log_info "new_domain_name $new_domain_name"
+	log_info "old_host_name $old_host_name"
+	log_info "old_domain_name $old_domain_name"
+	
 	if [ "$phase" == 'enter' ]; then
 		run_enter_scripts "$@"
 	elif [ "$phase" == 'exit' ]; then
@@ -160,8 +165,12 @@ function prepare_testing() {
 	[ -z "$phase" ] && phase='exit'
 	realscriptfile=`readlink -f "$0"`
 	scriptdir=`dirname "$realscriptfile"`
-	ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR="$scriptdir"
-	ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR="$scriptdir"
+	if [ -f "$scriptdir/../Makefile" ]; then
+		# if we run from the source directory, use the script
+		# directory as enter and exit script dir
+		ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR="$scriptdir"
+		ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR="$scriptdir"
+	fi
 }
 
 function usage() {

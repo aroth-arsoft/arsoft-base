@@ -1,5 +1,8 @@
+etc/default/arsoft-dhcp-client
 etc/dhcp/dhclient-exit-hooks.d/arsoft-dhcp-client-exit
 etc/dhcp/dhclient-enter-hooks.d/arsoft-dhcp-client-enter
+etc/NetworkManager/dispatcher.d/20arsoft-nm-dispatch
+usr/lib/arsoft-dhcp/dhclient-script
 usr/lib/arsoft-dhcp/dhclient-master-script
 usr/lib/arsoft-dhcp/dhclient-exit/apt
 usr/lib/arsoft-dhcp/dhclient-exit/cups
@@ -8,4 +11,3 @@ usr/lib/arsoft-dhcp/dhclient-exit/ldap
 usr/lib/arsoft-dhcp/dhclient-exit/network
 usr/lib/arsoft-dhcp/dhclient-exit/postfix
 usr/lib/arsoft-dhcp/dhclient-exit/puppet
-etc/NetworkManager/dispatcher.d/20arsoft-nm-dispatch
