@@ -1,3 +1,10 @@
+arsoft-base (2.16) precise; urgency=low
+
+  * stop messing around with dhclient-script
+  * restore the original dhclient-script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 15 Aug 2012 07:34:47 +0200
+
 arsoft-base (2.15) precise; urgency=low
 
   * improve arsoft-dhcp-client to better work with NetworkManager

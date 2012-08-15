@@ -1,13 +1,4 @@
 #!/bin/bash
-
-# This has been modified to get the dhclient-{enter,exit}-script.d
-# scripts working with NM.
-# Launchpad bug report: 
-# https://bugs.launchpad.net/ubuntu/+source/network-manager/+bug/293139
-NM_DHCLIENT_SCRIPT=/usr/lib/NetworkManager/nm-dhcp-client.action
-
-[ -f /etc/default/arsoft-dhcp-client ] && source /etc/default/arsoft-dhcp-client
-
 # dhclient-script for Linux. Dan Halbert, March, 1997.
 # Updated for Linux 2.[12] by Brian J. Murrell, January 1999.
 # Modified for Debian.  Matt Zimmerman and Eloy Paris, December 2003
@@ -395,10 +386,5 @@ case "$reason" in
 
         ;;
 esac
-
-# invoke the nm-dhcp-client.action only when the script
-# exists (and is executable) and when the dhclient should
-# invoke the NM
-[ -x $NM_DHCLIENT_SCRIPT -a $ARSOFT_DHCLIENT_INVOKE_NM -ne 0 ] && $NM_DHCLIENT_SCRIPT
 
 exit_with_hooks 0

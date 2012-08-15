@@ -1,9 +1,0 @@
-#!/bin/sh -e
-PKG=arsoft-dhcp-client
-
-if [ "$1" = remove ] ; then
-	dpkg-divert --remove --package ${PKG} --rename \
-				--divert /sbin/dhclient-script.distrib /sbin/dhclient-script
-fi
-#DEBHELPER#
-exit 0

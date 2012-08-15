@@ -2,11 +2,17 @@
 PKG=arsoft-dhcp-client
 
 if [ "$1" = configure ] ; then
-    dpkg-divert --add --package ${PKG} --rename \
-                --divert /sbin/dhclient-script.distrib /sbin/dhclient-script
-	# override the original dhclient-script with our own (modified)
-	# version of the script
-	install -m 0755 -o root -g root /usr/lib/arsoft-dhcp/dhclient-script /sbin/dhclient-script
+	if [ -f /sbin/dhclient-script.distrib ]; then
+		[ -f /sbin/dhclient-script ] && rm /sbin/dhclient-script
+		dpkg-divert --remove --package ${PKG} --rename \
+					--divert /sbin/dhclient-script.distrib /sbin/dhclient-script
+		# normally we should do the following:
+		# [ ! -f /sbin/dhclient-script ] && mv /sbin/dhclient-script.distrib /sbin/dhclient-script
+		# but we have the original dhclient-script in /usr/lib/arsoft-dhcp/dhclient-script
+		# so we restore this one, since the /sbin/dhclient-script.distrib might be
+		# modified or compromised.
+		cp /usr/lib/arsoft-dhcp/dhclient-script /sbin/dhclient-script
+	fi
 fi
 
 #DEBHELPER#

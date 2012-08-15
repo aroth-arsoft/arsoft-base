@@ -1,8 +1,3 @@
 #!/bin/sh
 
-[ -f /etc/default/arsoft-dhcp-client ] && . /etc/default/arsoft-dhcp-client
-
-# bail out when dhclient should not be used
-[ "$ARSOFT_DHCP_DISPATCHER" != 'dhclient' ]  && exit 0
-
 /usr/lib/arsoft-dhcp/dhclient-master-script exit interface "$interface" "$reason"
