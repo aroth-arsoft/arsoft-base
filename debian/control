@@ -68,3 +68,19 @@ Architecture: all
 Depends: arsoft-base, libimage-exiftool-perl, odt2txt, ${misc:Depends}, ${python:Depends} 
 Description: some helper scripts for Subversion
  a collection of Subversion helper scripts.
+
+Package: arsoft-nagios-agent
+Architecture: all
+Depends: arsoft-base, arsoft-python, nagios-nrpe-server, nagios-plugins-basic, nagios-plugins-extra, 
+ nagios-plugins-standard, libnagios-plugin-perl, lm-sensors, hddtemp, ${misc:Depends}
+Description: Nagios agent for AR Soft machines
+ Installs all files and packages required to set up a Nagios agent
+ on a AR Soft machine.
+
+Package: arsoft-nagios-server
+Architecture: all
+Depends: arsoft-base, nagios3, ${misc:Depends}
+Description: Nagios server for AR Soft machines
+ Installs all files and packages required to set up a Nagios main server
+ on a AR Soft machine. Usually only one machine in your network is designated
+ to run a Nagios server and monitors all machines in your network.
