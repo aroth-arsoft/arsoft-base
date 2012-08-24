@@ -79,7 +79,8 @@ Description: Nagios agent for AR Soft machines
 
 Package: arsoft-nagios-server
 Architecture: all
-Depends: arsoft-base, nagios3, ${misc:Depends}
+Depends: arsoft-base, nagios3, nagios-nrpe-plugin, ${misc:Depends}
+Suggests: arsoft-nagios-agent
 Description: Nagios server for AR Soft machines
  Installs all files and packages required to set up a Nagios main server
  on a AR Soft machine. Usually only one machine in your network is designated

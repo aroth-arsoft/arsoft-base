@@ -1,3 +1,9 @@
+arsoft-base (2.18) precise; urgency=low
+
+  * minor nagios fixes
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 24 Aug 2012 20:07:28 +0200
+
 arsoft-base (2.17) precise; urgency=low
 
   * add nagios packages
