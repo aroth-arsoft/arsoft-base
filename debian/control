@@ -72,10 +72,14 @@ Description: some helper scripts for Subversion
 Package: arsoft-nagios-agent
 Architecture: all
 Depends: arsoft-base, arsoft-python, nagios-nrpe-server, nagios-plugins-basic, nagios-plugins-extra, 
- nagios-plugins-standard, libnagios-plugin-perl, lm-sensors, hddtemp, ${misc:Depends}
+ nagios-plugins-standard, libnagios-plugin-perl, lm-sensors, hddtemp, dnsutils, ${misc:Depends}
 Description: Nagios agent for AR Soft machines
  Installs all files and packages required to set up a Nagios agent
- on a AR Soft machine.
+ on a AR Soft machine and monitor
+ - CPU temperature
+ - Harddisk temperature
+ - AVM Fritzbox
+ - and more
 
 Package: arsoft-nagios-server
 Architecture: all

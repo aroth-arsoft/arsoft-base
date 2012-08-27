@@ -1,3 +1,9 @@
+arsoft-base (2.19) precise; urgency=low
+
+  * fixed nagios agent issues (missing quotes and missing dnsutils)
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 27 Aug 2012 19:13:57 +0200
+
 arsoft-base (2.18) precise; urgency=low
 
   * minor nagios fixes
