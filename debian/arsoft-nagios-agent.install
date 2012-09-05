@@ -1,4 +1,4 @@
-etc/nagios-plugins/config/fritzbox.cfg
 etc/nagios-plugins/config/lm_sensors.cfg
-usr/lib/nagios/plugins/check_fritzbox
+etc/nagios-plugins/config/ssl_cert.cfg
+usr/lib/nagios/plugins/check_ssl_cert
 usr/lib/nagios/plugins/check_lm_sensors

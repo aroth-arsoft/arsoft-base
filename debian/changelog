@@ -1,3 +1,10 @@
+arsoft-base (2.20) precise; urgency=low
+
+  * remove check_fritzbox nagios plugin (moved to arsoft-python)
+  * add check_ssl_cert nagios plugin
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 05 Sep 2012 19:48:56 +0200
+
 arsoft-base (2.19) precise; urgency=low
 
   * fixed nagios agent issues (missing quotes and missing dnsutils)

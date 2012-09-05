@@ -1,2 +1,0 @@
-#!/bin/sh
-/usr/bin/fritzbox-status --nagios --minup "$2" --maxup "$3" --mindown "$4" --maxdown "$5" "$1"
