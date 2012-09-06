@@ -1,3 +1,9 @@
+arsoft-base (2.21) precise; urgency=low
+
+  * fixed depends issues with arsoft-python packages
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 06 Sep 2012 07:55:15 +0200
+
 arsoft-base (2.20) precise; urgency=low
 
   * remove check_fritzbox nagios plugin (moved to arsoft-python)
