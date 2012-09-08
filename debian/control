@@ -58,10 +58,10 @@ Description: some helper script to set up MythTV
 
 Package: arsoft-scripts-cyrusimapd
 Architecture: all
-Depends: arsoft-cyrusimapd-2.4, ${misc:Depends}, ${python:Depends} 
-Description: backup script for the Cyrus IMAP server
- installs a backup script for the Cyrus IMAP server to
- backup the configuration and data to a different location.
+Depends: ${misc:Depends}, ${python:Depends} 
+Description: scripts for the Cyrus IMAP server
+ This package provides a backup script for the Cyrus IMAP server to
+ save and restore the configuration and data to a different location.
 
 Package: arsoft-scripts-svn
 Architecture: all

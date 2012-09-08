@@ -1,3 +1,9 @@
+arsoft-base (2.22) precise; urgency=low
+
+  * fixed cyrusimap clients depends issue
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 08 Sep 2012 14:20:14 +0200
+
 arsoft-base (2.21) precise; urgency=low
 
   * fixed depends issues with arsoft-python packages
