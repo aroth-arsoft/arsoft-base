@@ -8,7 +8,7 @@ Homepage: http://www.arsoft-online.com
 
 Package: arsoft-base
 Architecture: all
-Depends: arsoft-ppa,
+Depends: arsoft-ppa, arsoft-python, 
  tzdata, mc, screen,
  unzip, zip, iotop, htop,
  ntfsprogs, xfsprogs, cryptsetup,
@@ -44,7 +44,7 @@ Description: VIM configuration for AR Soft machines
 Package: arsoft-dhcp-client
 Architecture: all
 Replaces: arsoft-scripts-dhcp
-Depends: arsoft-base, arsoft-python, ${dhcpclient:Depends}, ${misc:Depends}, ${python:Depends} 
+Depends: arsoft-base, ${dhcpclient:Depends}, ${misc:Depends}, ${python:Depends} 
 Description: script for network configuration
  installs dhcp client scripts to configure your workstations
  according to data provided by DHCP, DNS and LDAP.

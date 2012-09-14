@@ -29,7 +29,6 @@ usr/sbin/apt-cleanup
 usr/sbin/kmesg
 usr/sbin/apt-key-import
 usr/sbin/puppet-node
-usr/sbin/nsswitch-ldap
 usr/sbin/dns-update
 usr/sbin/nfs-control
 usr/sbin/apt-purge-removed

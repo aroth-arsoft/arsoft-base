@@ -1,3 +1,9 @@
+arsoft-base (2.23) precise; urgency=low
+
+  * move nsswitch-ldap to arsoft-python package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 14 Sep 2012 18:32:13 +0200
+
 arsoft-base (2.22) precise; urgency=low
 
   * fixed cyrusimap clients depends issue
