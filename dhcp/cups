@@ -10,11 +10,7 @@ CUPS_USE_DNS_INFO='auto'
 [ -f "$DEFAULT_CUPS" ] && source "$DEFAULT_CUPS"
 
 if [ "$CUPS_USE_DNS_INFO" == 'auto' ]; then
-	if [ -f "$CUPS_PRINTERS_CONF" ]; then
-		CUPS_USE_DNS_INFO=0
-	else
-		CUPS_USE_DNS_INFO=1
-	fi
+	CUPS_USE_DNS_INFO=1
 fi
 
 cups_update_conf() {
@@ -38,6 +34,23 @@ cups_update_conf() {
 	log_info "cups_server $cups_server"
 	log_info "cups_encryption $cups_encryption"
 	
+	if [ -f "$CUPS_PRINTERS_CONF" ]; then
+		if [ ! -z "$cups_server" ]; then
+			log_info "add remote printers from $cups_server"
+			# using local CUPS server and import all remote printers
+			/usr/sbin/cups-admin --server localhost --add-remote "$cups_server"
+			if [ $? -eq 0 ]; then
+				# We have added printer from the remote server to the local one
+				# so now we should use it.
+				cups_server='localhost'
+			else
+				# something went wrong, so no further actions
+				cups_encryption=''
+				cups_server=''
+			fi
+		fi
+	fi
+
 	if [ ! -z "$cups_server" -a ! -z "$cups_encryption" ]; then
 		tmp=$(mktemp "$CUPS_CLIENT_CONF.XXXXXX") || return
 		[ -f "$CUPS_CLIENT_CONF" ] && chmod --reference="$CUPS_CLIENT_CONF" $tmp

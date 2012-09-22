@@ -1,7 +1,8 @@
 SVN_BIN_SCRIPTS := mimediff \
 		oodiff \
 		zipdiff \
-		imagediff
+		imagediff \
+		git-notifier
 
 .PHONY: all
 

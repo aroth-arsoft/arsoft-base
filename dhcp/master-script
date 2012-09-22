@@ -6,13 +6,13 @@ dispatcher=''
 
 ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR='/usr/lib/arsoft-dhcp/dhclient-enter'
 ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-dhcp/dhclient-exit'
-ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_ENTER='apt cups heimdal postfix ldap puppet'
-ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_EXIT='apt cups heimdal postfix ldap puppet'
+DEFAULT_SCRIPT_LIST='apt cups heimdal postfix ldap puppet'
 
 [ -f /etc/default/arsoft-dhcp-client ] && . /etc/default/arsoft-dhcp-client
 
 scriptdir='/usr/sbin'
 realscriptfile=`readlink -f "$0"`
+script_list="$DEFAULT_SCRIPT_LIST"
 
 function log_debug() {
 	[ $debug -ne 0 ] && echo "$@"
@@ -118,7 +118,7 @@ function run_enter_scripts() {
 	local exit_status
 	local basescriptdir=''
 	[ $debug -ne 0 ] && basescriptdir=`dirname "$realscriptfile"`'/../'
-	for current_script in $ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_ENTER; do
+	for current_script in $script_list; do
 		[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
 		run_hook "$ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR/$current_script" "$@" || true
 		exit_status=$?
@@ -131,7 +131,7 @@ function run_exit_scripts() {
 	local exit_status
 	local basescriptdir=''
 	[ $debug -ne 0 ] && basescriptdir=`dirname "$realscriptfile"`'/../'
-	for current_script in $ARSOFT_SCRIPTS_DHCLIENT_ACTIVE_EXIT; do
+	for current_script in $script_list; do
 		[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
 		run_hook "$ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR/$current_script" "$@" || true
 		exit_status=$?
@@ -186,10 +186,17 @@ function usage() {
 	echo "        enter         run the enter hook scripts"
 	echo "        if|interface|iface"
 	echo "                      specified the interface to run the scripts for."
-	echo "the following reason can be specified for dhclient dispatcher operation:"
+	echo ""
+	echo "OPTIONS:"
+	echo "        -h, --help    shows this help"
+	echo "        -v            enable verbose output"
+	echo "        -d [scripts]  enable debug output and selects the scripts to execute"
+	echo ""
+	echo "The following reason can be specified for dhclient dispatcher operation:"
 	echo "  MEDIUM, PREINIT, BOUND, RENEW, REBIND, REBOOT, EXPIRE, FAIL, STOP, RELEASE, NBI, TIMEOUT"
-	echo "the following reason can be specified for NetworkManager dispatcher operation:"
+	echo "The following reason can be specified for NetworkManager dispatcher operation:"
 	echo "  up, vpn-up, down, vpn-down, hostname, dhcp4-change, dhcp6-change"
+	echo ""
 	exit 0
 }
 
@@ -230,11 +237,26 @@ function import_variables() {
 }
 
 # parse command line arguments
-while [ $# -ne 0 ]; do        
-	case "$1" in          
+while [ $# -ne 0 ]; do
+	case "$1" in
 	'-?'|'-h'|'--help') usage;; 
 	'-v'|'--verbose') verbose=1; ;;
-	'-d'|'--debug') debug=1; ;;
+	'-d'|'--debug') 
+		debug=1
+		script_list=''
+		while [ $# -ne 0 ]; do
+			case "$2" in
+				'apt'|'cups'|'heimdal'|'postfix'|'ldap'|'puppet')
+					script_list="$script_list $2"
+					shift
+					;;
+				*)
+					break
+					;;
+			esac
+		done
+		[ -z "$script_list" ] && script_list="$DEFAULT_SCRIPT_LIST"
+		;;
 	'enter'|'exit') phase="$1"; ;;
 	'MEDIUM'|'PREINIT'|'BOUND'|'RENEW'|'REBIND'|'REBOOT'|'EXPIRE'|'FAIL'|'STOP'|'RELEASE'|'NBI'|'TIMEOUT') dispatcher='dhclient'; reason="$1"; ;;
 	'up'|'vpn-up'|'down'|'vpn-down'|'hostname'|'dhcp4-change'|'dhcp6-change') dispatcher='NetworkManager'; reason="$1"; ;;
@@ -264,10 +286,10 @@ else
 		log_err "$realscriptfile: no reason specified."
 		exit 1
 	fi
-	
-	# import all variables from either NetworkManager or dhclient
-	import_variables
 fi
+
+# import all variables from either NetworkManager or dhclient
+import_variables
 
 # ready to do the action
 perform_action

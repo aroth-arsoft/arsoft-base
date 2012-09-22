@@ -2,3 +2,4 @@ usr/bin/mimediff
 usr/bin/oodiff
 usr/bin/zipdiff
 usr/bin/imagediff
+usr/bin/git-notifier

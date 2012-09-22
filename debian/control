@@ -63,11 +63,12 @@ Description: scripts for the Cyrus IMAP server
  This package provides a backup script for the Cyrus IMAP server to
  save and restore the configuration and data to a different location.
 
-Package: arsoft-scripts-svn
+Package: arsoft-scm
 Architecture: all
 Depends: arsoft-base, libimage-exiftool-perl, odt2txt, ${misc:Depends}, ${python:Depends} 
-Description: some helper scripts for Subversion
- a collection of Subversion helper scripts.
+Replaces: arsoft-scripts-svn
+Description: some helper scripts for various SCM systems
+ a collection of helper scripts for Subversion and GIT.
 
 Package: arsoft-nagios-agent
 Architecture: all
@@ -76,10 +77,10 @@ Depends: arsoft-base, arsoft-python-nagios, nagios-nrpe-server, nagios-plugins-b
 Description: Nagios agent for AR Soft machines
  Installs all files and packages required to set up a Nagios agent
  on a AR Soft machine and monitor
- - CPU temperature
- - Harddisk temperature
- - AVM Fritzbox
- - and more
+  - CPU temperature
+  - Harddisk temperature
+  - AVM Fritzbox
+  - and more
 
 Package: arsoft-nagios-server
 Architecture: all
