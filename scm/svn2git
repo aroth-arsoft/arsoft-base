@@ -6,14 +6,21 @@ repo_git=''
 mail_domain=''
 authors_file=''
 update_authors_file=0
+update_lookup_table=0
 rootistrunk=0
+nometadata=0
 
 function usage()
 {
     echo "svn2git <svnrepo> <gitrepo>"
-    echo "    -h, --help      shows this help screen"
-    echo "    -v, --verbose   enable verbose output"
-    echo "    --domain        specifies the domain for the users"
+    echo "    -h, --help         shows this help screen"
+    echo "    -v, --verbose      enable verbose output"
+    echo "    --domain           specifies the domain for the users"
+    echo "    --authors <file>   specifies the a own file to map SVN user names to GIT users"
+    echo "    --update-authors   update the authors file"
+    echo "    --rootistrunk      given SVN repository has trunk as its root directory (no tags, branches)"
+    echo "    --lookuptable      generates a lookup table to map SVN revision numbers to GIT commits"
+    echo "    --no-metadata      do not include SVN metadata (revision numbers) in the commit messages."
     exit 0
 }
 
@@ -25,66 +32,98 @@ function verbose_exec()
 
 function convert_using_ruby_svn2git() {
 
+	if [ -d "$repo_git" ]; then
+		repo_git=`readlink -f "$repo_git"`
+		if [ -d "$repo_git/.git" ]; then
+			echo "A GIT repository already exists in $repo_git. Refusing to do anything!"
+			return 1
+		elif [ -f "$repo_git/config" -a -f "$repo_git/HEAD" ]; then
+			echo "A bare GIT repository already exists in $repo_git. Refusing to do anything!"
+			return 1
+		else
+			echo "Warning: The directory $repo_git already exists and will be used as target GIT repository."
+		fi
+	else
+		# target directory does not yet exist, so create it
+		mkdir -p "$repo_git"
+		repo_git=`readlink -f "$repo_git"`
+	fi
+
 	repo_git_full=`mktemp -d "$repo_git.XXXXXX"`
 	pushd "$repo_git_full" > /dev/null
 	
 	svn2git_opts=''
 	[ $rootistrunk -ne 0 ] && svn2git_opts="$svn2git_opts --rootistrunk"
 	[ $verbose -ne 0 ] && svn2git_opts="$svn2git_opts --verbose"
+	[ $nometadata -eq 0 ] && svn2git_opts="$svn2git_opts --metadata"
 
 	echo "Convert the SVN repository into GIT..."
+	[ $verbose -ne 0 ] && echo "/usr/local/bin/svn2git \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
 	/usr/local/bin/svn2git "$repo_svn" $svn2git_opts --authors "$authors_file"
 	if [ $? -eq 0 ]; then
 		echo "SVN import successful."
+
+		echo "Convert temporary GIT repository into bare GIT repository..."
+		pushd "$repo_git" > /dev/null
+		git clone --bare "$repo_git_full" "$repo_git"
+		if [ $? -eq 0 ]; then
+			# set some basic configuration properties
+			git config core.sharedrepository 1
+			git config receive.denyNonFastforwards true
+			# The core.sharedrepository flag tells git to keep everything group readable and writable.
+			# The receive.denyNonFastforwards flag makes sure that merges can't happen when you push to 
+			# the repo. You have to do the merges on your local machine, and then push the result.
+
+			# Make sure permissions are set properly
+			# find "$repo_git/objects" -type d -exec chmod 02770 {} \;
+
+			update_lookup_table
+
+			echo "Conversion completed successfully."
+		else
+			echo "Conversion completed with errors."
+		fi
+		popd > /dev/null
 	else
 		echo "SVN import with errors."
 	fi
 	popd > /dev/null
-	
-	echo "Convert temporary GIT repository into bare GIT repository..."
-	pushd "$repo_git" > /dev/null
-	git clone --bare "$repo_git_full" "$repo_git"
-	if [ $? -eq 0 ]; then
-		# set some basic configuration properties
-		git config core.sharedrepository 1
-		git config receive.denyNonFastforwards true
-		# The core.sharedrepository flag tells git to keep everything group readable and writable.
-		# The receive.denyNonFastforwards flag makes sure that merges can't happen when you push to 
-		# the repo. You have to do the merges on your local machine, and then push the result.
 
-		# Make sure permissions are set properly
-		# find "$repo_git/objects" -type d -exec chmod 02770 {} \;
-
-		echo "Conversion completed successfully."
-	else
-		echo "Conversion completed with errors."
-	fi
-	popd > /dev/null
-	
 	# remove the temporary directory with the full GIT repo
 	rm -rf "$repo_git_full"
 }
 
-function convert_using_git_svn() {
+function update_lookup_table() {
+	# This script creates a 'lookup table', matching SVN revision IDs with GIT revision IDs
+	# Run it inside a GIT repository that is imported from SVN with "git svn".
+	#
+	# Usage:
+	#	createLookupTable > lookupTable.txt
+	local lookup_table_file="$repo_git/svn2git_lookup"
+	
 	pushd "$repo_git" > /dev/null
-	echo "Cloning the SVN repository into GIT..."
-	git svn clone -A "$author_map_temp" --no-metadata --preserve-empty-dirs -s "$repo_svn" 
+	echo "Creates a lookup table between SVN IDs and Git IDs..."
+	revlist_temp=`mktemp /tmp/svn2git.XXXXXX`
+	git rev-list --all --pretty=medium > "$revlist_temp"
 
-	echo "Fetching the SVN repository..."
-	git svn fetch
+	svnlist_temp=`mktemp /tmp/svn2git.XXXXXX`
+	gitlist_temp=`mktemp /tmp/svn2git.XXXXXX`
+	
+	# Now extract the git hash and the svn ID. Then we join lines pair-wise and we have our table
+	cat "$revlist_temp" | grep git-svn-id | sed -r -e 's/[[:space:]]+git-svn-id: [[:print:]]+@([[:digit:]]+) .*/\1/' > "$svnlist_temp"
+	cat "$revlist_temp" | awk '/^commit/ { print $2 }' > "$gitlist_temp"
+	
+	#cp "$revlist_temp" "$repo_git/revlist"
+	#cp "$svnlist_temp" "$repo_git/svnlist"
+	#cp "$gitlist_temp" "$repo_git/commitlist"
 
-	echo "Removing useless commits..."
-	git filter-branch --prune-empty --tag-name-filter cat -- --all
+	# Join them and write the lookup table to standard output
+	paste "$svnlist_temp" "$gitlist_temp" | sort -n > "$lookup_table_file"
 
-	echo "Changing tagging commits to tags..."
-	git for-each-ref --format="%(refname)" refs/remotes/tags/ |
-	while read tag; do
-		GIT_COMMITTER_DATE="$(git log -1 --pretty=format:"%ad" "$tag")" \
-		GIT_COMMITTER_EMAIL="$(git log -1 --pretty=format:"%ce" "$tag")" \
-		GIT_COMMITTER_NAME="$(git log -1 --pretty=format:"%cn" "$tag")" \
-		git tag -m "$(git for-each-ref --format="%(contents)" "$tag")" \
-			${tag#refs/remotes/tags/} "$tag"
-	done
+	# Clean up
+	rm -f "$svnlist_temp" "$gitlist_temp" "$revlist_temp"
+	
+	echo "Completed: $lookup_table_file"
 
 	popd > /dev/null
 }
@@ -100,61 +139,80 @@ while [ $# -ne 0 ]; do
         "--authors") authors_file="$2"; shift; ;;
         "--update-authors") update_authors_file=1; ;;
         '--rootistrunk') rootistrunk=1; ;;
+        '--lookuptable') update_lookup_table=1; ;;
+        '--no-metadata') nometadata=1; ;;
         *)
-            if [ -z "$repo_svn" ]; then
-                repo_svn="$1"
-            elif [ -z "$repo_git" ]; then
-                repo_git="$1"
-            else
-                echo "Both repositories has alreayd been specified (svn: $repo_svn, git: $repo_git)."
-                exit 1
-            fi
+			if [ $update_lookup_table -eq 0 ]; then
+				if [ -z "$repo_svn" ]; then
+					repo_svn="$1"
+				elif [ -z "$repo_git" ]; then
+					repo_git="$1"
+				else
+					echo "Both repositories has alreayd been specified: svn: $repo_svn, git: $repo_git."
+					exit 1
+				fi
+			else
+				if [ -z "$repo_git" ]; then
+					repo_git="$1"
+				else
+					echo "GIT repository has alreayd been specified: $repo_git."
+					exit 1
+				fi
+			fi
             ;;
     esac
     shift
 done
 
-if [ ! -x "/usr/local/bin/svn2git" ]; then
-	echo "svn2git ruby script not installed. Please install using 'sudo gem install svn2git'."
-	exit 1
-fi
-
-if [ -z "$repo_svn" ]; then
-	echo "No SVN source repository specified."
-	exit 1
-elif [ -d "$repo_svn" ]; then
-	repo_svn="file://$repo_svn"
-	echo "Local SVN repository specified. Using URL $repo_svn"
-fi
-
-if [ -z "$repo_git" ]; then
-	echo "No GIT target repository specified."
-	exit 1
-fi
-
 script_file=`readlink -f "$0"`
 script_dir=`dirname "$script_file"`
 
-[ ! -d "$repo_git" ] && mkdir -p "$repo_git"
-
-repo_name=`basename "$repo_svn"`
-echo "Repository name: $repo_name"
-
-[ -z "$mail_domain" ] && mail_domain=`dnsdomainname`
-if [ -z "$authors_file" ]; then
-	if [ -f "$HOME/.svn2git/authors_$repo_name" -a $update_authors_file -eq 0 ]; then
-		authors_file="$HOME/.svn2git/authors_$repo_name"
-	else
-		author_map_temp=`mktemp /tmp/svn2git.XXXXXX`
-		echo "Gathering information about authors from $repo_svn..."
-		svn log "$repo_svn" |\
-			awk -F '|' "/r[0-9]+/ { sub(/^[ ]+/, \"\", \$2); sub(/[ ]+$/, \"\", \$2); org=\$2; sub(/@.*/, \"\", \$2); print org \" = \" \$2 \" <\" \$2 \"@$mail_domain>\"; }" |\
-			sort -u > "$author_map_temp"
-		cp "$author_map_temp" "$HOME/.svn2git/authors_$repo_name"
-		authors_file="$HOME/.svn2git/authors_$repo_name"
-		rm -f "$author_map_temp"
+if [ $update_lookup_table -eq 0 ]; then
+	if [ ! -x "/usr/local/bin/svn2git" ]; then
+		echo "svn2git ruby script not installed. Please install using 'sudo gem install svn2git'."
+		exit 1
 	fi
-fi
-echo "Author map: $authors_file"
 
-convert_using_ruby_svn2git
+	if [ -z "$repo_svn" ]; then
+		echo "No SVN source repository specified."
+		exit 1
+	elif [ -d "$repo_svn" ]; then
+		repo_svn="file://$repo_svn"
+		echo "Local SVN repository specified. Using URL $repo_svn"
+	fi
+
+	if [ -z "$repo_git" ]; then
+		echo "No GIT target repository specified."
+		exit 1
+	fi
+
+	repo_name=`basename "$repo_svn"`
+	echo "Repository name: $repo_name"
+
+	[ -z "$mail_domain" ] && mail_domain=`dnsdomainname`
+	if [ -z "$authors_file" ]; then
+		if [ -f "$HOME/.svn2git/authors_$repo_name" -a $update_authors_file -eq 0 ]; then
+			authors_file="$HOME/.svn2git/authors_$repo_name"
+		else
+			author_map_temp=`mktemp /tmp/svn2git.XXXXXX`
+			echo "Gathering information about authors from $repo_svn..."
+			svn log "$repo_svn" |\
+				awk -F '|' "/r[0-9]+/ { sub(/^[ ]+/, \"\", \$2); sub(/[ ]+$/, \"\", \$2); org=\$2; sub(/@.*/, \"\", \$2); print org \" = \" \$2 \" <\" \$2 \"@$mail_domain>\"; }" |\
+				sort -u > "$author_map_temp"
+			cp "$author_map_temp" "$HOME/.svn2git/authors_$repo_name"
+			authors_file="$HOME/.svn2git/authors_$repo_name"
+			rm -f "$author_map_temp"
+		fi
+	fi
+	echo "Author map: $authors_file"
+
+	convert_using_ruby_svn2git
+else
+	if [ -z "$repo_git" ]; then
+		echo "No GIT repository specified."
+		exit 1
+	fi
+	repo_git=`readlink -f "$repo_git"`
+	
+	update_lookup_table
+fi
