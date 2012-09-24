@@ -1,3 +1,15 @@
+arsoft-base (2.26) precise; urgency=low
+
+  * remove accidentally added database file
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 24 Sep 2012 14:47:10 +0000
+
+arsoft-base (2.25) precise; urgency=low
+
+  * use provided timezone information from dhcp-server
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 24 Sep 2012 14:44:28 +0000
+
 arsoft-base (2.24) precise; urgency=low
 
   * rename arsoft-scripts-svn to arsoft-scm
