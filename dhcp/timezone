@@ -1,0 +1,41 @@
+#!/bin/bash
+
+timezone_update() {
+
+	if [ ! -z "$rfc4833_tz_name" ]; then
+		if [ -f "/usr/share/zoneinfo/$rfc4833_tz_name" ]; then
+			log_info "Using named timezone: $rfc4833_tz_name"
+			if [ -f /etc/localtime ]; then
+				rm /etc/localtime || log_warn "Unable to remove /etc/localtime"
+			fi
+			install -m 0644 -o 0 -g 0 "/usr/share/zoneinfo/$rfc4833_tz_name" /etc/localtime || log_warn "Unable to install /usr/share/zoneinfo/$rfc4833_tz_name to /etc/localtime"
+		else
+			log_info "Retrieved named timezone $rfc4833_tz_name does not exist."
+		fi
+		if [ -w /etc/timezone ]; then
+			echo "$rfc4833_tz_name" > /etc/timezone
+		else
+			log_warn "/etc/timezone not writeable"
+		fi
+	elif [ ! -z "$rfc4833_tz_posix_string" ]; then
+		# TODO convert posix timezone string into usable zonedata
+		log_info "Using posix timezone string: $rfc4833_tz_posix_string"
+	else
+		log_info "No timezone information available"
+	fi
+}
+
+case $reason in
+	# events from dhclient
+	BOUND|RENEW|REBIND|REBOOT)
+		timezone_update
+		;;
+	EXPIRE|FAIL|RELEASE|STOP)
+		;;
+	# events from network-manager
+	up|vpn-up|dhcp4-change|dhcp6-change)
+		timezone_update
+		;;
+    down|vpn-down|hostname)
+        ;;
+esac

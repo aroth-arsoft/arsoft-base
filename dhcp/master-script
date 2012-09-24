@@ -6,13 +6,14 @@ dispatcher=''
 
 ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR='/usr/lib/arsoft-dhcp/dhclient-enter'
 ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-dhcp/dhclient-exit'
-DEFAULT_SCRIPT_LIST='apt cups heimdal postfix ldap puppet'
+DEFAULT_SCRIPT_LIST='apt cups heimdal postfix ldap puppet timezone'
 
 [ -f /etc/default/arsoft-dhcp-client ] && . /etc/default/arsoft-dhcp-client
 
 scriptdir='/usr/sbin'
 realscriptfile=`readlink -f "$0"`
 script_list="$DEFAULT_SCRIPT_LIST"
+current_id=`LANG=C id`
 
 function log_debug() {
 	[ $debug -ne 0 ] && echo "$@"
@@ -144,6 +145,7 @@ function perform_action() {
 	log_info "interface $interface"
 	log_info "phase $phase"
 	log_info "reason $reason"
+	log_info "current_id $current_id"
 
 	log_info "new_host_name $new_host_name"
 	log_info "new_domain_name $new_domain_name"
@@ -152,7 +154,14 @@ function perform_action() {
 
 	log_info "host_name $host_name"
 	log_info "domain_name $domain_name"
-	
+	log_info "dns_servers $dns_servers"
+	log_info "dhcp_server_name $dhcp_server_name"
+	log_info "ntp_servers $ntp_servers"
+	log_info "routers $routers"
+	log_info "ip_address0 $ip_address0"
+	log_info "rfc4833_tz_name $rfc4833_tz_name"
+	log_info "rfc4833_tz_posix_string $rfc4833_tz_posix_string"
+
 	if [ "$phase" == 'enter' ]; then
 		run_enter_scripts "$@"
 	elif [ "$phase" == 'exit' ]; then
@@ -209,6 +218,8 @@ function import_variables() {
 			dhcp_server_name="$new_dhcp_server"
 			ntp_servers="$new_ntp_servers"
 			ip_address0="$new_ip_address"
+			rfc4833_tz_name="$new_rfc4833_tz_name"
+			rfc4833_tz_posix_string="$new_rfc4833_tz_posix_string"
 			;;
 		'NetworkManager')
 			host_name="$DHCP4_HOST_NAME"
@@ -218,6 +229,8 @@ function import_variables() {
 			ntp_servers="$DHCP4_NTP_SERVERS"
 			routers="$DHCP4_ROUTERS"
 			ip_address0="$IP4_ADDRESS_0"
+			rfc4833_tz_name="$DHCP4_RFC4833_TZ_NAME"
+			rfc4833_tz_posix_string="$DHCP4_RFC4833_TZ_POSIX_STRING"
 			;;
 		*)
 			log_err "Unrecognized dispatcher $dispatcher"

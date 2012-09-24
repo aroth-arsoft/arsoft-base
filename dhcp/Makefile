@@ -4,7 +4,8 @@ DHCP_EXIT_HOOKS := apt \
 		ldap \
 		postfix \
 		puppet \
-		network
+		network \
+		timezone
 
 DHCP_ENTER_HOOKS := 
 

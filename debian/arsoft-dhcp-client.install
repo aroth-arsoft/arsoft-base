@@ -11,3 +11,4 @@ usr/lib/arsoft-dhcp/dhclient-exit/ldap
 usr/lib/arsoft-dhcp/dhclient-exit/network
 usr/lib/arsoft-dhcp/dhclient-exit/postfix
 usr/lib/arsoft-dhcp/dhclient-exit/puppet
+usr/lib/arsoft-dhcp/dhclient-exit/timezone
