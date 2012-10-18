@@ -45,11 +45,10 @@ fi
 if [ -z "$outdir" ]; then
 	echo "No output directory specified."
 	exit 1
-else
-	outdir=`readlink -f "$outdir"`
 fi
 
 if [ -d "$outdir" ]; then
+	outdir=`readlink -f "$outdir"`
 	if [ $force -eq 0 ]; then
 		echo "ERROR: output directory already exists." 1>&2
 		exit 1
@@ -59,6 +58,7 @@ if [ -d "$outdir" ]; then
 else
 	# create the output directory, because slaptest does not create it
 	mkdir -p "$outdir"
+	outdir=`readlink -f "$outdir"`
 fi
 
 /usr/sbin/slaptest -f "$configfile" -F "$outdir" -d "$debuglevel"

@@ -1,6 +1,8 @@
 #!/bin/bash
 verbose=0
 slapd_dbdir='/var/lib/ldap'
+slapd_conf_file='/etc/ldap/slapd.conf'
+slapd_conf_dir='/etc/ldap/slapd.d'
 force=0
 dryrun=0
 action='backup'
@@ -59,13 +61,37 @@ function clean_slapd()
 	[ -d "$slapd_dbdir" ] && rm -rf "$slapd_dbdir"/*
 }
 
+function fix_dbdir_perms()
+{
+	find "$slapd_dbdir" -type f -exec chown openldap.openldap {} \;
+}
+
+function backup_file_helper() {
+	local source_file="$1"
+	local dest_dir="$2"
+	
+	if [ -d "$source_file" ]; then
+		source_dir="$source_file"
+		[ ! -d "${dest_dir}${source_dir}" ] && mkdir -p "${dest_dir}${source_dir}"
+		cp -rp "$source_file" "${dest_dir}${source_file}"
+	
+	elif [ -f "$source_file" ]; then
+		source_dir=`dirname "$source_file"`
+		[ ! -d "${dest_dir}${source_dir}" ] && mkdir -p "${dest_dir}${source_dir}"
+		cp -p "$source_file" "${dest_dir}${source_file}"
+	fi
+}
+
 function backup_ldap() {
 	local backup_file="$1"
 	
 	if shutdown_slapd; then
 		local backup_temp=`mktemp -d /tmp/slapd-backup.XXXXXX`
 		local ldiffile="$backup_temp/data.ldif"
-		
+
+		backup_file_helper "$slapd_conf_file" "$backup_temp"
+		backup_file_helper "$slapd_conf_dir" "$backup_temp"
+
 		msg=`/usr/sbin/slapcat -v -l > "$ldiffile"`
 		if [ $? -ne 0 ]; then
 			echo "failed to backup OpenLDAP to $ldiffile" 1>&2
@@ -78,34 +104,68 @@ function backup_ldap() {
 		fi
 		
 		rm -rf "$backup_temp"
+	else
+		echo "failed to shutdown OpenLDAP" 1>&2
 	fi
 }
 
 
 function restore_ldap() {
 	local backup_file="$1"
-	
+	local backup_file_ext="${backup_file#*.}"
+
 	if shutdown_slapd; then
 		clean_slapd
 
 		local backup_temp=`mktemp -d /tmp/slapd-backup.XXXXXX`
-		local ldiffile="$backup_temp/data.ldif"
+		local RES=0
+		local ldiffile=''
+		case "$backup_file_ext" in
+			'gz')
+				msg=`tar xvfz "$backup_file" -C "$backup_temp"`
+				if [ $? -ne 0 ]; then
+					echo "failed to decompress $backup_temp into $backup_file" 1>&2
+				else
+					ldiffile=`find "$backup_temp" -name '*.ldif' -print0`
+				fi
+				;;
+			'bz2')
+				msg=`tar xvfj "$backup_file" -C "$backup_temp"`
+				if [ $? -ne 0 ]; then
+					echo "failed to decompress $backup_temp into $backup_file" 1>&2
+				else
+					ldiffile=`find "$backup_temp" -name '*.ldif' -print0`
+				fi
+				;;
+			'ldif')
+				ldiffile="$backup_temp/all.ldif"
+				cp "$backup_file" "$ldiffile"
+				;;
+			*)
+				RES=1
+				;;
+		esac
 		
-		msg=`tar xvfj "$backup_file" -C "$backup_temp"`
-		if [ $? -ne 0 ]; then
-			echo "failed to decompress $backup_temp into $backup_file" 1>&2
-		fi
-		
-		if [ ! -f "$ldiffile" ]; then
-			echo "backup does not contain slapd data ($ldiffile)." 1>&2
-		fi
-		
-		msg=`/usr/sbin/slapadd -l "$ldiffile"`
-		if [ $? -ne 0 ]; then
-			echo "failed to restore OpenLDAP from $ldiffile" 1>&2
+		if [ $RES -eq 0 ]; then
+			if [ ! -z "$ldiffile" ]; then
+				if [ ! -f "$ldiffile" ]; then
+					echo "backup does not contain slapd data ($ldiffile)." 1>&2
+				else
+					msg=`/usr/sbin/slapadd -l "$ldiffile"`
+					if [ $? -ne 0 ]; then
+						echo "failed to restore OpenLDAP from $ldiffile" 1>&2
+					else
+						fix_dbdir_perms
+					fi
+				fi
+			else
+				echo "No LDIF file found in backup." 1>&2
+			fi
 		fi
 		restart_slapd
 		rm -rf "$backup_temp"
+	else
+		echo "failed to shutdown OpenLDAP" 1>&2
 	fi
 }
 

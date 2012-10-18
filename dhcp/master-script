@@ -37,7 +37,7 @@ function log_err() {
 
 function verbose_exec() {
 	[ $verbose -ne 0 ] && echo "$@"
-	[ $verbose -ne 0 ] && logger -i -t 'arsoft-dhcp' -p daemon.info "$@"
+	[ $verbose -ne 0 ] && logger -i -t 'arsoft-dhcp' -p daemon.info "$*"
 	"$@"
 }
 

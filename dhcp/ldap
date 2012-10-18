@@ -162,7 +162,7 @@ postfix_ldap_conf() {
 		map_name=`basename "$cf_file" | sed -r -e 's@ldap-([a-z_]+)\.cf@\1@'`
 		if [ "$map_name" == 'aliases' ]; then
 			parameter='alias_maps'
-			map_file='hash:/etc/alias'
+			map_file='hash:/etc/aliases'
 		else
 			parameter="${map_name}_maps"
 			map_file="hash:/etc/postfix/${map_name}"
@@ -240,6 +240,7 @@ autofs_conf_update() {
 		autofs_authrequired='no'
 
 		msg=`$scriptdir/autofs-ldap-auth --usetls "$autofs_usetls" --tlsrequired "$autofs_tlsrequired" --authrequired "$autofs_authrequired"`
+		echo "$msg"
 		RES=$?
 		if [ $RES -eq 0 ]; then
 			# no changes at all
@@ -253,6 +254,8 @@ autofs_conf_update() {
 			false
 		fi
 		autofs_reload=1
+	else
+		log_warn "failed to modify $AUTOFS_LDAP_CONF"
 	fi
 
 #	date -R > /tmp/autofs

@@ -72,7 +72,7 @@ class autofs_ldap_auth_config(object):
     def _write(self):
         self._save()
         if self.m_dom is not None:
-            auth_conf_fobj_w = open(self.m_conf_file + '.tmp', 'w')
+            auth_conf_fobj_w = open(self.m_conf_file, 'w')
             self.m_dom.writexml(auth_conf_fobj_w, indent="    ", addindent="", newl="\n")
             ret = True
         else:
@@ -92,7 +92,7 @@ class autofs_ldap_auth_config(object):
         # process command line
         #=============================================================================================
         parser = argparse.ArgumentParser(description='configures the authentication for autofs')
-        parser.add_argument('--verbose', dest='verbose', action='store_true', help='enable verbose output of this script.')
+        parser.add_argument('-v', '--verbose', dest='verbose', action='store_true', help='enable verbose output of this script.')
         parser.add_argument('--usetls', dest='usetls', action='store', help='specify to use TLS to access LDAP or not.', choices=['yes', 'no'])
         parser.add_argument('--tlsrequired', dest='tlsrequired', action='store', help='specify to if TLS is required not.', choices=['yes', 'no'])
         parser.add_argument('--authrequired', dest='authrequired', action='store', help='specify to use authenticate to LDAP or not.', choices=['yes', 'no'])
@@ -101,6 +101,8 @@ class autofs_ldap_auth_config(object):
 
         hasChanged = False
         self._read()
+        if args.verbose:
+            self._dump()
         if args.usetls is not None:
             if self.m_usetls != args.usetls:
                 self.m_usetls = args.usetls
@@ -116,11 +118,15 @@ class autofs_ldap_auth_config(object):
         if args.verbose:
             self._dump()
         if hasChanged:
+            if args.verbose:
+                print('save changed configuration')
             if self._write():
                 ret = 2
             else:
                 ret = 1
         else:
+            if args.verbose:
+                print('configuration unchanged')
             ret = 0
         return ret
 

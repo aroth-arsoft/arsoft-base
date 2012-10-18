@@ -71,7 +71,7 @@ class trac_svn2git(object):
                 update_cur.execute(stmt)
                 pass
         self._db.commit()
-        
+
     def _convert_ticket(self):
         cur = self._db.cursor()
         update_cur = self._db.cursor()
@@ -90,6 +90,50 @@ class trac_svn2git(object):
                 #print('field=' + str(field) + ' newvalue='+str(newvalue))
                 stmt = "UPDATE ticket SET description='" + str(description) +\
                     "' WHERE id = '" + str(ticket_id) + "'"
+                print(stmt)
+                update_cur.execute(stmt)
+                pass
+        self._db.commit()
+
+    def _convert_milestone(self):
+        cur = self._db.cursor()
+        update_cur = self._db.cursor()
+        # Convert table 'milestone'
+        cur.execute('SELECT name,description FROM milestone')
+        while True:
+            row = cur.fetchone()
+            if row == None:
+                break
+            #print (row)
+            (milestone_name,description) = row
+            
+            (milestone_changes, description) = self._convertSVNIDToGitID(description)
+            
+            if milestone_changes != 0:
+                stmt = "UPDATE milestone SET description='" + str(description) +\
+                    "' WHERE name = '" + str(milestone_name) + "'"
+                print(stmt)
+                update_cur.execute(stmt)
+                pass
+        self._db.commit()
+
+    def _convert_wiki(self):
+        cur = self._db.cursor()
+        update_cur = self._db.cursor()
+        # Convert table 'wiki'
+        cur.execute('SELECT name,version,text FROM wiki')
+        while True:
+            row = cur.fetchone()
+            if row == None:
+                break
+            #print (row)
+            (wiki_name,wiki_version,text) = row
+            
+            (wiki_changes, text) = self._convertSVNIDToGitID(text)
+            
+            if wiki_changes != 0:
+                stmt = "UPDATE wikie SET text='" + str(text) +\
+                    "' WHERE name = '" + str(wiki_name) + "' AND version = '" + str(wiki_version) + "'"
                 print(stmt)
                 update_cur.execute(stmt)
                 pass
@@ -122,6 +166,8 @@ class trac_svn2git(object):
             
         self._convert_ticket_change()
         self._convert_ticket()
+        self._convert_milestone()
+        self._convert_wiki()
         
         if self._db is not None:
             self._db.close()
