@@ -1,4 +1,6 @@
 etc/nagios-plugins/config/lm_sensors.cfg
 etc/nagios-plugins/config/ssl_cert.cfg
+etc/nagios-plugins/config/apt_upgrade.cfg
 usr/lib/nagios/plugins/check_ssl_cert
 usr/lib/nagios/plugins/check_lm_sensors
+usr/lib/nagios/plugins/check_apt_upgrade
