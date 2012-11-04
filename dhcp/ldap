@@ -105,9 +105,9 @@ nssldap_conf_update() {
 	# nsswitch-ldap automatically restarts the NSCD when
 	# any changes are necessary
 	if [ $enable_nss_ldap -ne 0 ]; then
-		$scriptdir/nsswitch-ldap enable
+		/usr/sbin/nsswitch-ldap enable
 	else
-		$scriptdir/nsswitch-ldap disable
+		/usr/sbin/nsswitch-ldap disable
 	fi
 }
 
@@ -122,9 +122,10 @@ nslcd_conf_update() {
 	[ ! -f "$NSLCD_CONF" ] && return
 
 	/usr/bin/ini-util \
-		-e "base=$newldap_base" \
-		-e "uri=$newldapserver_uri" \
-		-e "timelimit=30" \
+		--style=cmd \
+		--edit="base=$newldap_base" \
+		--edit="uri=$newldapserver_uri" \
+		--edit="timelimit=30" \
 		/etc/nslcd.conf
 		
 	if [ $? -eq 0 ]; then
@@ -140,9 +141,9 @@ nslcd_conf_update() {
 	# nsswitch-ldap automatically restarts the NSCD when
 	# any changes are necessary
 	if [ $enable_nss_ldap -ne 0 ]; then
-		$scriptdir/nsswitch-ldap enable
+		/usr/sbin/nsswitch-ldap enable
 	else
-		$scriptdir/nsswitch-ldap disable
+		/usr/sbin/nsswitch-ldap disable
 	fi
 }
 
