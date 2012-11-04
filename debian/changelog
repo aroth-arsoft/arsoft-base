@@ -1,3 +1,10 @@
+arsoft-base (2.32) UNRELEASED; urgency=low
+
+  * improve mythtv-restart script to handle SIGHUP
+  * prepare dhcp scripts for nss-ldapd
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 01 Nov 2012 08:59:57 +0100
+
 arsoft-base (2.31) quantal; urgency=low
 
   * nagios script to check for package updates

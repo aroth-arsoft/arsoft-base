@@ -63,7 +63,7 @@ while [ $# -ne 0 ]; do
 			if [ -z "$action" ]; then
 				action="$1"
 			else
-				echo "action $action already given."
+				echo "action $action already given." 1>&2
 				exit 1
 			fi
 		;;
@@ -75,7 +75,7 @@ done
 
 if [ ! -z "$action" ]; then
 	if [ ! -p "$control_socket" ]; then
-		echo "mythtv-restart not running ($control_socket does not exist)."
+		echo "mythtv-restart not running ($control_socket does not exist)." 1>&2
 		exit 1
 	else
 		echo "write $action to $control_socket"
@@ -85,14 +85,13 @@ else
 	if [ ! -p "$control_socket" ]; then
 		mkfifo "$control_socket"
 	else
-		echo "mythtv-restart already running."
+		echo "mythtv-restart already running." 1>&2
 		exit 1
 	fi
 
 	set -m # Enable Job Control
 
-	trap cleanup EXIT
-	trap cleanup SIGINT
+	trap cleanup EXIT SIGINT SIGHUP
 
 	# clear the X session error log
 	echo "" > $HOME/.xsession-errors

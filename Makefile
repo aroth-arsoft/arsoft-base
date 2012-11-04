@@ -23,5 +23,5 @@ install:
 	install -m 0644 -o root -g root etc_default_arsoft-scripts $(DESTDIR)/etc/default/arsoft-scripts
 	
 	for dir in $(SUBDIRS); do \
-		(cd $$dir; ${MAKE} install); \
+		${MAKE} -C $$dir install || exit 1; \
 	done

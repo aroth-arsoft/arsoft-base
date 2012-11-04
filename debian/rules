@@ -5,6 +5,10 @@
 export DH_VERBOSE=1
 
 TARGET_DISTRIBUTION := $(shell dpkg-parsechangelog  | awk '/Distribution/ { print $$2}')
+ifeq ($(TARGET_DISTRIBUTION),UNRELEASED)
+	TARGET_DISTRIBUTION := $(shell lsb_release -cs)
+endif
+
 SUBSTVARS=
 
 ifeq ($(TARGET_DISTRIBUTION),lucid)

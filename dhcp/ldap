@@ -7,6 +7,7 @@ DEFAULT_LDAP='/etc/default/ldap'
 AUTOFS_LDAP_AUTH_CONF='/etc/autofs_ldap_auth.conf'
 AUTOFS_LDAP_CONF='/etc/default/autofs'
 AUTOFS_LDAP_CONF_ORG='/run/autofs'
+NSLCD_CONF='/etc/nslcd.conf'
 STATE_FILE='/var/lib/dhcp/_ldap_interface'
 
 LDAP_USE_DNS_INFO=1
@@ -101,6 +102,43 @@ nssldap_conf_update() {
 		enable_nss_ldap=0
 	fi
 
+	# nsswitch-ldap automatically restarts the NSCD when
+	# any changes are necessary
+	if [ $enable_nss_ldap -ne 0 ]; then
+		$scriptdir/nsswitch-ldap enable
+	else
+		$scriptdir/nsswitch-ldap disable
+	fi
+}
+
+nslcd_conf_update() {
+	local newldapserver_uri="$1"
+	local newldap_base="$2"
+	local ldap_start_tls="$3"
+	local ldap_tls_reqcert="$4"
+	
+	# if the /etc/nslcd.conf does not exist, a vital package is 
+	# not installed and it's pointless to continue
+	[ ! -f "$NSLCD_CONF" ] && return
+
+	/usr/bin/ini-util \
+		-e "base=$newldap_base" \
+		-e "uri=$newldapserver_uri" \
+		-e "timelimit=30" \
+		/etc/nslcd.conf
+		
+	if [ $? -eq 0 ]; then
+		enable_nss_ldap=$LDAP_NSS_LDAP_LOOKUP
+		# nslcd is required and to reload the configuration restart it.
+		/usr/sbin/service nslcd restart
+	else
+		enable_nss_ldap=0
+		# nslcd is not required, since LDAP lookup has been disabled
+		/usr/sbin/service nslcd stop
+	fi
+
+	# nsswitch-ldap automatically restarts the NSCD when
+	# any changes are necessary
 	if [ $enable_nss_ldap -ne 0 ]; then
 		$scriptdir/nsswitch-ldap enable
 	else
@@ -326,6 +364,7 @@ autofs_search_base=$newautofs_search_base
 STATE_FILE_EOF
 
 			nssldap_conf_update "$newldap_uri" "$newldap_base" "$newldap_start_tls" "$newldap_tls_require_cert"
+			nslcd_conf_update "$newldap_uri" "$newldap_base" "$newldap_start_tls" "$newldap_tls_require_cert"
 			postfix_ldap_conf "$newldap_uri" "$newldap_base" "$newldap_start_tls" "$newldap_tls_require_cert"
 			autofs_conf_update "$newldap_uri" "$newautofs_search_base" "$newldap_start_tls" "$newldap_tls_require_cert"
 		fi
@@ -342,6 +381,7 @@ ldap_release_conf() {
 		# got release on the interface on which we got the LDAP information
 		# so disable the entire LDAP
 		nssldap_conf_update "" "" "no" "no"
+		nslcd_conf_update "" "" "no" "no"
 		postfix_ldap_conf "" "" "no" "no"
 		autofs_conf_update "" "" "no" "no"
 
