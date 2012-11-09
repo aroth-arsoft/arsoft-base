@@ -94,7 +94,8 @@ function selectZoneFile() {
 	zonesoa=`cat "$zonerrfile"  | awk '/SOA/ { insoa=1 } { if(insoa) { if($1==")") { insoa=0; print $1} else { print $0 }  } }'`
 	zoneserial=`echo "$zonesoa" | awk '/serial/ { print $1} '`
 	zonedate="${zoneserial:0:8}"
-	zoneserialno="${zoneserial:8}"
+	# force the zoneserial to be converted to a number (especially single digit)
+	zoneserialno=`expr "${zoneserial:8}" + 0`
 
 }
 
