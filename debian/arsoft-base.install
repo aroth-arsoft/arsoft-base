@@ -32,6 +32,7 @@ usr/sbin/puppet-node
 usr/sbin/dns-update
 usr/sbin/nfs-control
 usr/sbin/apt-purge-removed
+usr/sbin/alsa-info
 usr/share/arsoft-base/bash/bash.bashrc
 usr/share/arsoft-base/profile
 usr/bin/wine-rebuild-menu
