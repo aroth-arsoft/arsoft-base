@@ -161,6 +161,8 @@ function zip_config()
 			;;
 	esac
 
+	[ -f "$config_dir/auth_pass_file" ] && cp -p "$config_dir/auth_pass_file" "$zipdir/auth_pass_file"
+
 	[ $verbose -ne 0 ] && echo "use base directory $zipdir"
 	[ $verbose -ne 0 ] && ls -la "$zipdir"
 
@@ -396,6 +398,7 @@ $routes
 #
 CONFEOF
 		[ $verbose -gt 1 ] && cat "$client_configdir/${clientname}.${config_ext}"
+		[ $verbose -gt 1 ] && ls -l "$client_configdir"
 
 		# use the config directory of the server (for certs)
 		zip_changed=0
