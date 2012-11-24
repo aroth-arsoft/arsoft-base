@@ -1,6 +1,7 @@
 #!/bin/bash
 
 verbose=0
+quiet=0
 configfile=''
 outdir=''
 force=0
@@ -22,6 +23,7 @@ while [ $# -ne 0 ]; do
 		"-?") usage;;
 		"-h") usage;;
 		"--help") usage;;
+		"-q"|"--quiet") quiet=1; ;;
 		"-v"|"--verbose") verbose=1; ;;
 		"-f"|"--force") force=1; ;;
 		*)
@@ -30,7 +32,7 @@ while [ $# -ne 0 ]; do
 			elif [ -z "$outdir" ]; then
 				outdir="$1"
 			else
-				echo "config file $configfile and output directory $outdir already given. ignoring $1"
+				echo "config file $configfile and output directory $outdir already given. ignoring $1" 1>&2
 			fi
 		;;
 	esac
@@ -38,28 +40,31 @@ while [ $# -ne 0 ]; do
 done
 
 if [ -z "$configfile" ]; then
-	echo "No config file specified."
+	echo "No config file specified." 1>&2
 	exit 1
 fi
 
 if [ -z "$outdir" ]; then
-	echo "No output directory specified."
+	echo "No output directory specified." 1>&2
 	exit 1
 fi
 
 if [ -d "$outdir" ]; then
 	outdir=`readlink -f "$outdir"`
 	if [ $force -eq 0 ]; then
-		echo "ERROR: output directory already exists." 1>&2
+		echo "ERROR: output directory already exists. You can force to use this directory, but all files within will be deleted." 1>&2
 		exit 1
 	else
-		echo "WARNING: output directory already exists." 1>&2
+		echo "WARNING: output directory already exists. Removing all files from the output directory." 1>&2
+		rm -rf "$outdir"/*
 	fi
 else
 	# create the output directory, because slaptest does not create it
 	mkdir -p "$outdir"
 	outdir=`readlink -f "$outdir"`
 fi
+
+[ $quiet -ne 0 ] && debuglevel=0
 
 /usr/sbin/slaptest -f "$configfile" -F "$outdir" -d "$debuglevel"
 RES=$?

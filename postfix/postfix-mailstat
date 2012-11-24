@@ -21,7 +21,7 @@ while [ $# -ne 0 ]; do
 			if [ -z "$configfile" ]; then
 				configfile="$1"
 			else
-				echo "config file $configfile already given. ignoring $1"
+				echo "config file $configfile already given. ignoring $1" 1>&2
 			fi
 		;;
 	esac

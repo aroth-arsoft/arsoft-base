@@ -1,3 +1,16 @@
+arsoft-base (2.36) quantal; urgency=low
+
+  * improve slapd scripts
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 24 Nov 2012 10:17:29 +0100
+
+arsoft-base (2.35) quantal; urgency=low
+
+  * added auth_pass_file for openvpn configs
+  * added nagios commands to test a remote dhcp server
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 13 Nov 2012 19:56:51 +0100
+
 arsoft-base (2.34) quantal; urgency=low
 
   * fixed vizone script handling of zone serial > 8
