@@ -2,7 +2,8 @@ LDAP_SBIN_SCRIPTS := autofs-ldap-auth \
 		schema2ldif \
 		slapd-clean-db \
 		slapd-online-config \
-		slapd-backup
+		slapd-backup \
+		slapd-debug
 
 .PHONY: all
 

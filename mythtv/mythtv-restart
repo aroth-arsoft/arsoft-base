@@ -18,6 +18,8 @@ function usage()
 	echo "    xterm           starts the X terminal"
 	echo "    setup           starts the MythTV setup"
 	echo "    vlc             starts the Video LAN player (VLC)"
+	echo "    eyes, xeyes     starts the X11 eyes"
+	echo "    quit, exit            stops this script"
     exit 0
 }
 
@@ -25,6 +27,7 @@ function perform_start_backend()
 {
 	local mythtv_backend_status=`/sbin/initctl status mythtv-backend 2>&1 | grep 'running' > /dev/null; echo $?`
 	if [ $mythtv_backend_status -ne 0 ]; then
+		echo "Stop mythtv-backend"
 		# mythtv-backend is not running
 		sudo /sbin/initctl stop mythtv-backend
 	fi
@@ -34,6 +37,7 @@ function perform_stop_backend()
 {
 	local mythtv_backend_status=`/sbin/initctl status mythtv-backend 2>&1 | grep 'running' > /dev/null; echo $?`
 	if [ $mythtv_backend_status -eq 0 ]; then
+		echo "Start mythtv-backend"
 		# mythtv-backend is running
 		sudo /sbin/initctl start mythtv-backend
 	fi

@@ -15,6 +15,9 @@ case "$1" in
 		# delete old network up/down scripts
 		[ -f /etc/network/if-down.d/00-lo-down ] && rm /etc/network/if-down.d/00-lo-down
 		[ -f /etc/network/if-up.d/zz-lo-up ] && rm /etc/network/if-up.d/zz-lo-up
+		# remove old system info check cron job (use nagios or other monitoring solution
+		# for this instead).
+		[ -f /etc/cron.daily/system-info-check ] && rm /etc/cron.daily/system-info-check
 		;;
 esac
 

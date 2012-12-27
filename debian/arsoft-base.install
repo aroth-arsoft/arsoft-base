@@ -1,5 +1,4 @@
 etc/default/arsoft-scripts
-etc/cron.daily/system-info-check
 usr/bin/ppa_publish
 usr/bin/postfix-flush-queue
 usr/bin/postfix-sendmail
@@ -25,10 +24,10 @@ usr/sbin/managehosts
 usr/sbin/salearn_imap
 usr/sbin/motherboardinfo
 usr/sbin/slapd-online-config
+usr/sbin/slapd-debug
 usr/sbin/apt-cleanup
 usr/sbin/kmesg
 usr/sbin/apt-key-import
-usr/sbin/puppet-node
 usr/sbin/dns-update
 usr/sbin/nfs-control
 usr/sbin/apt-purge-removed

@@ -8,7 +8,7 @@ Homepage: http://www.arsoft-online.com
 
 Package: arsoft-base
 Architecture: all
-Depends: arsoft-ppa, arsoft-python, 
+Depends: arsoft-ppa,
  tzdata, mc, screen,
  unzip, zip, iotop, htop,
  ntfsprogs, xfsprogs, cryptsetup,
@@ -17,7 +17,7 @@ Depends: arsoft-ppa, arsoft-python,
  console-data, console-setup, gawk,
  strace, 
  openssh-server, ethtool, wget, resolvconf,
- ${misc:Depends}, ${python:Depends} 
+ ${misc:Depends}
 Replaces: arsoft-scripts
 Description: configure the system to use the AR Soft packages.
  installs basic packages and configuration for operation on 
@@ -44,7 +44,7 @@ Description: VIM configuration for AR Soft machines
 Package: arsoft-dhcp-client
 Architecture: all
 Replaces: arsoft-scripts-dhcp
-Depends: arsoft-base, ${dhcpclient:Depends}, ${misc:Depends}, ${python:Depends} 
+Depends: arsoft-base, ${dhcpclient:Depends}, ${misc:Depends}
 Description: script for network configuration
  installs dhcp client scripts to configure your workstations
  according to data provided by DHCP, DNS and LDAP.
@@ -58,7 +58,7 @@ Description: some helper script to set up MythTV
 
 Package: arsoft-scripts-cyrusimapd
 Architecture: all
-Depends: ${misc:Depends}, ${python:Depends} 
+Depends: ${misc:Depends}
 Description: scripts for the Cyrus IMAP server
  This package provides a backup script for the Cyrus IMAP server to
  save and restore the configuration and data to a different location.

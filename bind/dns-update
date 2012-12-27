@@ -6,6 +6,8 @@ commands=''
 nsupdate_opts=''
 nsupdate_key=''
 rrtype='A'
+ttl=86400
+server='localhost'
 
 function usage()
 {
@@ -13,10 +15,19 @@ function usage()
 	echo "    -h, --help                      shows this help screen"
 	echo "    -v,--verbose                    verbose output"
 	echo "    --rrtype <rrtype>               specify the RR type for the next operation (default: $rrtype)"
+	echo "    --ttl <seconds>                 specify the TTL for the records (default: $ttl)"
+	echo "    -k,--key <dnskey>               key to use for the update"
+	echo "    --server <dnsserver>            name of the DNS server for updates (default: $server)"
 	echo "    -a,--add <dnsname> <ipaddr>     adds the given DNS A record"
 	echo "    -d,--delete <dnsname>           deletes the specified DNS A record"
 	echo "    -u,--update <dnsname> <ipaddr>  adds the given DNS A record"
 	exit 0
+}
+
+server localhost
+key vpnupdate $DNSKEY
+function reverse_ipv4 {
+	echo $1 | nawk -F. '{print $4"."$3"."$2"."$1}'
 }
 
 # parse command line arguments
@@ -25,7 +36,7 @@ while [ $# -ne 0 ]; do
 		"-?"|"-h"|"--help") usage;;
 		"-v"|"--verbose") verbose=1; nsupdate_opts="$nsupdate_opts -d"; ;;
 		"-a"|"--add") 
-			commands="${commands}update add $2 86400 $rrtype $3\n"
+			commands="${commands}update add $2 $ttl $rrtype $3\n"
 			shift; shift;
 			;;
 		"-d"|"--delete") 
@@ -33,7 +44,17 @@ while [ $# -ne 0 ]; do
 			;;
 		"-u"|"--update") 
 			commands="${commands}update delete $2 $rrtype\n"
-			commands="${commands}update add $2 86400 $rrtype $3\n"
+			commands="${commands}update add $2 $ttl $rrtype $3\n"
+			shift; shift;
+			;;
+		"--update-host")
+			hostname="$2"
+			addr="$3"
+			revaddr=`reverse_ipv4 "$addr"`
+			commands="${commands}update delete $revaddr.in-addr.arpa.\n"
+			commands="${commands}update delete $hostname.\n"
+			commands="${commands}update add $hostname. $ttl IN A $addr\n"
+			commands="${commands}update add $revaddr.in-addr.arpa. $ttl PTR $hostname.\n"
 			shift; shift;
 			;;
 		"-k","--key") 
@@ -42,6 +63,14 @@ while [ $# -ne 0 ]; do
 			;;
 		"--rrtype") 
 			rrtype="$2"
+			shift
+			;;
+		"--ttl") 
+			ttl="$2"
+			shift
+			;;
+		'--server') 
+			server="$2"
 			shift
 			;;
 		*)
@@ -58,7 +87,8 @@ done
 if [ -z "$commands" ]; then
 	echo "No commands specified."
 else
-	commands="${commands}send\n"
+	# prepend the server command and append the send command
+	commands="server $server\n${commands}send\n"
 	if [ ! -z "$nsupdate_key" ]; then
 		nsupdate_opts="$nsupdate_opts -k $nsupdate_key"
 	fi
