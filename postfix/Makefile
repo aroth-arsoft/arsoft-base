@@ -11,6 +11,8 @@ POSTFIX_SBIN_SCRIPTS := postfix-ldap
 
 all:
 
+clean:
+
 install:
 	install -m 0755 -o root -g root ${POSTFIX_BIN_SCRIPTS} $(DESTDIR)/usr/bin
 	install -m 0755 -o root -g root ${POSTFIX_SBIN_SCRIPTS} $(DESTDIR)/usr/sbin

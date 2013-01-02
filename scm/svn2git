@@ -51,13 +51,24 @@ function convert_using_ruby_svn2git() {
 
 	repo_git_full=`mktemp -d "$repo_git.XXXXXX"`
 	pushd "$repo_git_full" > /dev/null
-	
+
+	echo "Convert the SVN repository into GIT..."
+	tmp=`svn info "$repo_svn/trunk" 2> /dev/null`
+	if [ $? -eq 0 ]; then
+		rootistrunk=0
+	else
+		rootistrunk=1
+	fi
 	svn2git_opts=''
-	[ $rootistrunk -ne 0 ] && svn2git_opts="$svn2git_opts --rootistrunk"
+	if [ $rootistrunk -ne 0 ]; then
+		svn2git_opts="$svn2git_opts --rootistrunk"
+		echo "SVN repository only contains trunk (no tags and branches)."
+	else
+		echo "SVN repository with standard layout (trunk, tags and branches)."
+	fi
 	[ $verbose -ne 0 ] && svn2git_opts="$svn2git_opts --verbose"
 	[ $nometadata -eq 0 ] && svn2git_opts="$svn2git_opts --metadata"
 
-	echo "Convert the SVN repository into GIT..."
 	[ $verbose -ne 0 ] && echo "/usr/local/bin/svn2git \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
 	/usr/local/bin/svn2git "$repo_svn" $svn2git_opts --authors "$authors_file"
 	if [ $? -eq 0 ]; then

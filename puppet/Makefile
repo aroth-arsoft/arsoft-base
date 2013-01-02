@@ -6,5 +6,7 @@ PUPPET_BIN_SCRIPTS := puppet-template-check \
 
 all:
 
+clean:
+
 install:
 	install -m 0755 -o root -g root ${PUPPET_BIN_SCRIPTS} $(DESTDIR)/usr/bin

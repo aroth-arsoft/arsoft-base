@@ -1,11 +1,16 @@
-SUBDIRS = apt bind cyrusimapd desktop \
-	dhcp devel kernel ldap mythtv nagios network \
+SUBDIRS = apt bind cert cyrusimapd desktop \
+	dhcp devel ldap mythtv nagios network \
 	nfs openvpn postfix puppet shell spamassassin \
 	ssh scm sysinfo tftp vim wine
 
 .PHONY: all
 
 all:
+
+clean:
+	for dir in $(SUBDIRS); do \
+		${MAKE} -C $$dir clean || exit 1; \
+	done
 
 install:
 	mkdir -p $(DESTDIR)/etc/cron.daily
@@ -21,7 +26,7 @@ install:
 	mkdir -p $(DESTDIR)/sbin
 	mkdir -p $(DESTDIR)/etc/default
 	install -m 0644 -o root -g root etc_default_arsoft-scripts $(DESTDIR)/etc/default/arsoft-scripts
-	
+
 	for dir in $(SUBDIRS); do \
 		${MAKE} -C $$dir install || exit 1; \
 	done

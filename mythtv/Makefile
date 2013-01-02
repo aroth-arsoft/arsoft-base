@@ -7,6 +7,8 @@ MYTHTV_SHARE_SCRIPTS := mythadder.py
 
 all:
 
+clean:
+
 install:
 	mkdir -p $(DESTDIR)/usr/share/mythtv
 	install -m 0755 -o root -g root ${MYTHTV_SHARE_SCRIPTS} $(DESTDIR)/usr/share/mythtv

@@ -13,6 +13,8 @@ DHCP_ENTER_HOOKS :=
 
 all:
 
+clean:
+
 install:
 	mkdir -p $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-exit
 	mkdir -p $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-enter

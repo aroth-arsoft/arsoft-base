@@ -26,7 +26,6 @@ usr/sbin/motherboardinfo
 usr/sbin/slapd-online-config
 usr/sbin/slapd-debug
 usr/sbin/apt-cleanup
-usr/sbin/kmesg
 usr/sbin/apt-key-import
 usr/sbin/dns-update
 usr/sbin/nfs-control
@@ -35,3 +34,5 @@ usr/sbin/alsa-info
 usr/share/arsoft-base/bash/bash.bashrc
 usr/share/arsoft-base/profile
 usr/bin/wine-rebuild-menu
+usr/share/ca-certificates/arsoft
+usr/share/ca-certificates/fastprotect

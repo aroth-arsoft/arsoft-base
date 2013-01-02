@@ -9,5 +9,7 @@ LDAP_SBIN_SCRIPTS := autofs-ldap-auth \
 
 all:
 
+clean:
+
 install:
 	install -m 0755 -o root -g root ${LDAP_SBIN_SCRIPTS} $(DESTDIR)/usr/sbin

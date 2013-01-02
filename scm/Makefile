@@ -8,5 +8,7 @@ SVN_BIN_SCRIPTS := mimediff \
 
 all:
 
+clean:
+
 install:
 	install -m 0755 -o root -g root ${SVN_BIN_SCRIPTS} $(DESTDIR)/usr/bin

@@ -2,6 +2,8 @@
 
 all:
 
+clean:
+
 install:
 	mkdir -p $(DESTDIR)/usr/lib/nagios/plugins
 	install -m 0755 -o root -g root check_lm_sensors $(DESTDIR)/usr/lib/nagios/plugins/check_lm_sensors
