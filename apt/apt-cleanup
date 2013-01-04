@@ -25,7 +25,7 @@ if [[ $EUID -ne 0 ]]; then
 	exit 1
 else
 	/usr/bin/apt-get clean
-	/usr/bin/find /var/lib/apt/lists -type f -print | xargs rm
+	/usr/bin/find /var/lib/apt/lists -type f -print -delete
 	/usr/bin/apt-get clean
 	/usr/bin/apt-get update
 fi
