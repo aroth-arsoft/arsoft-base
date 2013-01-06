@@ -35,17 +35,25 @@ function convert_using_ruby_svn2git() {
 	if [ -d "$repo_git" ]; then
 		repo_git=`readlink -f "$repo_git"`
 		if [ -d "$repo_git/.git" ]; then
-			echo "A GIT repository already exists in $repo_git. Refusing to do anything!"
+			echo "A GIT repository already exists in $repo_git. Refusing to do anything!" >&2
 			return 1
 		elif [ -f "$repo_git/config" -a -f "$repo_git/HEAD" ]; then
-			echo "A bare GIT repository already exists in $repo_git. Refusing to do anything!"
+			echo "A bare GIT repository already exists in $repo_git. Refusing to do anything!" >&2
 			return 1
 		else
-			echo "Warning: The directory $repo_git already exists and will be used as target GIT repository."
+			if [ -w "$repo_git" ]; then
+				echo "Warning: The directory $repo_git already exists and will be used as target GIT repository." >&2
+			else
+				echo "The directory $repo_git already exists, but it's not writable." >&2
+				return 1
+			fi
 		fi
 	else
 		# target directory does not yet exist, so create it
-		mkdir -p "$repo_git"
+		if ! mkdir -p "$repo_git"; then
+			echo "Failed to create directory $repo_git for GIT repository." >&2
+			return 1
+		fi
 		repo_git=`readlink -f "$repo_git"`
 	fi
 
@@ -92,11 +100,11 @@ function convert_using_ruby_svn2git() {
 
 			echo "Conversion completed successfully."
 		else
-			echo "Conversion completed with errors."
+			echo "Conversion completed with errors." >&2
 		fi
 		popd > /dev/null
 	else
-		echo "SVN import with errors."
+		echo "SVN import with errors." >&2
 	fi
 	popd > /dev/null
 
@@ -159,14 +167,14 @@ while [ $# -ne 0 ]; do
 				elif [ -z "$repo_git" ]; then
 					repo_git="$1"
 				else
-					echo "Both repositories has alreayd been specified: svn: $repo_svn, git: $repo_git."
+					echo "Both repositories has alreayd been specified: svn: $repo_svn, git: $repo_git." >&2
 					exit 1
 				fi
 			else
 				if [ -z "$repo_git" ]; then
 					repo_git="$1"
 				else
-					echo "GIT repository has alreayd been specified: $repo_git."
+					echo "GIT repository has alreayd been specified: $repo_git." >&2
 					exit 1
 				fi
 			fi
@@ -178,22 +186,38 @@ done
 script_file=`readlink -f "$0"`
 script_dir=`dirname "$script_file"`
 
+if [ ! -x "/usr/bin/git" ]; then
+	echo "GIT not installed. Please install using 'sudo apt-get install git-core'." >&2
+	exit 1
+fi
+
+if [ ! -x "/usr/lib/git-core/git-svn" ]; then
+	echo "GIT subversion support not installed. Please install using 'sudo apt-get install git-svn'." >&2
+	exit 1
+fi
+
+if [ ! -x "/usr/bin/svn" ]; then
+	echo "Subversion not installed. Please install using 'sudo apt-get install subversion'." >&2
+	exit 1
+fi
+
 if [ $update_lookup_table -eq 0 ]; then
+
 	if [ ! -x "/usr/local/bin/svn2git" ]; then
-		echo "svn2git ruby script not installed. Please install using 'sudo gem install svn2git'."
+		echo "svn2git ruby script not installed. Please install using 'sudo gem install svn2git'." >&2
 		exit 1
 	fi
 
 	if [ -z "$repo_svn" ]; then
-		echo "No SVN source repository specified."
+		echo "No SVN source repository specified." >&2
 		exit 1
 	elif [ -d "$repo_svn" ]; then
 		repo_svn="file://$repo_svn"
-		echo "Local SVN repository specified. Using URL $repo_svn"
+		echo "Local SVN repository specified. Using URL $repo_svn" >&2
 	fi
 
 	if [ -z "$repo_git" ]; then
-		echo "No GIT target repository specified."
+		echo "No GIT target repository specified." >&2
 		exit 1
 	fi
 
@@ -220,7 +244,7 @@ if [ $update_lookup_table -eq 0 ]; then
 	convert_using_ruby_svn2git
 else
 	if [ -z "$repo_git" ]; then
-		echo "No GIT repository specified."
+		echo "No GIT repository specified." >&2
 		exit 1
 	fi
 	repo_git=`readlink -f "$repo_git"`
