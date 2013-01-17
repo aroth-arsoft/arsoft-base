@@ -12,11 +12,11 @@ Depends: arsoft-ppa,
  tzdata, mc, screen,
  unzip, zip, iotop, htop,
  ntfsprogs, xfsprogs, cryptsetup,
- update-manager-core, update-notifier-common, 
+ update-manager-core, update-notifier-common,
  language-pack-en-base, 
  console-data, console-setup, gawk,
  strace, 
- openssh-server, ethtool, wget, resolvconf,
+ openssh-server, ethtool, wget, resolvconf, ncdu,
  ${misc:Depends}
 Replaces: arsoft-scripts
 Description: configure the system to use the AR Soft packages.
