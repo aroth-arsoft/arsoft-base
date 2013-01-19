@@ -2,6 +2,7 @@ arsoft-base (2.41) UNRELEASED; urgency=low
 
   * added ncdu to base packages
   * add nagios plugin for jenkins from https://github.com/Ericbla/check_jenkins
+  * removed python scripts and put them into arsoft-python
 
  -- Andreas Roth <aroth@arsoft-online.com>  Thu, 17 Jan 2013 18:57:38 +0100
 

@@ -16,11 +16,9 @@ usr/sbin/postfix-ldap
 usr/sbin/biosinfo
 usr/sbin/slapd-clean-db
 usr/sbin/apt-proxy
-usr/sbin/autofs-ldap-auth
 usr/sbin/schema2ldif
 usr/sbin/tftp-update-installers
 usr/sbin/vizone
-usr/sbin/managehosts
 usr/sbin/salearn_imap
 usr/sbin/motherboardinfo
 usr/sbin/slapd-online-config
