@@ -80,7 +80,7 @@ my $req = HTTP::Request->new( GET => $url );
 trace("GET $url ...\n");
 my $res = $ua->request($req);
 if ( !$res->is_success ) {
-    print "Failed retrieving $url ($res->{status_line})";
+    print "Failed retrieving $url ($res->{status_line})\n";
     exit UNKNOWN;
 }
 my $json       = new JSON;
@@ -114,7 +114,7 @@ if ( !defined( $args{noperfdata} ) ) {
 }
 if ( $jobs_crit != -1 && $jobs_count > $jobs_crit ) {
     print "CRITICAL: jobs count: ", $jobs_count, " exeeds critical threshold: ",
-      $jobs_crit, "\n";
+      $jobs_crit;
     if ( !defined( $args{noperfdata} ) ) {
         print( '|', $perfdata, "\n" );
     }
@@ -122,7 +122,7 @@ if ( $jobs_crit != -1 && $jobs_count > $jobs_crit ) {
 }
 if ( $jobs_warn != -1 && $jobs_count > $jobs_warn ) {
     print "WARNING: jobs count: ", $jobs_count, " exeeds warning threshold: ",
-      $jobs_warn, "\n";
+      $jobs_warn;
     if ( !defined( $args{noperfdata} ) ) {
         print( '|', $perfdata, "\n" );
     }
