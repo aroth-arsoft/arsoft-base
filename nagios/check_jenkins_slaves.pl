@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+# nagios: -epn
 #
 # Check Jenkins slaves status using the JSON API
 #

@@ -3,6 +3,7 @@ etc/nagios-plugins/config/ssl_cert.cfg
 etc/nagios-plugins/config/apt_upgrade.cfg
 etc/nagios-plugins/config/dhcp-remote.cfg
 etc/nagios-plugins/config/jenkins.cfg
+usr/lib/nagios/plugins/capture_plugin
 usr/lib/nagios/plugins/check_ssl_cert
 usr/lib/nagios/plugins/check_lm_sensors
 usr/lib/nagios/plugins/check_apt_upgrade

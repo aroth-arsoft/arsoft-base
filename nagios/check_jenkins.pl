@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+# nagios: -epn
 #
 # This Nagios plugin count the number of jobs of a Jenkins instance.
 # It can check that the total number of jobs will not exeed the WARNING and CRITICAL thresholds.

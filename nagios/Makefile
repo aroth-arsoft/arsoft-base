@@ -13,6 +13,7 @@ install:
 	install -m 0755 -o root -g root check_jenkins.pl $(DESTDIR)/usr/lib/nagios/plugins/check_jenkins
 	install -m 0755 -o root -g root check_jenkins_slaves.pl $(DESTDIR)/usr/lib/nagios/plugins/check_jenkins_slaves
 	install -m 0755 -o root -g root check_jenkins_version.pl $(DESTDIR)/usr/lib/nagios/plugins/check_jenkins_version
+	install -m 0755 -o root -g root capture_plugin.pl $(DESTDIR)/usr/lib/nagios/plugins/capture_plugin
 	mkdir -p $(DESTDIR)/etc/nagios-plugins/config
 	install -m 0644 -o root -g root lm_sensors.cfg $(DESTDIR)/etc/nagios-plugins/config/lm_sensors.cfg
 	install -m 0644 -o root -g root ssl_cert.cfg $(DESTDIR)/etc/nagios-plugins/config/ssl_cert.cfg

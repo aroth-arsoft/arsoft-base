@@ -1,4 +1,5 @@
 #!/usr/bin/perl
+# nagios: -epn
 #
 # Check Jenkins job build time using the JSON API
 #
