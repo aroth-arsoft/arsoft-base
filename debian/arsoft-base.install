@@ -12,6 +12,7 @@ usr/bin/ssh-nogss
 usr/bin/postfix-update-maps
 usr/bin/puppet-template-check
 usr/bin/postfix-delete
+usr/bin/nss-import-cert
 usr/sbin/postfix-ldap
 usr/sbin/biosinfo
 usr/sbin/slapd-clean-db

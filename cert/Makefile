@@ -2,6 +2,7 @@
 
 CERTSDIR = /usr/share/ca-certificates
 SUBDIRS = arsoft fastprotect
+CERT_BIN_SCRIPTS := nss-import-cert
 
 all:
 	for dir in $(SUBDIRS); do \
@@ -14,6 +15,7 @@ clean:
 	done
 
 install:
+	install -m 0755 -o root -g root ${CERT_BIN_SCRIPTS} $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/$(CERTSDIR)
 	for dir in $(SUBDIRS); do \
 		mkdir $(DESTDIR)/$(CERTSDIR)/$$dir; \
