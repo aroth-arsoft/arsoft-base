@@ -70,23 +70,13 @@ Replaces: arsoft-scripts-svn
 Description: some helper scripts for various SCM systems
  a collection of helper scripts for Subversion and GIT.
 
-Package: arsoft-nagios-agent
+Package: arsoft-nagios-plugins
 Architecture: all
-Depends: arsoft-base, arsoft-python-nagios, nagios-nrpe-server, nagios-plugins-basic, nagios-plugins-extra, 
- nagios-plugins-standard, libnagios-plugin-perl, lm-sensors, hddtemp, dnsutils, ${misc:Depends}
-Description: Nagios agent for AR Soft machines
- Installs all files and packages required to set up a Nagios agent
- on a AR Soft machine and monitor
+Depends: arsoft-python-nagios, libnagios-plugin-perl, lm-sensors, hddtemp, dnsutils, ${misc:Depends}
+Description: additional Nagios plugins for AR Soft specific services
+ Installs all files and packages required to use the AR Soft nagios
+ plugins to monitor the following services:
   - CPU temperature
   - Harddisk temperature
   - AVM Fritzbox
   - and more
-
-Package: arsoft-nagios-server
-Architecture: all
-Depends: arsoft-base, nagios3, nagios-nrpe-plugin, ${misc:Depends}
-Suggests: arsoft-nagios-agent
-Description: Nagios server for AR Soft machines
- Installs all files and packages required to set up a Nagios main server
- on a AR Soft machine. Usually only one machine in your network is designated
- to run a Nagios server and monitors all machines in your network.
