@@ -1,3 +1,10 @@
+arsoft-base (2.44) quantal; urgency=low
+
+  * remove arsoft-nagios-* packages and put them into meta-packages
+  * put nagios plugins into arsoft-nagios-plugins package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 10 Feb 2013 13:21:48 +0100
+
 arsoft-base (2.43) quantal; urgency=low
 
   * fixed certificates
