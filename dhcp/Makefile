@@ -21,7 +21,11 @@ install:
 	install -m 0755 -o root -g root ${DHCP_EXIT_HOOKS} $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-exit
 	#install -m 0755 -o root -g root ${DHCP_ENTER_HOOKS} $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-enter
 	install -m 0755 -o root -g root master-script $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-master-script
-	install -m 0755 -o root -g root dhclient-script.$(TARGET_DISTRIBUTION) $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-script
+	if [ -f dhclient-script.$(TARGET_DISTRIBUTION) ]; \
+		install -m 0755 -o root -g root dhclient-script.$(TARGET_DISTRIBUTION) $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-script \
+	else \
+		install -m 0755 -o root -g root dhclient-script.quantal $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-script \
+	fi
 
 	install -m 0644 default $(DESTDIR)/etc/default/arsoft-dhcp-client
 
