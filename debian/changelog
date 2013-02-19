@@ -1,3 +1,16 @@
+arsoft-base (2.46) quantal; urgency=low
+
+  * fixed build issues
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 19 Feb 2013 08:05:44 +0100
+
+arsoft-base (2.45) quantal; urgency=low
+
+  * fixed trouble with start_tls parameter for postfix in dhcp scripts
+  * require lvm2 package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 19 Feb 2013 07:46:19 +0100
+
 arsoft-base (2.44) quantal; urgency=low
 
   * remove arsoft-nagios-* packages and put them into meta-packages
