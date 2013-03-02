@@ -1,71 +1,116 @@
 #!/bin/bash
 
 verbose=0
+noop=0
+all=0
+newline=`echo -e '\n'`
+FQDN=`hostname -f`
+DOMAIN=`hostname -d`
+MYHOSTNAME=`postconf -h myhostname`
+FROM="postmaster@$FQDN"
+TO="postmaster@$FQDN"
+LOGDIR='/var/log'
+LOGFILEPATTERN='mail.log*'
+PFLOGSUMM_BIN='/usr/sbin/pflogsumm'
+PFLOGSUMM_OPTS='--iso_date_time --problems_first --rej_add_from'
+SENDMAIL_BIN='/usr/sbin/sendmail'
+SUBJECT="$MYHOSTNAME mail statistics of "`LANG=C date`
 
 function usage()
 {
     echo "postfix-mailstat [OPTIONS]"
     echo "    -h, --help      shows this help screen"
 	echo "    -v, --verbose   enable verbose output"
+	echo "    --noop          do not actually send a mail."
+	echo "    --logdir <DIR>  specifies the directory where the log files are kept (default $LOGDIR)"
+	echo "    --all           process all found log file and generate report."
     exit 0
+}
+
+function find_latest_logfile()
+{
+	local LOGDIR="$1"
+	local FILEPATTERN="$2"
+	
+	LOGFILES=`find "$LOGDIR" -type f -name "$FILEPATTERN" -print 2>/dev/null | xargs stat --format '%Y:%n' | sort -nr | cut -d: -f2-`
+}
+
+function generate_summary()
+{
+	if [ -z "$LOGFILES" ]; then
+		[ $verbose -ne 0 ] && echo "No logfile named $LOGFILEPATTERN in $LOGDIR found."
+		SUMMARY="No logfile named $LOGFILEPATTERN in $LOGDIR found."
+	else
+		[ $verbose -ne 0 ] && echo "found logfiles $LOGFILES."
+		SUMMARY=''
+		for f in $LOGFILES; do
+			[ $verbose -ne 0 ] && echo "check logfile $f"
+			if [ -r "$f" ]; then
+				[ $verbose -ne 0 ] && echo "$PFLOGSUMM_BIN $PFLOGSUMM_OPTS 0<\"$f\" 2>/dev/null"
+				f_sum=`"$PFLOGSUMM_BIN" $PFLOGSUMM_OPTS 0<"$f" 2>/dev/null`
+			else
+				[ $verbose -ne 0 ] && echo "check logfile $f"
+				f_sum="Unable to read ${f}${newline}"
+			fi
+			if [ ! -z "$f_sum" ]; then
+				logdate=`LANG=C stat --format '%y' "$f"`
+				f_header="Log file: ${f} ($logdate)"
+				if [ -z "$SUMMARY" ]; then
+					SUMMARY="${f_header}
+${f_sum}
+" 
+				else 
+					SUMMARY="${SUMMARY}
+${f_header}
+${f_sum}
+"
+				fi
+				[ $all -eq 0 ] && break
+			fi
+		done
+	fi
 }
 
 # parse command line arguments
 while [ $# -ne 0 ]; do
 	case "$1" in
-		"-?") usage;;
-		"-h") usage;;
-		"--help") usage;;
-		"-v"|"--verbose") verbose=1; ;;
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
+		'--noop') noop=1; ;;
+		'--logdir') LOGDIR="$2"; shift; ;;
+		'--all') all=1; ;;
 		*)
-			if [ -z "$configfile" ]; then
-				configfile="$1"
-			else
-				echo "config file $configfile already given. ignoring $1" 1>&2
-			fi
-		;;
+			echo "invalid argument $1" 1>&2
+			exit 1
+			;;
 	esac
 	shift
 done
 
-FQDN=`hostname -f`
-DOMAIN=`hostname -d`
-MYHOSTNAME=`postconf -h myhostname`
-FROM="postmaster@$FQDN"
-TO="postmaster@$FQDN"
-LOGFILE="/var/log/mail.log.0"
-PFLOGSUMM_BIN='/usr/sbin/pflogsumm'
-PFLOGSUMM_OPTS='--iso_date_time --problems_first --rej_add_from'
-SENDMAIL_BIN='/usr/sbin/sendmail'
-SUBJECT="$MYHOSTNAME mail statistics of "`LANG=C date`
+# variables used to pass information between functions
+LOGFILES=''
+SUMMARY=''
 
-if [ -f "$LOGFILE" ]; then
-	if [ ! -x "$PFLOGSUMM_BIN" ]; then
-		summary="$PFLOGSUMM_BIN not available. Please install pflogsum package."
-	else
-		if [ -r "$LOGFILE" ]; then
-			[ $verbose -ne 0 ] && echo "cat \"$LOGFILE\" 2>/dev/null | \"$PFLOGSUMM_BIN\""
-			summary=`cat "$LOGFILE" 2>/dev/null | "$PFLOGSUMM_BIN" $PFLOGSUMM_OPTS`
-		else
-			summary="Cannot read $LOGFILE"
-		fi
-	fi
+if [ ! -x "$PFLOGSUMM_BIN" ]; then
+	echo "$PFLOGSUMM_BIN not available. Please install pflogsum package." 1>&2
+	exit 1
 else
-	summary="logfile $LOGFILE does not exist"
-fi
-
-if [ ! -z "$summary" ]; then
-	message="To: $TO
+	find_latest_logfile "$LOGDIR" "$LOGFILEPATTERN"
+	generate_summary
+	
+	if [ ! -z "$SUMMARY" ]; then
+		message="To: $TO
 From: $FROM
 Subject: $SUBJECT
 
 
-$summary
+$SUMMARY
 
 "
-	[ $verbose -ne 0 ] && echo "$message"
-	echo "$message" | "$SENDMAIL_BIN" -t
+		[ $verbose -ne 0 ] && echo "$message"
+		if [ $noop -eq 0 ]; then
+			echo "$message" | "$SENDMAIL_BIN" -t
+		fi
+	fi
+	exit 0
 fi
-
-exit 0
-
