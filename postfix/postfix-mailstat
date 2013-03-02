@@ -14,7 +14,7 @@ LOGFILEPATTERN='mail.log*'
 PFLOGSUMM_BIN='/usr/sbin/pflogsumm'
 PFLOGSUMM_OPTS='--iso_date_time --problems_first --rej_add_from'
 SENDMAIL_BIN='/usr/sbin/sendmail'
-SUBJECT="$MYHOSTNAME mail statistics of "`LANG=C date`
+SUBJECT="$MYHOSTNAME mail statistics of "`LANG=C date -R`
 
 function usage()
 {
@@ -53,7 +53,7 @@ function generate_summary()
 				f_sum="Unable to read ${f}${newline}"
 			fi
 			if [ ! -z "$f_sum" ]; then
-				logdate=`LANG=C stat --format '%y' "$f"`
+				logdate=`LANG=C date -r "$f" -R`
 				f_header="Log file: ${f} ($logdate)"
 				if [ -z "$SUMMARY" ]; then
 					SUMMARY="${f_header}
