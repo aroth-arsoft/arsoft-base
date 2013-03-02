@@ -1,3 +1,9 @@
+arsoft-base (2.47) quantal; urgency=low
+
+  * improvements to postfix-mailstat script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 02 Mar 2013 18:52:13 +0100
+
 arsoft-base (2.46) quantal; urgency=low
 
   * fixed build issues
