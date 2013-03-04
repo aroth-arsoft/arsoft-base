@@ -1,4 +1,5 @@
 etc/default/arsoft-scripts
+etc/cron.daily/clean-old-bootcharts
 usr/bin/ppa_publish
 usr/bin/postfix-flush-queue
 usr/bin/postfix-sendmail

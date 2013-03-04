@@ -9,4 +9,4 @@ clean:
 
 install:
 	cat *.pem > tmp_combined.crt
-	install -m 644 tmp_combined.crt $(CERTSDIR)/root.crt
+	install -m 644 tmp_combined.crt $(CERTSDIR)/fastprotect_root.crt

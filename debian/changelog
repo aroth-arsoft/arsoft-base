@@ -1,3 +1,11 @@
+arsoft-base (2.48) quantal; urgency=low
+
+  * install cron job to remove old bootchart files
+  * rename installed root certificates again to avoid the same basename
+    for different companies.
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 04 Mar 2013 07:56:26 +0100
+
 arsoft-base (2.47) quantal; urgency=low
 
   * improvements to postfix-mailstat script

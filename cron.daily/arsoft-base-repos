@@ -4,5 +4,5 @@
 # necessary.
 REPOLINE=$(grep -E "# disabled on upgrade to .*" "/etc/apt/sources.list.d/ppa-aroth.list")
 if [ $? -eq 0 ]; then
-	DEBIAN_FRONTEND=noninteractive dpkg-reconfigure arsoft-base
+	DEBIAN_FRONTEND=noninteractive dpkg-reconfigure arsoft-ppa
 fi

@@ -1,0 +1,12 @@
+/arsoft-base/
+/arsoft-dhcp-client/
+/arsoft-nagios-plugins/
+/arsoft-openvpn/
+/arsoft-ppa/
+/arsoft-scm/
+/arsoft-scripts-cyrusimapd/
+/arsoft-scripts-mythtv/
+/arsoft-vim/
+/tmp/
+/*.substvars
+/files
