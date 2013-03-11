@@ -185,7 +185,6 @@ else
 					ERR=$((ERR + 1))
 				fi
 			else
-				expire_date=`echo "$present" | awk "match(\$0, /\[expires: ([0-9]{4}-[0-9]{2}-[0-9]{2})\]/, a) { print a[1]; }" | LANG=C date -f- +%s`
 				[ $verbose -ne 0 ] && echo "$keyid already available."
 			fi
 		done < "$keylist"
