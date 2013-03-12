@@ -16,5 +16,6 @@ install:
 	install -m 0644 -o root -g root apt_upgrade.cfg $(DESTDIR)/etc/nagios-plugins/config/apt_upgrade.cfg
 	install -m 0644 -o root -g root dhcp-remote.cfg $(DESTDIR)/etc/nagios-plugins/config/dhcp-remote.cfg
 	install -m 0644 -o root -g root jenkins.cfg $(DESTDIR)/etc/nagios-plugins/config/jenkins.cfg
+	install -m 0644 -o root -g root lm_sensors_ext.cfg $(DESTDIR)/etc/nagios-plugins/config/lm_sensors_ext.cfg
 	mkdir -p $(DESTDIR)/usr/share/man/man1
 	#install -m 0644 -o root -g root check_ssl_cert.1 $(DESTDIR)/usr/share/man/man1
