@@ -1,3 +1,9 @@
+arsoft-base (2.49.2) quantal; urgency=low
+
+  * minor changes to fix incompatibility
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 13 Mar 2013 08:11:14 +0100
+
 arsoft-base (2.49.1) quantal; urgency=low
 
   * remove lm_sensors check as well
