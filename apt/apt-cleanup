@@ -23,11 +23,11 @@ if [[ $EUID -ne 0 ]]; then
 	exit 1
 else
 	/usr/bin/apt-get clean
-	if [ -f /etc/apt/keylist -a -x /usr/bin/apt-key-import ]; then
+	if [ -f /etc/apt/keylist -a -x /usr/sbin/apt-key-import ]; then
 		for f in /etc/apt/trust*; do
 			[ -f "$f" ] && rm "$f"
 		done
-		/usr/bin/apt-key-import --keylist /etc/apt/keylist
+		/usr/sbin/apt-key-import --keylist /etc/apt/keylist
 	fi
 	/usr/bin/find /var/lib/apt/lists -type f -print -delete
 	/usr/bin/apt-get clean
