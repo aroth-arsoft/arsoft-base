@@ -27,10 +27,8 @@ function verbose_exec()
 # parse command line arguments
 while [ $# -ne 0 ]; do
 	case "$1" in
-		"-?") usage;;
-		"-h") usage;;
-		"--help") usage;;
-		"-v"|"--verbose") verbose=1; ;;
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
 		"-u"|"-U"|"--unified") unified=1; ;;
 		"-L"|"--label") 
             if [ -z "$label_left" ]; then

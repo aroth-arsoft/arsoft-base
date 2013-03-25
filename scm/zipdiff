@@ -10,7 +10,7 @@ diff_opts=''
 
 function usage()
 {
-    echo "zipdiff <left> <right>"
+    echo "zipdiff [OPTIONS] <left> <right>"
     echo "    -h, --help      shows this help screen"
 	echo "    -v, --verbose   enable verbose output"
 	echo "    -u  -U NUM  --unified[=NUM]  Output NUM (default 3) lines of unified context."
@@ -33,10 +33,8 @@ function clean_up ()
 # parse command line arguments
 while [ $# -ne 0 ]; do
 	case "$1" in
-		"-?") usage;;
-		"-h") usage;;
-		"--help") usage;;
-		"-v"|"--verbose") verbose=1; ;;
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
 		"-u"|"-U"|"--unified") unified=1; ;;
 		"-L"|"--label") 
             if [ -z "$label_left" ]; then

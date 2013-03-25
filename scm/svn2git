@@ -150,11 +150,9 @@ function update_lookup_table() {
 # parse command line arguments
 while [ $# -ne 0 ]; do
     case "$1" in
-        "-?") usage;;
-        "-h") usage;;
-        "--help") usage;;
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
         "--domain") mail_domain="$2"; shift; ;;
-        '-v'|'--verbose') verbose=1; ;;
         "--authors") authors_file="$2"; shift; ;;
         "--update-authors") update_authors_file=1; ;;
         '--rootistrunk') rootistrunk=1; ;;

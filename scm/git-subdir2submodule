@@ -1,0 +1,120 @@
+#!/bin/bash
+
+verbose=0
+repo_git=''
+subdir_list=''
+outdir=''
+
+function usage()
+{
+    echo "git-subdir2submodule <gitrepo> <subdir0> [subdir1]"
+    echo "    -h, --help         shows this help screen"
+    echo "    -v, --verbose      enable verbose output"
+    echo "    -o <dir>           specifies the output directory"
+    exit 0
+}
+
+function verbose_exec()
+{
+    [ $verbose -ne 0 ] && echo "$@"
+    "$@"
+}
+
+function subdir_to_submodule() 
+{
+	local subdir="$1"
+	subdir_git_dir=`mktemp -d "$outdir.XXXXXX"`
+	final_subdir_git_dir="$outdir/${subdir}.git"
+	pushd "$subdir_git_dir" > /dev/null
+	git clone --no-hardlinks "$repo_git" "$subdir_git_dir"; RES=$?
+	if [ $RES -eq 0 ]; then
+		git filter-branch --subdirectory-filter "$subdir" HEAD -- --all; RES=$?
+		if [ $RES -eq 0 ]; then
+			git reset --hard; RES=$?
+			if [ $RES -eq 0 ]; then
+				git gc --aggressive; RES=$?
+				if [ $RES -eq 0 ]; then
+					git prune; RES=$?
+					if [ $RES -eq 0 ]; then
+						git remote rm origin; RES=$?
+						if [ $RES -eq 0 ]; then
+							echo "Subdirectory successfully converted into $subdir_git_dir."
+							#git remote add git@github.com:wmernagh/MSEL.git
+						else
+							echo "Failed to remove remote origin from GIT repository $subdir_git_dir." >&2
+						fi
+					else
+						echo "Failed to prune GIT repository $subdir_git_dir." >&2
+					fi
+				else
+					echo "Garbage collection in GIT repository $subdir_git_dir failed." >&2
+				fi
+			else
+				echo "Reset the GIT repository $subdir_git_dir failed." >&2
+			fi
+		else
+			echo "Filter branch to GIT repository $subdir_git_dir failed" >&2
+		fi
+	else
+		echo "Failed to clone GIT repository $repo_git to $subdir_git_dir" >&2
+	fi
+
+	popd > /dev/null
+	
+	if [ $RES -eq 0 ]; then
+		mv "$subdir_git_dir" "$final_subdir_git_dir"
+	else
+		# remove the temporary clone of GIT repo
+		#rm -rf "$repo_git_full"
+		true
+	fi
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
+		'-o') outdir="$2"; shift; ;;
+        *)
+			if [ -z "$repo_git" ]; then
+				repo_git="$1"
+			else
+				[ -z "$subdir_list" ] && subdir_list="$1" || subdir_list="$subdir_list $1"
+			fi
+            ;;
+    esac
+    shift
+done
+
+script_file=`readlink -f "$0"`
+script_dir=`dirname "$script_file"`
+
+if [ ! -x "/usr/bin/git" ]; then
+	echo "GIT not installed. Please install using 'sudo apt-get install git-core'." >&2
+	exit 1
+fi
+
+if [ -z "$repo_git" ]; then
+	echo "No GIT repository specified." >&2
+	exit 1
+else
+	if [ -d "$repo_git" ]; then
+		repo_git=`readlink -f "$repo_git"`
+	fi
+fi
+
+if [ -z "$subdir_list" ]; then
+	echo "No subdirectory in GIT repository specified." >&2
+	exit 1
+fi
+
+[ -z "$outdir" ] && outdir=`dirname "$repo_git"`
+
+echo "GIT repository: $repo_git"
+echo "Output directory: $outdir"
+echo "Subdirectory list: $subdir_list"
+
+for subdir in $subdir_list; do
+	subdir_to_submodule "$subdir"
+done

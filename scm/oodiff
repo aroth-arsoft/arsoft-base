@@ -93,6 +93,7 @@ COPYRIGHT
 
 SEE ALSO
     odt2txt(1)"
+    exit 0
 }
 
 clean_up ()
@@ -110,11 +111,8 @@ Main ()
     
     while test $# -ne 0; do
 		case "$1" in
-			--help|-h)
-			usage
-			exit 0
-			;;
-			"-v"|"--verbose") verbose=1; ;;
+			'-?'|'-h'|'--help') usage;;
+			'-v'|'--verbose') verbose=1; ;;
 			'-L'|'--label')
 			if [ ! "$label1" ]; then
 				label1="$2"
