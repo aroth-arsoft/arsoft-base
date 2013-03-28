@@ -18,30 +18,34 @@ if [ ! -f /usr/lib/update-notifier/apt-check ]; then
 fi
 
 APTRES=$(/usr/lib/update-notifier/apt-check 2>&1)
-PKGS=$(echo $APTRES | cut -f1 -d';')
-SEC=$(echo $APTRES | cut -f2 -d';')
+if [ $? -eq 0 ]; then
+	PKGS=$(echo $APTRES | cut -f1 -d';')
+	SEC=$(echo $APTRES | cut -f2 -d';')
+	if [ -f /var/run/reboot-required ]; then
+			REBOOT=1
+			TOAPPLY=`cat /var/run/reboot-required.pkgs`
+	else
+			REBOOT=0
+	fi
 
-if [ -f /var/run/reboot-required ]; then
-        REBOOT=1
-        TOAPPLY=`cat /var/run/reboot-required.pkgs`
+	if [ "${PKGS}" -eq 0 ]; then
+			if [ "${REBOOT}" -eq 1 ]; then
+					RET=$STATE_WARNING
+					RESULT="Reboot required to apply ${TOAPPLY}"
+			else
+					RET=$STATE_OK
+					RESULT="No packages to be updated"
+			fi
+	elif [ "${SEC}" -eq 0 ]; then
+			RET=$STATE_WARNING
+			RESULT="${PKGS} packages to update (no security updates)"
+	else
+			RET=$STATE_CRITICAL
+			RESULT="${PKGS} packages (including ${SEC} security) packages to update"
+	fi
 else
-        REBOOT=0
-fi
-
-if [ "${PKGS}" -eq 0 ]; then
-        if [ "${REBOOT}" -eq 1 ]; then
-                RET=$STATE_WARNING
-                RESULT="Reboot required to apply ${TOAPPLY}"
-        else
-                RET=$STATE_OK
-                RESULT="No packages to be updated"
-        fi
-elif [ "${SEC}" -eq 0 ]; then
-        RET=$STATE_WARNING
-        RESULT="${PKGS} packages to update (no security updates)"
-else
-        RET=$STATE_CRITICAL
-        RESULT="${PKGS} packages (including ${SEC} security) packages to update"
+	RET=$STATE_CRITICAL
+	RESULT="unable to determine state of  package database (error $APTRES)"
 fi
 
 echo $RESULT

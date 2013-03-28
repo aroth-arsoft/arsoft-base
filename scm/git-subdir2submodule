@@ -4,6 +4,7 @@ verbose=0
 repo_git=''
 subdir_list=''
 outdir=''
+submodule_base_url=''
 
 function usage()
 {
@@ -20,13 +21,19 @@ function verbose_exec()
     "$@"
 }
 
-function subdir_to_submodule() 
+function subdir_to_submodule()
 {
-	local subdir="$1"
-	subdir_git_dir=`mktemp -d "$outdir.XXXXXX"`
-	final_subdir_git_dir="$outdir/${subdir}.git"
+	local repodir="$1"
+	local subdir="$2"
+	local destdir="$3"
+	if [ -d "$destdir" ]; then
+		echo "Target directory already exists $destdir."
+		return 1
+	fi
+
+	subdir_git_dir=`mktemp -d "$destdir.XXXXXX"`
 	pushd "$subdir_git_dir" > /dev/null
-	git clone --no-hardlinks "$repo_git" "$subdir_git_dir"; RES=$?
+	git clone --no-hardlinks "$repodir" "$subdir_git_dir"; RES=$?
 	if [ $RES -eq 0 ]; then
 		git filter-branch --subdirectory-filter "$subdir" HEAD -- --all; RES=$?
 		if [ $RES -eq 0 ]; then
@@ -56,18 +63,18 @@ function subdir_to_submodule()
 			echo "Filter branch to GIT repository $subdir_git_dir failed" >&2
 		fi
 	else
-		echo "Failed to clone GIT repository $repo_git to $subdir_git_dir" >&2
+		echo "Failed to clone GIT repository $repodir to $subdir_git_dir" >&2
 	fi
 
 	popd > /dev/null
 	
 	if [ $RES -eq 0 ]; then
-		mv "$subdir_git_dir" "$final_subdir_git_dir"
+		mv "$subdir_git_dir" "$destdir"; RES=$?
 	else
 		# remove the temporary clone of GIT repo
-		#rm -rf "$repo_git_full"
-		true
+		rm -rf "$repo_git_full"
 	fi
+	return $RES
 }
 
 # parse command line arguments
@@ -76,6 +83,7 @@ while [ $# -ne 0 ]; do
 		'-?'|'-h'|'--help') usage;;
 		'-v'|'--verbose') verbose=1; ;;
 		'-o') outdir="$2"; shift; ;;
+		'-s') submodule_base_url="$2"; shift; ;;
         *)
 			if [ -z "$repo_git" ]; then
 				repo_git="$1"
@@ -101,6 +109,9 @@ if [ -z "$repo_git" ]; then
 else
 	if [ -d "$repo_git" ]; then
 		repo_git=`readlink -f "$repo_git"`
+	else
+		echo "Only local GIT repositories are supported." >&2
+		exit 1
 	fi
 fi
 
@@ -110,11 +121,38 @@ if [ -z "$subdir_list" ]; then
 fi
 
 [ -z "$outdir" ] && outdir=`dirname "$repo_git"`
+[ -z "$submodule_base_url" ] && submodule_base_url=`dirname "$repo_git"`
 
 echo "GIT repository: $repo_git"
 echo "Output directory: $outdir"
 echo "Subdirectory list: $subdir_list"
+echo "Submodule base url: $submodule_base_url"
+
+# enter the GIT repository
+pushd "$repo_git" > /dev/null
 
 for subdir in $subdir_list; do
-	subdir_to_submodule "$subdir"
+
+	subdir_safe=${subdir//\//_}
+	subdir_git_dir="$outdir/${subdir_safe}.git"
+
+	subdir_to_submodule "$repo_git" "$subdir" "$subdir_git_dir"; RES=$?
+	if [ $RES -eq 0 ]; then
+		git submodule add "$subdir_git_dir" "$subdir"; RES=$?
+		if [ $RES -eq 0 ]; then
+			echo "Submodule $subdir successfully added."
+		else
+			echo "Failed to add submodule $subdir as $subdir_git_dir." >&2
+		fi
+	else
+		echo "Failed to convert subdirectory $subdir." >&2
+	fi
 done
+
+git submodule init
+git submodule update
+git add .gitmodules src
+git commit -m "Converted subdirectory $subdir_list to submodules."
+
+# leave the GIT repository
+popd > /dev/null
