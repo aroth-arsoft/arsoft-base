@@ -21,6 +21,11 @@ function verbose_exec()
     "$@"
 }
 
+function cleanup_repo()
+{
+	true
+}
+
 function subdir_to_submodule()
 {
 	local repodir="$1"
@@ -77,6 +82,68 @@ function subdir_to_submodule()
 	return $RES
 }
 
+function fully_remove_subdir()
+{
+	local repodir="$1"
+	local subdir="$2"
+	pushd "$repodir" > /dev/null
+
+	#git filter-branch --tree-filter 'git rm -r -f --ignore-unmatch *.pyc' HEAD
+	git filter-branch --index-filter "git rm -rf --cached --ignore-unmatch $subdir" HEAD; RES=$?
+	if [ $RES -eq 0 ]; then
+		git reflog expire --all; RES=$?
+		if [ $RES -eq 0 ]; then
+			git gc --aggressive --prune; RES=$?
+			if [ $RES -eq 0 ]; then
+				echo "Successfully remove $subdir from GIT repository $repodir"
+			else
+				echo "Garbage collection in GIT repository $repodir failed." >&2
+			fi
+		else
+			echo "Failed to expire reflog information in GIT repository $repodir." >&2
+		fi
+	else
+		echo "Failed to filter subdirectory $subdir from GIT repository $repodir." >&2
+	fi
+	
+	if [ $RES -eq 0 ]; then
+		# remove the subdirectory if it still exists
+		[ -d "$repodir/$subdir" ] && rm -rf "$repodir/$subdir"
+	fi
+	
+	popd > /dev/null
+	return $RES
+}
+
+function add_submodule()
+{
+	local repodir="$1"
+	local subdir="$2"
+	local submodule="$3"
+	pushd "$repodir" > /dev/null
+	
+	parent_dir=`dirname "$subdir"`
+	parent_dir=`readlink -f "$parent_dir"`
+	
+	echo "subdir=$subdir, parent_dir=$parent_dir"
+
+	git submodule add "$submodule" "$subdir"; RES=$?
+	if [ $RES -eq 0 ]; then
+		# stash the modified .gitmodules
+		git add "${parent_dir}/.gitmodules"; RES=$?
+		if [ $RES -eq 0 ]; then
+			echo "Submodule $submodule as $subdir successfully added."
+		else
+			echo "Failed to add ${parent_dir}/.gitmodules." >&2
+		fi
+	else
+		echo "Failed to add submodule $subdir as $submodule." >&2
+	fi
+
+	popd > /dev/null
+	return $RES
+}
+
 # parse command line arguments
 while [ $# -ne 0 ]; do
     case "$1" in
@@ -123,36 +190,100 @@ fi
 [ -z "$outdir" ] && outdir=`dirname "$repo_git"`
 [ -z "$submodule_base_url" ] && submodule_base_url=`dirname "$repo_git"`
 
+repo_name=`basename "$repo_git"`
+
 echo "GIT repository: $repo_git"
+echo "GIT repository name: $repo_name"
 echo "Output directory: $outdir"
 echo "Subdirectory list: $subdir_list"
 echo "Submodule base url: $submodule_base_url"
 
-# enter the GIT repository
-pushd "$repo_git" > /dev/null
+cloned_git_dir="$outdir/${repo_name}.git"
+temp_git_dir=`mktemp -d "$cloned_git_dir.XXXXXX"`
 
-for subdir in $subdir_list; do
+git clone --no-hardlinks "$repo_git" "$temp_git_dir"; RES=$?
+if [ $RES -eq 0 ]; then
+	# enter the cloned GIT repository
+	pushd "$temp_git_dir" > /dev/null
 
-	subdir_safe=${subdir//\//_}
-	subdir_git_dir="$outdir/${subdir_safe}.git"
+	# create extra GIT repositories for each subdir
+	for subdir in $subdir_list; do
 
-	subdir_to_submodule "$repo_git" "$subdir" "$subdir_git_dir"; RES=$?
-	if [ $RES -eq 0 ]; then
-		git submodule add "$subdir_git_dir" "$subdir"; RES=$?
+		subdir_safe=${subdir//\//_}
+		subdir_git_dir="$outdir/${subdir_safe}.git"
+
+		subdir_to_submodule "$temp_git_dir" "$subdir" "$subdir_git_dir"; RES=$?
 		if [ $RES -eq 0 ]; then
-			echo "Submodule $subdir successfully added."
+			echo "GIT repository for $subdir successfully created."
 		else
-			echo "Failed to add submodule $subdir as $subdir_git_dir." >&2
+			echo "Failed to convert subdirectory $subdir." >&2
+			break;
+		fi
+	done
+	
+	if [ $RES -eq 0 ]; then
+		# remove the subdirs from the cloned GIT repository
+		for subdir in $subdir_list; do
+			fully_remove_subdir "$temp_git_dir" "$subdir"; RES=$?
+			if [ $RES -eq 0 ]; then
+				echo "Subdirectory $subdir successfully removed."
+			else
+				echo "Failed to convert subdirectory $subdir." >&2
+				break;
+			fi
+		done
+	fi
+
+	if [ $RES -eq 0 ]; then
+		# re-add the subdirs as submodules from the cloned GIT repository
+		for subdir in $subdir_list; do
+			subdir_safe=${subdir//\//_}
+			subdir_git_dir="$outdir/${subdir_safe}.git"
+
+			add_submodule "$temp_git_dir" "$subdir" "$subdir_git_dir"; RES=$?
+			if [ $RES -eq 0 ]; then
+				echo "Submodule $subdir successfully added."
+			else
+				echo "Failed to add submodule $subdir as $subdir_git_dir." >&2
+				break;
+			fi
+		done
+	fi
+	
+	if [ $RES -eq 0 ]; then
+		git submodule init; RES=$?
+		if [ $RES -eq 0 ]; then
+			git submodule update; RES=$?
+			if [ $RES -eq 0 ]; then
+				git commit -m "Converted subdirectory $subdir_list to submodules."; RES=$?
+				if [ $RES -eq 0 ]; then
+					echo "Submodule modifications commited."
+				else
+					echo "Failed to commit submodule modifications." >&2
+				fi
+			else
+				echo "Failed to update submodules." >&2
+			fi
+		else
+			echo "Failed to initialize submodules." >&2
+		fi
+	fi
+	
+	# leave the cloned GIT repository
+	popd > /dev/null
+	
+	if [ $RES -eq 0 ]; then
+		mv "$temp_git_dir" "$cloned_git_dir"; RES=$?
+		if [ $RES -eq 0 ]; then
+			echo "Converted GIT repository ready at $cloned_git_dir."
+		else
+			echo "Failed to move temporary GIT repository $temp_git_dir to $cloned_git_dir." >&2
 		fi
 	else
-		echo "Failed to convert subdirectory $subdir." >&2
+		echo "Conversion failed; remove temporary GIT repository at $temp_git_dir."
+		# remove the temporary clone of GIT repo
+		rm -rf "$temp_git_dir"
 	fi
-done
-
-git submodule init
-git submodule update
-git add .gitmodules src
-git commit -m "Converted subdirectory $subdir_list to submodules."
-
-# leave the GIT repository
-popd > /dev/null
+else
+	echo "Failed to clone GIT repository $repodir to $subdir_git_dir" >&2
+fi
