@@ -1,0 +1,75 @@
+#!/bin/bash
+ 
+# author: Duane Johnson
+# email: duane.johnson@gmail.com
+# date: 2008 Jun 12
+# license: MIT
+#
+# Based on discussion at http://kerneltrap.org/mailarchive/git/2007/11/12/406496
+
+repo_git=''
+
+function usage()
+{
+    echo "git-info <gitrepo>"
+    echo "    -h, --help         shows this help screen"
+    echo "    -v, --verbose      enable verbose output"
+    exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
+        *)
+			if [ -z "$repo_git" ]; then
+				repo_git="$1"
+			else
+				echo "repository already specified." >&2
+				exit 1
+			fi
+            ;;
+    esac
+    shift
+done
+
+if [ -z "$repo_git" ]; then
+	repo_git=`readlink -f '.'`
+else
+	repo_git=`readlink -f "$repo_git"`
+fi
+
+pushd "$repo_git" >/dev/null
+ 
+# Find base of git directory
+while [ ! -d .git ] && [ ! `pwd` = "/" ]; do cd ..; done
+ 
+# Show various information about this git directory
+if [ -d .git ]; then
+  echo "== Remote URL:"
+  git remote -v
+  echo
+
+  echo "== Remote Branches: "
+  git branch -r
+  echo
+ 
+  echo "== Local Branches:"
+  git branch
+  echo
+
+  echo "== Configuration (.git/config)"
+  cat .git/config
+  echo
+ 
+  echo "== Most Recent Commit"
+  git --no-pager log --max-count=1
+  echo
+ 
+  echo "Type 'git log' for more commits, or 'git show' for full commit details."
+else
+  echo "Not a git repository."
+fi
+ 
+popd >/dev/null 

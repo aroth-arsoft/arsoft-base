@@ -1,7 +1,10 @@
-SVN_BIN_SCRIPTS := mimediff \
+SCM_BIN_SCRIPTS := mimediff \
 		oodiff \
 		zipdiff \
-		imagediff
+		imagediff \
+		svn2git \
+		git-info \
+		git-subdir2submodule
 
 .PHONY: all
 
@@ -10,4 +13,4 @@ all:
 clean:
 
 install:
-	install -m 0755 -o root -g root ${SVN_BIN_SCRIPTS} $(DESTDIR)/usr/bin
+	install -m 0755 -o root -g root ${SCM_BIN_SCRIPTS} $(DESTDIR)/usr/bin

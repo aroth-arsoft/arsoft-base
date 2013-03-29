@@ -1,17 +1,28 @@
 #!/bin/bash
 
 verbose=0
+clone_bare=1
 repo_git=''
 subdir_list=''
 outdir=''
 submodule_base_url=''
+force=0
+config_file=''
+subdir_num=0
+declare -a subdir_array
+declare -a subdir_name_array
+declare -a subdir_repo_array
+declare -a subdir_repo_public_array
 
 function usage()
 {
     echo "git-subdir2submodule <gitrepo> <subdir0> [subdir1]"
     echo "    -h, --help         shows this help screen"
     echo "    -v, --verbose      enable verbose output"
+    echo "    -f, --force        override existing git repository. can be dangerous!"
     echo "    -o <dir>           specifies the output directory"
+    echo "    -s <base_url>      override the base url for submodules."
+    echo "    --file <path>      text file which contains the submodule specifications."
     exit 0
 }
 
@@ -31,18 +42,28 @@ function subdir_to_submodule()
 	local repodir="$1"
 	local subdir="$2"
 	local destdir="$3"
+	local public_url="$4"
 	if [ -d "$destdir" ]; then
-		echo "Target directory already exists $destdir."
-		return 1
+		if [ $force -eq 0 ]; then
+			echo "Target directory already exists $destdir." >&2
+			return 1
+		else
+			echo "Target directory already exists $destdir. Remove it and continue" >&2
+			rm -rf "$destdir"
+		fi
 	fi
+
+	[ $clone_bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
 
 	subdir_git_dir=`mktemp -d "$destdir.XXXXXX"`
 	pushd "$subdir_git_dir" > /dev/null
-	git clone --no-hardlinks "$repodir" "$subdir_git_dir"; RES=$?
+	git clone --no-hardlinks $bare_opt "$repodir" "$subdir_git_dir"; RES=$?
 	if [ $RES -eq 0 ]; then
 		git filter-branch --subdirectory-filter "$subdir" HEAD -- --all; RES=$?
 		if [ $RES -eq 0 ]; then
-			git reset --hard; RES=$?
+			if [ $clone_bare -eq 0 ]; then
+				git reset --hard; RES=$?
+			fi
 			if [ $RES -eq 0 ]; then
 				git gc --aggressive; RES=$?
 				if [ $RES -eq 0 ]; then
@@ -50,8 +71,12 @@ function subdir_to_submodule()
 					if [ $RES -eq 0 ]; then
 						git remote rm origin; RES=$?
 						if [ $RES -eq 0 ]; then
-							echo "Subdirectory successfully converted into $subdir_git_dir."
-							#git remote add git@github.com:wmernagh/MSEL.git
+							git remote add origin "$public_url"; RES=$?
+							if [ $RES -eq 0 ]; then
+								echo "Subdirectory successfully converted into $subdir_git_dir."
+							else
+								echo "Failed to add remote origin $public_url for GIT repository $subdir_git_dir." >&2
+							fi
 						else
 							echo "Failed to remove remote origin from GIT repository $subdir_git_dir." >&2
 						fi
@@ -120,21 +145,17 @@ function add_submodule()
 	local repodir="$1"
 	local subdir="$2"
 	local submodule="$3"
+	
 	pushd "$repodir" > /dev/null
-	
-	parent_dir=`dirname "$subdir"`
-	parent_dir=`readlink -f "$parent_dir"`
-	
-	echo "subdir=$subdir, parent_dir=$parent_dir"
 
 	git submodule add "$submodule" "$subdir"; RES=$?
 	if [ $RES -eq 0 ]; then
 		# stash the modified .gitmodules
-		git add "${parent_dir}/.gitmodules"; RES=$?
+		git add "${repodir}/.gitmodules"; RES=$?
 		if [ $RES -eq 0 ]; then
 			echo "Submodule $submodule as $subdir successfully added."
 		else
-			echo "Failed to add ${parent_dir}/.gitmodules." >&2
+			echo "Failed to add ${repodir}/.gitmodules" >&2
 		fi
 	else
 		echo "Failed to add submodule $subdir as $submodule." >&2
@@ -149,8 +170,10 @@ while [ $# -ne 0 ]; do
     case "$1" in
 		'-?'|'-h'|'--help') usage;;
 		'-v'|'--verbose') verbose=1; ;;
+		'-f'|'--force') force=1; ;;
 		'-o') outdir="$2"; shift; ;;
 		'-s') submodule_base_url="$2"; shift; ;;
+		'--file') config_file="$2"; shift; ;;
         *)
 			if [ -z "$repo_git" ]; then
 				repo_git="$1"
@@ -164,6 +187,7 @@ done
 
 script_file=`readlink -f "$0"`
 script_dir=`dirname "$script_file"`
+script_name=`basename "$script_file"`
 
 if [ ! -x "/usr/bin/git" ]; then
 	echo "GIT not installed. Please install using 'sudo apt-get install git-core'." >&2
@@ -182,13 +206,57 @@ else
 	fi
 fi
 
-if [ -z "$subdir_list" ]; then
-	echo "No subdirectory in GIT repository specified." >&2
-	exit 1
-fi
-
 [ -z "$outdir" ] && outdir=`dirname "$repo_git"`
 [ -z "$submodule_base_url" ] && submodule_base_url=`dirname "$repo_git"`
+
+if [ ! -z "$config_file" ]; then
+	subdir_num=0
+	declare -a fields
+	while IFS=$'\t ' read -r -a fields; do
+		[ ${#fields[*]} -eq 0 -o "${fields[0]:0:1}" == "#" ] && continue
+		
+		if [ ${#fields[*]} -lt 3 ]; then
+			echo "skip unrecognized line: $fields" 1>&2
+			continue
+		fi
+
+		subdir="${fields[0]}"
+		subdir_name="${fields[1]}"
+		subdir_repo_public="${fields[2]}"
+		
+		subdir_safe=${subdir_name//\//_}
+		subdir_git_dir="$outdir/${subdir_safe}.git"
+
+		subdir_array[$subdir_num]="$subdir"
+		subdir_name_array[$subdir_num]="$subdir_name"
+		subdir_repo_array[$subdir_num]="$subdir_git_dir"
+		subdir_repo_public_array[$subdir_num]="$subdir_repo_public"
+		let subdir_num++
+	done < "$config_file"
+
+	if [ $subdir_num -eq 0  ]; then
+		echo "No subdirectory is loaded from $config_file." >&2
+		exit 1
+	fi
+else
+	if [ -z "$subdir_list" ]; then
+		echo "No subdirectory in GIT repository specified." >&2
+		exit 1
+	else
+		subdir_num=0
+		for subdir in $subdir_list; do
+			subdir_safe=${subdir//\//_}
+			subdir_git_dir="$outdir/${subdir_safe}.git"
+		
+			subdir_array[$subdir_num]="$subdir"
+			subdir_name_array[$subdir_num]="$subdir_safe"
+			subdir_repo_array[$subdir_num]="$subdir_git_dir"
+			subdir_repo_public_array[$subdir_num]="$subdir_git_dir"
+			let subdir_num++
+		done
+	fi
+
+fi
 
 repo_name=`basename "$repo_git"`
 
@@ -197,6 +265,19 @@ echo "GIT repository name: $repo_name"
 echo "Output directory: $outdir"
 echo "Subdirectory list: $subdir_list"
 echo "Submodule base url: $submodule_base_url"
+
+if [ $verbose -ne 0 ]; then
+	for ((idx=0; idx < $subdir_num ; idx++)); do
+		subdir=${subdir_array[$idx]}
+		subdir_name=${subdir_name_array[$idx]}
+		subdir_repo=${subdir_repo_array[$idx]}
+		subdir_repo_public=${subdir_repo_public_array[$idx]}
+		echo "subdir: $subdir"
+		echo "subdir name: $subdir_name"
+		echo "subdir repo: $subdir_repo"
+		echo "subdir repo public: $subdir_repo_public"
+	done
+fi
 
 cloned_git_dir="$outdir/${repo_name}.git"
 temp_git_dir=`mktemp -d "$cloned_git_dir.XXXXXX"`
@@ -207,12 +288,13 @@ if [ $RES -eq 0 ]; then
 	pushd "$temp_git_dir" > /dev/null
 
 	# create extra GIT repositories for each subdir
-	for subdir in $subdir_list; do
+	for ((idx=0; idx < $subdir_num ; idx++)); do
+		subdir=${subdir_array[$idx]}
+		subdir_name=${subdir_name_array[$idx]}
+		subdir_repo=${subdir_repo_array[$idx]}
+		subdir_repo_public=${subdir_repo_public_array[$idx]}
 
-		subdir_safe=${subdir//\//_}
-		subdir_git_dir="$outdir/${subdir_safe}.git"
-
-		subdir_to_submodule "$temp_git_dir" "$subdir" "$subdir_git_dir"; RES=$?
+		subdir_to_submodule "$temp_git_dir" "$subdir" "$subdir_repo" "$subdir_repo_public"; RES=$?
 		if [ $RES -eq 0 ]; then
 			echo "GIT repository for $subdir successfully created."
 		else
@@ -223,7 +305,9 @@ if [ $RES -eq 0 ]; then
 	
 	if [ $RES -eq 0 ]; then
 		# remove the subdirs from the cloned GIT repository
-		for subdir in $subdir_list; do
+		for ((idx=0; idx < $subdir_num ; idx++)); do
+			subdir=${subdir_array[$idx]}
+
 			fully_remove_subdir "$temp_git_dir" "$subdir"; RES=$?
 			if [ $RES -eq 0 ]; then
 				echo "Subdirectory $subdir successfully removed."
@@ -236,15 +320,16 @@ if [ $RES -eq 0 ]; then
 
 	if [ $RES -eq 0 ]; then
 		# re-add the subdirs as submodules from the cloned GIT repository
-		for subdir in $subdir_list; do
-			subdir_safe=${subdir//\//_}
-			subdir_git_dir="$outdir/${subdir_safe}.git"
+		for ((idx=0; idx < $subdir_num ; idx++)); do
+			subdir=${subdir_array[$idx]}
+			subdir_name=${subdir_name_array[$idx]}
+			subdir_repo_public=${subdir_repo_public_array[$idx]}
 
-			add_submodule "$temp_git_dir" "$subdir" "$subdir_git_dir"; RES=$?
+			add_submodule "$temp_git_dir" "$subdir" "$subdir_repo_public"; RES=$?
 			if [ $RES -eq 0 ]; then
 				echo "Submodule $subdir successfully added."
 			else
-				echo "Failed to add submodule $subdir as $subdir_git_dir." >&2
+				echo "Failed to add submodule $subdir as $subdir_repo_public." >&2
 				break;
 			fi
 		done
@@ -255,7 +340,16 @@ if [ $RES -eq 0 ]; then
 		if [ $RES -eq 0 ]; then
 			git submodule update; RES=$?
 			if [ $RES -eq 0 ]; then
-				git commit -m "Converted subdirectory $subdir_list to submodules."; RES=$?
+				commit_msg_file=`mktemp`
+				echo "$script_name converted the following subdirectories into submodules:" >> "$commit_msg_file"
+				for ((idx=0; idx < $subdir_num ; idx++)); do
+					subdir=${subdir_array[$idx]}
+					subdir_name=${subdir_name_array[$idx]}
+					subdir_repo_public=${subdir_repo_public_array[$idx]}
+					echo "  $subdir -> $subdir_repo_public" >> "$commit_msg_file"
+				done
+				git commit -F "$commit_msg_file"; RES=$?
+				rm "$commit_msg_file"
 				if [ $RES -eq 0 ]; then
 					echo "Submodule modifications commited."
 				else
@@ -275,7 +369,35 @@ if [ $RES -eq 0 ]; then
 	if [ $RES -eq 0 ]; then
 		mv "$temp_git_dir" "$cloned_git_dir"; RES=$?
 		if [ $RES -eq 0 ]; then
-			echo "Converted GIT repository ready at $cloned_git_dir."
+			echo "Conversion completed successfully."
+			echo "Main repository is available at $cloned_git_dir"
+			echo "Repositories for subdirectories:"
+			show_todo=0
+			for ((idx=0; idx < $subdir_num ; idx++)); do
+				subdir=${subdir_array[$idx]}
+				subdir_name=${subdir_name_array[$idx]}
+				subdir_repo=${subdir_repo_array[$idx]}
+				subdir_repo_public=${subdir_repo_public_array[$idx]}
+				if [ "$subdir_repo_public" != "$subdir_repo" ]; then
+					echo "  $subdir_repo (as $subdir_repo_public)"
+					show_todo=1
+				else
+					echo "  $subdir_repo"
+				fi
+			done
+			
+			if [ $show_todo -ne 0 ]; then
+				echo "Further steps required:"
+				for ((idx=0; idx < $subdir_num ; idx++)); do
+					subdir=${subdir_array[$idx]}
+					subdir_name=${subdir_name_array[$idx]}
+					subdir_repo=${subdir_repo_array[$idx]}
+					subdir_repo_public=${subdir_repo_public_array[$idx]}
+					if [ "$subdir_repo_public" != "$subdir_repo" ]; then
+						echo " - copy $subdir_repo to $subdir_repo_public"
+					fi
+				done
+			fi
 		else
 			echo "Failed to move temporary GIT repository $temp_git_dir to $cloned_git_dir." >&2
 		fi
