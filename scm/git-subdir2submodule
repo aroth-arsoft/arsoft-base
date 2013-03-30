@@ -3,6 +3,7 @@
 verbose=0
 clone_bare=1
 repo_git=''
+repo_schema=''
 subdir_list=''
 outdir=''
 submodule_base_url=''
@@ -114,7 +115,7 @@ function fully_remove_subdir()
 	pushd "$repodir" > /dev/null
 
 	#git filter-branch --tree-filter 'git rm -r -f --ignore-unmatch *.pyc' HEAD
-	git filter-branch --index-filter "git rm -rf --cached --ignore-unmatch $subdir" HEAD; RES=$?
+	git filter-branch -f --index-filter "git rm -rf --cached --ignore-unmatch $subdir" HEAD; RES=$?
 	if [ $RES -eq 0 ]; then
 		git reflog expire --all; RES=$?
 		if [ $RES -eq 0 ]; then
@@ -148,7 +149,7 @@ function add_submodule()
 	
 	pushd "$repodir" > /dev/null
 
-	git submodule add "$submodule" "$subdir"; RES=$?
+	git submodule add --force "$submodule" "$subdir"; RES=$?
 	if [ $RES -eq 0 ]; then
 		# stash the modified .gitmodules
 		git add "${repodir}/.gitmodules"; RES=$?
@@ -200,9 +201,11 @@ if [ -z "$repo_git" ]; then
 else
 	if [ -d "$repo_git" ]; then
 		repo_git=`readlink -f "$repo_git"`
+		repo_schema='file'
+		[ -z "$outdir" ] && outdir=`dirname "$repo_git"`
 	else
-		echo "Only local GIT repositories are supported." >&2
-		exit 1
+		repo_schema="${repo_git%://*}"
+		[ -z "$outdir" ] && outdir=`readlink -f $(pwd)`
 	fi
 fi
 
