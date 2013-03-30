@@ -10,6 +10,7 @@ submodule_base_url=''
 force=0
 config_file=''
 subdir_num=0
+submodule_init=0
 declare -a subdir_array
 declare -a subdir_name_array
 declare -a subdir_repo_array
@@ -338,34 +339,42 @@ if [ $RES -eq 0 ]; then
 		done
 	fi
 	
-	if [ $RES -eq 0 ]; then
-		git submodule init; RES=$?
+	if [ $submodule_init -ne 0 ]; then
 		if [ $RES -eq 0 ]; then
-			git submodule update; RES=$?
+			git submodule init; RES=$?
 			if [ $RES -eq 0 ]; then
-				commit_msg_file=`mktemp`
-				echo "$script_name converted the following subdirectories into submodules:" >> "$commit_msg_file"
-				for ((idx=0; idx < $subdir_num ; idx++)); do
-					subdir=${subdir_array[$idx]}
-					subdir_name=${subdir_name_array[$idx]}
-					subdir_repo_public=${subdir_repo_public_array[$idx]}
-					echo "  $subdir -> $subdir_repo_public" >> "$commit_msg_file"
-				done
-				git commit -F "$commit_msg_file"; RES=$?
-				rm "$commit_msg_file"
+				git submodule update; RES=$?
 				if [ $RES -eq 0 ]; then
-					echo "Submodule modifications commited."
+					echo "New submodules initialized and updated successfully."
 				else
-					echo "Failed to commit submodule modifications." >&2
+					echo "Failed to update submodules." >&2
 				fi
 			else
-				echo "Failed to update submodules." >&2
+				echo "Failed to initialize submodules." >&2
 			fi
-		else
-			echo "Failed to initialize submodules." >&2
 		fi
 	fi
-	
+
+	if [ $RES -eq 0 ]; then
+		commit_msg_file=`mktemp`
+		echo "$script_name converted the following subdirectories into submodules:" >> "$commit_msg_file"
+		for ((idx=0; idx < $subdir_num ; idx++)); do
+			subdir=${subdir_array[$idx]}
+			subdir_name=${subdir_name_array[$idx]}
+			subdir_repo_public=${subdir_repo_public_array[$idx]}
+			echo "  $subdir -> $subdir_repo_public" >> "$commit_msg_file"
+		done
+		git commit -F "$commit_msg_file"; RES=$?
+		rm "$commit_msg_file"
+		if [ $RES -eq 0 ]; then
+			echo "Submodule modifications commited."
+		else
+			echo "Failed to commit submodule modifications." >&2
+		fi
+	else
+		echo "Failed to update submodules." >&2
+	fi
+
 	# leave the cloned GIT repository
 	popd > /dev/null
 	
