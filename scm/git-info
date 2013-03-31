@@ -43,33 +43,39 @@ fi
 pushd "$repo_git" >/dev/null
  
 # Find base of git directory
-while [ ! -d .git ] && [ ! `pwd` = "/" ]; do cd ..; done
+while [ ! -d .git ] && [ ! -f packed-refs ] && [ ! `pwd` = "/" ]; do cd ..; done
  
 # Show various information about this git directory
-if [ -d .git ]; then
-  echo "== Remote URL:"
-  git remote -v
-  echo
+if [ -d .git -o -f packed-refs ]; then
+	echo "== Remote URL:"
+	git remote -v
+	echo
 
-  echo "== Remote Branches: "
-  git branch -r
-  echo
- 
-  echo "== Local Branches:"
-  git branch
-  echo
+	echo "== Remote Branches: "
+	git branch -r
+	echo
 
-  echo "== Configuration (.git/config)"
-  cat .git/config
-  echo
+	echo "== Local Branches:"
+	git branch
+	echo
+
+	if [ -f .git/config ]; then 
+		echo "== Configuration (.git/config)"
+		cat .git/config
+		echo
+	else
+		echo "== Configuration (config)"
+		cat config
+		echo
+	fi
  
-  echo "== Most Recent Commit"
-  git --no-pager log --max-count=1
-  echo
- 
-  echo "Type 'git log' for more commits, or 'git show' for full commit details."
+	echo "== Most Recent Commit"
+	git --no-pager log --max-count=1
+	echo
+
+	echo "Type 'git log' for more commits, or 'git show' for full commit details."
 else
-  echo "Not a git repository."
+	echo "Not a git repository."
 fi
  
 popd >/dev/null 
