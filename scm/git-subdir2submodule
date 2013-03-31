@@ -11,6 +11,7 @@ force=0
 config_file=''
 subdir_num=0
 submodule_init=0
+keep=0
 declare -a subdir_array
 declare -a subdir_name_array
 declare -a subdir_repo_array
@@ -22,6 +23,7 @@ function usage()
     echo "    -h, --help         shows this help screen"
     echo "    -v, --verbose      enable verbose output"
     echo "    -f, --force        override existing git repository. can be dangerous!"
+    echo "    --keep             keep temporary GIT repositories for troubleshooting."
     echo "    -o <dir>           specifies the output directory"
     echo "    -s <base_url>      override the base url for submodules."
     echo "    --file <path>      text file which contains the submodule specifications."
@@ -47,8 +49,13 @@ function subdir_to_submodule()
 	local public_url="$4"
 	if [ -d "$destdir" ]; then
 		if [ $force -eq 0 ]; then
-			echo "Target directory already exists $destdir." >&2
-			return 1
+			if [ $keep -ne 0 ]; then
+				echo "Target directory already exists $destdir, but assume this is ok and just use it." >&2
+				return 0
+			else
+				echo "Target directory already exists $destdir." >&2
+				return 1
+			fi
 		else
 			echo "Target directory already exists $destdir. Remove it and continue" >&2
 			rm -rf "$destdir"
@@ -173,6 +180,7 @@ while [ $# -ne 0 ]; do
 		'-?'|'-h'|'--help') usage;;
 		'-v'|'--verbose') verbose=1; ;;
 		'-f'|'--force') force=1; ;;
+		'--keep') keep=1; ;;
 		'-o') outdir="$2"; shift; ;;
 		'-s') submodule_base_url="$2"; shift; ;;
 		'--file') config_file="$2"; shift; ;;
@@ -284,9 +292,18 @@ if [ $verbose -ne 0 ]; then
 fi
 
 cloned_git_dir="$outdir/${repo_name}.git"
-temp_git_dir=`mktemp -d "$cloned_git_dir.XXXXXX"`
 
-git clone --no-hardlinks "$repo_git" "$temp_git_dir"; RES=$?
+if [ $keep -ne 0 ]; then
+	if [ -d "$cloned_git_dir" ]; then
+		temp_git_dir="$cloned_git_dir"
+	else
+		temp_git_dir=`mktemp -d "$cloned_git_dir.XXXXXX"`
+		git clone --no-hardlinks "$repo_git" "$temp_git_dir"; RES=$?
+	fi
+else
+	temp_git_dir=`mktemp -d "$cloned_git_dir.XXXXXX"`
+	git clone --no-hardlinks "$repo_git" "$temp_git_dir"; RES=$?
+fi
 if [ $RES -eq 0 ]; then
 	# enter the cloned GIT repository
 	pushd "$temp_git_dir" > /dev/null
@@ -379,7 +396,11 @@ if [ $RES -eq 0 ]; then
 	popd > /dev/null
 	
 	if [ $RES -eq 0 ]; then
-		mv "$temp_git_dir" "$cloned_git_dir"; RES=$?
+		if [ "$temp_git_dir" != "$cloned_git_dir" ]; then
+			mv "$temp_git_dir" "$cloned_git_dir"; RES=$?
+		else
+			RES=0
+		fi
 		if [ $RES -eq 0 ]; then
 			echo "Conversion completed successfully."
 			echo "Main repository is available at $cloned_git_dir"
@@ -414,9 +435,16 @@ if [ $RES -eq 0 ]; then
 			echo "Failed to move temporary GIT repository $temp_git_dir to $cloned_git_dir." >&2
 		fi
 	else
-		echo "Conversion failed; remove temporary GIT repository at $temp_git_dir."
-		# remove the temporary clone of GIT repo
-		rm -rf "$temp_git_dir"
+		if [ $keep -ne 0 ]; then
+			if [ "$temp_git_dir" != "$cloned_git_dir" ]; then
+				mv "$temp_git_dir" "$cloned_git_dir"
+			fi
+			echo "Conversion failed, but keeping the main GIT repository at $cloned_git_dir"
+		else
+			echo "Conversion failed; remove temporary GIT repository at $temp_git_dir."
+			# remove the temporary clone of GIT repo
+			rm -rf "$temp_git_dir"
+		fi
 	fi
 else
 	echo "Failed to clone GIT repository $repodir to $subdir_git_dir" >&2
