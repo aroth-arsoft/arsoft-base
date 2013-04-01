@@ -2,6 +2,7 @@
 
 verbose=0
 clone_bare=1
+clone_git_to_dest=0
 repo_git=''
 repo_schema=''
 subdir_list=''
@@ -127,33 +128,49 @@ function subdir_to_submodule()
 			fi
 		done
 
-		# final cloning to reduce size
-		git clone --no-hardlinks $bare_opt "$subdir_git_dir" "$destdir"; RES=$?
-		if [ $RES -eq 0 ]; then
-			echo "Subdirectory cloned from $subdir_git_dir to $destdir"
+		if [ $clone_git_to_dest -ne 0 ]; then
+			# final cloning to reduce size
+			echo "Cloning $subdir_git_dir to $destdir"
+			git clone --no-hardlinks $bare_opt "$subdir_git_dir" "$destdir"; RES=$?
+			if [ $RES -eq 0 ]; then
+				echo "Subdirectory cloned from $subdir_git_dir to $destdir"
+			else
+				echo "Final cloning the GIT repository $subdir_git_dir failed." >&2
+			fi
+
+			# remove the temporary clone of GIT repo
+			rm -rf "$subdir_git_dir"
 		else
-			echo "Final cloning the GIT repository $subdir_git_dir failed." >&2
+			mv "$subdir_git_dir" "$destdir"
+			echo "Subdirectory moved from $subdir_git_dir to $destdir"
 		fi
+	else
+		# remove the temporary clone of GIT repo
+		rm -rf "$subdir_git_dir"
 	fi
-	# remove the temporary clone of GIT repo
-	rm -rf "$repo_git_full"
 	return $RES
 }
 
 function fully_remove_subdir()
 {
 	local repodir="$1"
-	local subdir="$2"
+	shift
+	local subdirs="$@"
 	pushd "$repodir" > /dev/null
 
 	#git filter-branch --tree-filter 'git rm -r -f --ignore-unmatch *.pyc' HEAD
-	git filter-branch -f --index-filter "git rm -rf --cached --ignore-unmatch $subdir" HEAD; RES=$?
+	git filter-branch -f --index-filter "git rm -qrf --cached --ignore-unmatch $subdirs" HEAD; RES=$?
 	if [ $RES -eq 0 ]; then
+		if [ -d "$repodir/.git/refs/original" ]; then
+			rm -rf "$repodir/.git/refs/original"
+		elif [ -d "$repodir/refs/original" ]; then
+			rm -rf "$repodir/refs/original"
+		fi
 		git reflog expire --all; RES=$?
 		if [ $RES -eq 0 ]; then
 			git gc --aggressive --prune; RES=$?
 			if [ $RES -eq 0 ]; then
-				echo "Successfully remove $subdir from GIT repository $repodir"
+				echo "Successfully removed $subdirs from GIT repository $repodir"
 			else
 				echo "Garbage collection in GIT repository $repodir failed." >&2
 			fi
@@ -161,12 +178,14 @@ function fully_remove_subdir()
 			echo "Failed to expire reflog information in GIT repository $repodir." >&2
 		fi
 	else
-		echo "Failed to filter subdirectory $subdir from GIT repository $repodir." >&2
+		echo "Failed to filter subdirectories $subdirs from GIT repository $repodir." >&2
 	fi
 	
 	if [ $RES -eq 0 ]; then
 		# remove the subdirectory if it still exists
-		[ -d "$repodir/$subdir" ] && rm -rf "$repodir/$subdir"
+		for subdir in $subdirs; do
+			[ -d "$repodir/$subdir" ] && rm -rf "$repodir/$subdir"
+		done
 	fi
 	
 	popd > /dev/null
@@ -241,14 +260,12 @@ else
 	if [ -d "$repo_git" ]; then
 		repo_git=`readlink -f "$repo_git"`
 		repo_schema='file'
-		[ -z "$outdir" ] && outdir=`dirname "$repo_git"`
 	else
 		repo_schema="${repo_git%://*}"
-		[ -z "$outdir" ] && outdir=`readlink -f $(pwd)`
 	fi
 fi
 
-[ -z "$outdir" ] && outdir=`dirname "$repo_git"`
+[ -z "$outdir" ] && outdir=`readlink -f $(pwd)`
 [ -z "$submodule_base_url" ] && submodule_base_url=`dirname "$repo_git"`
 
 if [ ! -z "$config_file" ]; then
@@ -363,23 +380,27 @@ if [ $RES -eq 0 ]; then
 	done
 	
 	if [ $RES -eq 0 ]; then
+		subdirs_to_remove=''
 		# remove the subdirs from the cloned GIT repository
 		for ((idx=0; idx < $subdir_num ; idx++)); do
 			subdir=${subdir_array[$idx]}
 			converted=${subdir_converted_array[$idx]}
 			
 			if [ $converted -ne 0 ]; then
-				fully_remove_subdir "$temp_git_dir" "$subdir"; RES=$?
-				if [ $RES -eq 0 ]; then
-					echo "Subdirectory $subdir successfully removed."
-				else
-					echo "Failed to convert subdirectory $subdir." >&2
-					break;
-				fi
+				subdirs_to_remove="$subdirs_to_remove \"$subdir\""
 			else
 				echo "Subdirectory $subdir already removed."
 			fi
 		done
+		
+		if [ ! -z "$subdirs_to_remove" ]; then
+			fully_remove_subdir "$temp_git_dir" $subdirs_to_remove; RES=$?
+			if [ $RES -eq 0 ]; then
+				echo "Subdirectories $subdirs_to_remove successfully removed."
+			else
+				echo "Failed to remove subdirectories $subdirs_to_remove." >&2
+			fi
+		fi
 	fi
 
 	if [ $submodule_add -ne 0 ]; then
