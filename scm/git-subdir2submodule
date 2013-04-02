@@ -52,24 +52,61 @@ function git_shrink()
 	local repodir="$1"
 	
 	pushd "$repodir" > /dev/null
-	git reflog expire --expire=now --all; RES=$?
+
+	if [ -d "$repodir/.git/refs/original" ]; then
+		rm -rf "$repodir/.git/refs/original"
+	elif [ -d "$repodir/refs/original" ]; then
+		rm -rf "$repodir/refs/original"
+	fi
 	if [ $RES -eq 0 ]; then
-		git gc --prune=now; RES=$?
-		if [ $RES -eq 0 ]; then
-			git gc --aggressive --prune=now; RES=$?
-			if [ $RES -eq 0 ]; then
-				echo "GIT repository $repodir disk size reduced successfully."
-			else
-				echo "Failed to prune GIT repository $repodir" >&2
-			fi
-		else
+		git remote rm origin; RES=$?
+		if [ $RES -ne 0 ]; then
+			echo "Failed to remove origin from GIT repository $repodir" >&2
+		fi
+	fi
+	
+	if [ $RES -eq 0 ]; then
+		git reflog expire --expire=now --all; RES=$?
+		if [ $RES -ne 0 ]; then
+			echo "Failed to clean up reflog for the GIT repository $repodir" >&2
+		fi
+	fi
+	
+	if [ $RES -eq 0 ]; then
+		git gc --aggressive --prune=now; RES=$?
+		if [ $RES -ne 0 ]; then
 			echo "Garbage collection in GIT repository $repodir failed." >&2
 		fi
-	else
-		echo "Failed to clean up reflog for the GIT repository $repodir" >&2
+	fi
+	if [ $RES -eq 0 ]; then
+		echo "GIT repository $repodir disk size reduced successfully."
 	fi
 	popd > /dev/null
-	
+
+	return $RES
+}
+
+function git_clone_and_shrink()
+{
+	local repodir="$1"
+	local destdir="$2"
+
+	pushd "$repodir" > /dev/null
+
+	# cloning to reduce size
+	git clone --no-hardlinks $bare_opt "$repodir" "$destdir"; RES=$?
+	if [ $RES -eq 0 ]; then
+		git_shrink "$destdir"; RES=$?
+		if [ $RES -eq 0 ]; then
+			echo "Repository cloned from $repodir to $destdir"
+		else
+			echo "Failed to shirnk GIT repository $destdir." >&2
+		fi
+	else
+		echo "Cloning of the GIT repository $repodir failed." >&2
+	fi
+	popd > /dev/null
+
 	return $RES
 }
 
@@ -111,30 +148,20 @@ function subdir_to_submodule()
 				fi
 			fi
 			if [ $RES -eq 0 ]; then
-				if [ -d "$repodir/.git/refs/original" ]; then
-					rm -rf "$repodir/.git/refs/original"
-				elif [ -d "$repodir/refs/original" ]; then
-					rm -rf "$repodir/refs/original"
-				fi
-				git remote rm origin; RES=$?
+				git_shrink "$subdir_git_dir"; RES=$?
 				if [ $RES -eq 0 ]; then
-					git_shrink "$subdir_git_dir"; RES=$?
-					if [ $RES -eq 0 ]; then
-						if [ $submodule_add_origin -ne 0 ]; then
-							git remote add origin "$public_url"; RES=$?
-							if [ $RES -eq 0 ]; then
-								echo "Subdirectory successfully converted into $subdir_git_dir."
-							else
-								echo "Failed to add remote origin $public_url for GIT repository $subdir_git_dir." >&2
-							fi
-						else
+					if [ $submodule_add_origin -ne 0 ]; then
+						git remote add origin "$public_url"; RES=$?
+						if [ $RES -eq 0 ]; then
 							echo "Subdirectory successfully converted into $subdir_git_dir."
+						else
+							echo "Failed to add remote origin $public_url for GIT repository $subdir_git_dir." >&2
 						fi
 					else
-						echo "Failed to reduce size of GIT repository $subdir_git_dir." >&2
+						echo "Subdirectory successfully converted into $subdir_git_dir."
 					fi
 				else
-					echo "Failed to remove remote origin from GIT repository $subdir_git_dir." >&2
+					echo "Failed to reduce size of GIT repository $subdir_git_dir." >&2
 				fi
 			fi
 		else
@@ -158,14 +185,9 @@ function subdir_to_submodule()
 		if [ $clone_git_to_dest -ne 0 ]; then
 			# final cloning to reduce size
 			echo "Cloning $subdir_git_dir to $destdir"
-			git clone --no-hardlinks $bare_opt "$subdir_git_dir" "$destdir"; RES=$?
+			git_clone_and_shrink "$subdir_git_dir" "$destdir"; RES=$?
 			if [ $RES -eq 0 ]; then
-				git_shrink "$destdir"; RES=$?
-				if [ $RES -eq 0 ]; then
-					echo "Subdirectory cloned from $subdir_git_dir to $destdir"
-				else
-					echo "Failed to shirnk GIT repository $destdir." >&2
-				fi
+				echo "Subdirectory cloned from $subdir_git_dir to $destdir"
 			else
 				echo "Final cloning the GIT repository $subdir_git_dir failed." >&2
 			fi
@@ -497,10 +519,13 @@ if [ $RES -eq 0 ]; then
 	
 	if [ $RES -eq 0 ]; then
 		if [ "$temp_git_dir" != "$cloned_git_dir" ]; then
-			mv "$temp_git_dir" "$cloned_git_dir"; RES=$?
+			git_clone_and_shrink "$temp_git_dir" "$cloned_git_dir"; RES=$?
 		else
 			RES=0
 		fi
+		# remove the temporary clone of GIT repo
+		rm -rf "$temp_git_dir"
+
 		if [ $RES -eq 0 ]; then
 			echo "Conversion completed successfully."
 			echo "Main repository is available at $cloned_git_dir"
