@@ -2,7 +2,7 @@
 
 verbose=0
 clone_bare=1
-clone_git_to_dest=0
+clone_git_to_dest=1
 repo_git=''
 repo_schema=''
 subdir_list=''
@@ -47,6 +47,32 @@ function cleanup_repo()
 	true
 }
 
+function git_shrink()
+{
+	local repodir="$1"
+	
+	pushd "$repodir" > /dev/null
+	git reflog expire --expire=now --all; RES=$?
+	if [ $RES -eq 0 ]; then
+		git gc --prune=now; RES=$?
+		if [ $RES -eq 0 ]; then
+			git gc --aggressive --prune=now; RES=$?
+			if [ $RES -eq 0 ]; then
+				echo "GIT repository $repodir disk size reduced successfully."
+			else
+				echo "Failed to prune GIT repository $repodir" >&2
+			fi
+		else
+			echo "Garbage collection in GIT repository $repodir failed." >&2
+		fi
+	else
+		echo "Failed to clean up reflog for the GIT repository $repodir" >&2
+	fi
+	popd > /dev/null
+	
+	return $RES
+}
+
 function subdir_to_submodule()
 {
 	local repodir="$1"
@@ -76,39 +102,40 @@ function subdir_to_submodule()
 	pushd "$subdir_git_dir" > /dev/null
 	git clone --no-hardlinks $bare_opt "$repodir" "$subdir_git_dir"; RES=$?
 	if [ $RES -eq 0 ]; then
-		git filter-branch --subdirectory-filter "$subdir" HEAD -- --all; RES=$?
+		git filter-branch --subdirectory-filter "$subdir" --prune-empty HEAD -- --all; RES=$?
 		if [ $RES -eq 0 ]; then
 			if [ $clone_bare -eq 0 ]; then
 				git reset --hard; RES=$?
+				if [ $RES -ne 0 ]; then
+					echo "Reset the GIT repository $subdir_git_dir failed." >&2
+				fi
 			fi
 			if [ $RES -eq 0 ]; then
-				git gc --aggressive; RES=$?
+				if [ -d "$repodir/.git/refs/original" ]; then
+					rm -rf "$repodir/.git/refs/original"
+				elif [ -d "$repodir/refs/original" ]; then
+					rm -rf "$repodir/refs/original"
+				fi
+				git remote rm origin; RES=$?
 				if [ $RES -eq 0 ]; then
-					git prune; RES=$?
+					git_shrink "$subdir_git_dir"; RES=$?
 					if [ $RES -eq 0 ]; then
-						git remote rm origin; RES=$?
-						if [ $RES -eq 0 ]; then
-							if [ $submodule_add_origin -ne 0 ]; then
-								git remote add origin "$public_url"; RES=$?
-								if [ $RES -eq 0 ]; then
-									echo "Subdirectory successfully converted into $subdir_git_dir."
-								else
-									echo "Failed to add remote origin $public_url for GIT repository $subdir_git_dir." >&2
-								fi
-							else
+						if [ $submodule_add_origin -ne 0 ]; then
+							git remote add origin "$public_url"; RES=$?
+							if [ $RES -eq 0 ]; then
 								echo "Subdirectory successfully converted into $subdir_git_dir."
+							else
+								echo "Failed to add remote origin $public_url for GIT repository $subdir_git_dir." >&2
 							fi
 						else
-							echo "Failed to remove remote origin from GIT repository $subdir_git_dir." >&2
+							echo "Subdirectory successfully converted into $subdir_git_dir."
 						fi
 					else
-						echo "Failed to prune GIT repository $subdir_git_dir." >&2
+						echo "Failed to reduce size of GIT repository $subdir_git_dir." >&2
 					fi
 				else
-					echo "Garbage collection in GIT repository $subdir_git_dir failed." >&2
+					echo "Failed to remove remote origin from GIT repository $subdir_git_dir." >&2
 				fi
-			else
-				echo "Reset the GIT repository $subdir_git_dir failed." >&2
 			fi
 		else
 			echo "Filter branch to GIT repository $subdir_git_dir failed" >&2
@@ -133,7 +160,12 @@ function subdir_to_submodule()
 			echo "Cloning $subdir_git_dir to $destdir"
 			git clone --no-hardlinks $bare_opt "$subdir_git_dir" "$destdir"; RES=$?
 			if [ $RES -eq 0 ]; then
-				echo "Subdirectory cloned from $subdir_git_dir to $destdir"
+				git_shrink "$destdir"; RES=$?
+				if [ $RES -eq 0 ]; then
+					echo "Subdirectory cloned from $subdir_git_dir to $destdir"
+				else
+					echo "Failed to shirnk GIT repository $destdir." >&2
+				fi
 			else
 				echo "Final cloning the GIT repository $subdir_git_dir failed." >&2
 			fi
@@ -159,7 +191,7 @@ function fully_remove_subdir()
 	pushd "$repodir" > /dev/null
 
 	#git filter-branch --tree-filter 'git rm -r -f --ignore-unmatch *.pyc' HEAD
-	git filter-branch -f --index-filter "git rm -qrf --cached --ignore-unmatch $subdirs" HEAD; RES=$?
+	git filter-branch -f --index-filter "git rm -qrf --cached --ignore-unmatch $subdirs" --prune-empty HEAD; RES=$?
 	if [ $RES -eq 0 ]; then
 		if [ -d "$repodir/.git/refs/original" ]; then
 			rm -rf "$repodir/.git/refs/original"
