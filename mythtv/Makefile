@@ -1,6 +1,5 @@
 MYTHTV_BIN_SCRIPTS := mythtv-restart \
-		mythtv-startx-tty \
-		mythtv-webradio
+		mythtv-startx-tty
 MYTHTV_SHARE_SCRIPTS := mythadder.py 
 
 .PHONY: all

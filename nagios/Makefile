@@ -14,10 +14,12 @@ install:
 	install -m 0755 -o root -g root capture_plugin.pl $(DESTDIR)/usr/lib/nagios/plugins/capture_plugin.pl
 	install -m 0755 -o root -g root icinga_mail.pl $(DESTDIR)/usr/lib/nagios/icinga_mail.pl
 	install -m 0755 -o root -g root check_puppet_agent $(DESTDIR)/usr/lib/nagios/plugins/check_puppet_agent
+	install -m 0755 -o root -g root check_nagiostats $(DESTDIR)/usr/lib/nagios/plugins/check_nagiostats
 	mkdir -p $(DESTDIR)/etc/nagios-plugins/config
 	install -m 0644 -o root -g root apt_upgrade.cfg $(DESTDIR)/etc/nagios-plugins/config/apt_upgrade.cfg
 	install -m 0644 -o root -g root dhcp-remote.cfg $(DESTDIR)/etc/nagios-plugins/config/dhcp-remote.cfg
 	install -m 0644 -o root -g root jenkins.cfg $(DESTDIR)/etc/nagios-plugins/config/jenkins.cfg
 	install -m 0644 -o root -g root puppet.cfg $(DESTDIR)/etc/nagios-plugins/config/puppet.cfg
+	install -m 0644 -o root -g root nagiostats.cfg $(DESTDIR)/etc/nagios-plugins/config/nagiostats.cfg
 	mkdir -p $(DESTDIR)/usr/share/man/man1
 	#install -m 0644 -o root -g root check_ssl_cert.1 $(DESTDIR)/usr/share/man/man1

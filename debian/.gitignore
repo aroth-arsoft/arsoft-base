@@ -10,3 +10,4 @@
 /tmp/
 /*.substvars
 /files
+/*.debhelper.log

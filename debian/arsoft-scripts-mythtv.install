@@ -1,4 +1,3 @@
 usr/bin/mythtv-restart
 usr/bin/mythtv-startx-tty
-usr/bin/mythtv-webradio
-usr/share/mythtv/mythadder.py 
+usr/share/mythtv/mythadder.py
