@@ -34,6 +34,7 @@ if [ $# -lt 1 ]; then
     exit $STATE_UNKNOWN
 fi
 
+name_resolve_order=''
 user="guest"
 pasword=""
 
@@ -57,6 +58,9 @@ while test -n "$1"; do
 	-p)
 	    shift
 	    password="$1";;
+	-R)
+	    shift
+	    name_resolve_order="$1";;
 	*)
 	    usage; exit $STATE_UNKNOWN;;
     esac
@@ -64,7 +68,7 @@ shift
 done
 
 # use grepable output from smbclient
-stdout=`LANG=C /usr/bin/smbclient -U"$user"%"$password" -g -N -L "$host" 2>&1`
+stdout=`LANG=C /usr/bin/smbclient -U"$user"%"$password" -g -N -L "$host" -R "$name_resolve_order" 2>&1`
 res=$?
 if [ -z "$share" ]; then
 	if [ $res -eq 0 ]; then
@@ -78,7 +82,7 @@ if [ -z "$share" ]; then
 	fi
 else
 	if [ $res -eq 0 ]; then
-		description=`echo "$stdout" | awk -F'|' "BEGIN { res=1 } /^Disk\|$share\|/ { print \$3; res=0;}; END { exit res;}"`
+		description=`echo "$stdout" | awk "BEGIN { FS=\"|\"; res=1 } /^Disk\|$share\|/ { print \\\$3; res=0;}; END { exit res;}"`
 		res=$?
 		if [ $res -eq 0 ]; then
 			echo "OK SMB Share: $share: $description"
