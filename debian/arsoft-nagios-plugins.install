@@ -2,6 +2,7 @@ etc/nagios-plugins/config/apt_upgrade.cfg
 etc/nagios-plugins/config/dhcp-remote.cfg
 etc/nagios-plugins/config/jenkins.cfg
 etc/nagios-plugins/config/nagiostats.cfg
+etc/nagios-plugins/config/smb.cfg
 usr/lib/nagios/icinga_mail.pl
 usr/lib/nagios/plugins/capture_plugin.pl
 usr/lib/nagios/plugins/check_apt_upgrade
@@ -10,3 +11,4 @@ usr/lib/nagios/plugins/check_jenkins_version.pl
 usr/lib/nagios/plugins/check_jenkins_slaves.pl
 usr/lib/nagios/plugins/check_jenkins_job_time.pl
 usr/lib/nagios/plugins/check_nagiostats
+usr/lib/nagios/plugins/check_smb
