@@ -9,6 +9,8 @@
 # nagiostats/icingastats/... executable
 if [ -x '/usr/sbin/icingastats' ]; then
 	EXEC='/usr/sbin/icingastats'
+elif [ -x '/usr/sbin/nagios3stats' ]; then
+	EXEC='/usr/sbin/nagios3stats'
 elif [ -x '/usr/sbin/nagiostats' ]; then
 	EXEC='/usr/sbin/nagiostats'
 else
