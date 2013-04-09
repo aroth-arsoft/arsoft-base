@@ -34,6 +34,8 @@ case "$1" in
 			-e "/!?\/usr\/share\/ca-certificates\/fastprotect\/fastprotect_root_ca.pem/d" \
 			-e "/!?\/usr\/share\/ca-certificates\/arsoft\/root.crt/d" \
 			-e "/!?\/usr\/share\/ca-certificates\/fastprotect\/root.crt/d" \
+			-e "/!?arsoft\/root.crt/d" \
+			-e "/!?fastprotect\/root.crt/d" \
 			-e "/!?arsoft\/arsoft_ca_root.crt/d" \
 			/etc/ca-certificates.conf > /etc/ca-certificates.conf.dpkg-new
 		for d in $CERTSUBDIRS; do
