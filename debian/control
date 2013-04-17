@@ -72,7 +72,7 @@ Description: some helper scripts for various SCM systems
 
 Package: arsoft-nagios-plugins
 Architecture: all
-Depends: arsoft-python-nagios, libnagios-plugin-perl, lm-sensors, hddtemp, dnsutils, ${misc:Depends}
+Depends: arsoft-python-nagios, libnagios-plugin-perl, libmail-sender-perl, libwww-mechanize-perl, lm-sensors, hddtemp, dnsutils, ${misc:Depends}
 Description: additional Nagios plugins for AR Soft specific services
  Installs all files and packages required to use the AR Soft nagios
  plugins to monitor the following services:
