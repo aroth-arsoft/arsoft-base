@@ -1,3 +1,9 @@
+arsoft-base (2.54) quantal; urgency=low
+
+  * more nagios plugins: puppet agent and puppetdb
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 20 Apr 2013 16:47:12 +0200
+
 arsoft-base (2.53.1) quantal; urgency=low
 
   * minor ca certificate correction

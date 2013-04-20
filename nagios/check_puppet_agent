@@ -20,10 +20,10 @@
 #
 # Typical this check is placed on a client and run via nrpe
 # so add this to nrpe.cfg:
-#  command[check_puppet_agent]=/usr/lib/nagios/plugins/check_puppet -w 3600 -c 7200
+#  command[check_puppet_agent]=/usr/lib/nagios/plugins/check_puppet_agent -w 3600 -c 7200
 # This should warn when the agent hasnt run for an hour and go critical after two hours
 #  if you have dont_blame_nrpe=1 set you can choose to
-#  command[check_puppet_agent]=/usr/lib/nagios/plugins/check_puppet -w $ARG1$ -c $ARG2$
+#  command[check_puppet_agent]=/usr/lib/nagios/plugins/check_puppet_agent -w $ARG1$ -c $ARG2$
 #
 # define service {
 #  use generic-service
@@ -41,18 +41,23 @@
 # SETTINGS
 CRIT=7200
 WARN=3600
-statefile=$(/usr/bin/puppet --configprint statedir)/last_run_summary.yaml
+statedir='/var/lib/puppet/state'
+statefile='/var/lib/puppet/state/last_run_summary.yaml'
+use_sudo=1
 
 # FUNCTIONS
 result () {
   case $1 in
-    0) echo "OK: Puppet agent ${version} running catalogversion ${config}";rc=0 ;;
-    1) echo "UNKNOWN: last_run_summary.yaml not found, not readable or incomplete";rc=3 ;;
+    0) echo "OK: Puppet agent ${version} running catalog version ${config}";rc=0 ;;
+    1) echo "WARNING: last_run_summary.yaml not found or incomplete";rc=1 ;;
     2) echo "WARNING: Last run was ${time_since_last} seconds ago. warn is ${WARN}";rc=1 ;;
     3) echo "CRITICAL: Last run was ${time_since_last} seconds ago. crit is ${CRIT}";rc=2 ;;
     4) echo "CRITICAL: Puppet daemon not running";rc=2 ;;
     5) echo "UNKNOWN: no WARN or CRIT parameters were sent to this check";rc=3 ;;
     6) echo "CRITICAL: Last run had 1 or more errors. Check the logs";rc=2 ;;
+    7) echo "OK: Puppet agent ${version} running";rc=0 ;;
+    8) echo "WARNING: Running obsolute puppet agent version ${version}. current is ${REQVER}";rc=1 ;;
+    9) echo "WARNING: last_run_summary.yaml not readable";rc=1 ;;
   esac
   exit $rc
 }
@@ -64,11 +69,13 @@ usage () {
   echo "    -w warning threshold (default 3600 seconds)"
   echo "    -c ciritcal threshold (default 7200 seconds)"
   echo "    -s statefile (default: /var/lib/puppet/state/last_run_summary.yaml)"
+  echo "    -v required version number, if an agent with a lower version number"
+  echo "       is detected a warning will be generated"
   echo ""
   exit 1
 }
 
-while getopts "c:s:w:" opt
+while getopts "c:s:w:v:" opt
 do
   case $opt in
     c)
@@ -88,38 +95,60 @@ do
         usage
       fi
     ;;
+    v)
+      REQVER=$OPTARG
+    ;;
     *)
       usage
     ;;
   esac
 done
 
-# check if state file exists
-[ -s ${statefile} -a -r ${statefile} ] || result 1
-
 # check puppet daemon:
 # I only know the cmd lines for Debian and CentOS/RedHat:
-[ "$(ps axf|egrep "/usr/bin/ruby /usr/sbin/puppetd|/usr/bin/ruby1.8 /usr/bin/puppet agent")" ] || result 4
+[ "$(ps aux | grep "[p]uppet agent")" ] || result 4
+
+# check version
+version=$(puppet --version)
+
+function version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
+
+if [ $(version $version) -gt $(version $REQVER) ]; then
+  if [ $(version $FULLCHCKVER) -gt $(version $version) ]; then
+    result 7
+  fi
+else
+  result 8
+fi
+
+if [ $use_sudo -ne 0 ]; then
+	last_run_summary=`sudo /bin/cat ${statefile} 2>&1`
+else
+	# check if state file exists
+	if [ ! -f ${statefile} ]; then
+		if [ ! -r ${statedir} ]; then
+			result 9
+		else
+			result 1
+		fi
+	elif [ ! -r ${statefile} ]; then
+		result 9
+	fi
+	last_run_summary=`cat ${statefile}`
+fi
 
 # check when last run happened
-line="$(grep last_run: ${statefile})"
-last_run=$(echo ${line/last_run:/})
+last_run=`echo "$last_run_summary" | awk -F': ' '/last_run:/ { print $2 }'`
 now=$(date +%s)
 time_since_last=$((now-last_run))
 [ ${time_since_last} -ge ${CRIT} ] && result 3
 [ ${time_since_last} -ge ${WARN} ] && result 2
 
 # get some more info from the yaml file
-line="$(grep config: ${statefile})"
-config=$(echo ${line/config:/})
-line="$(grep puppet: ${statefile})"
-version=$(echo ${line/puppet:/})
-line="$(grep failed: ${statefile})"
-failed=$(echo ${line/failed:/})
-line="$(grep failure: ${statefile})"
-failure=$(echo ${line/failure:/})
-line="$(grep failed_to_restart: ${statefile})"
-failed_to_restart=$(echo ${line/failed_to_restart:/})
+config=`echo "$last_run_summary" | awk -F': ' '/config:/ { print $2 }'`
+failed=`echo "$last_run_summary" | awk -F': ' '/failed:/ { print $2 }'`
+failure=`echo "$last_run_summary" | awk -F': ' '/failure:/ { print $2 }'`
+failed_to_restart=`echo "$last_run_summary" | awk -F': ' '/failed_to_restart:/ { print $2 }'`
 
 [ -z "${last_run}" -o -z "${config}" -o -z "${version}" -o -z "${failed}" -o -z "${failure}" -o -z "${failed_to_restart}" ] && result 1
 [ ${failed} -gt 0 -o  ${failure} -gt 0 -o ${failed_to_restart} -gt 0 ] && result 6

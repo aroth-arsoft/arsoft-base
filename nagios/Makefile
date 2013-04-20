@@ -14,6 +14,11 @@ install:
 	install -m 0755 -o root -g root capture_plugin.pl $(DESTDIR)/usr/lib/nagios/plugins/capture_plugin.pl
 	install -m 0755 -o root -g root icinga_mail.pl $(DESTDIR)/usr/lib/nagios/icinga_mail.pl
 	install -m 0755 -o root -g root check_puppet_agent $(DESTDIR)/usr/lib/nagios/plugins/check_puppet_agent
+	install -m 0755 -o root -g root check_puppetdb_dups $(DESTDIR)/usr/lib/nagios/plugins/check_puppetdb_dups
+	install -m 0755 -o root -g root check_puppetdb_memory $(DESTDIR)/usr/lib/nagios/plugins/check_puppetdb_memory
+	install -m 0755 -o root -g root check_puppetdb_populations $(DESTDIR)/usr/lib/nagios/plugins/check_puppetdb_populations
+	install -m 0755 -o root -g root check_puppetdb_processed $(DESTDIR)/usr/lib/nagios/plugins/check_puppetdb_processed
+	install -m 0755 -o root -g root check_puppetdb_queue $(DESTDIR)/usr/lib/nagios/plugins/check_puppetdb_queue
 	install -m 0755 -o root -g root check_nagiostats $(DESTDIR)/usr/lib/nagios/plugins/check_nagiostats
 	install -m 0755 -o root -g root check_smb $(DESTDIR)/usr/lib/nagios/plugins/check_smb
 	mkdir -p $(DESTDIR)/etc/nagios-plugins/config
