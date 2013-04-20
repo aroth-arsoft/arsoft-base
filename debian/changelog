@@ -1,3 +1,9 @@
+arsoft-base (2.56) quantal; urgency=low
+
+  * add missing nma commands
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 20 Apr 2013 18:57:55 +0200
+
 arsoft-base (2.55) quantal; urgency=low
 
   * added arsoft-pnp4nagios package

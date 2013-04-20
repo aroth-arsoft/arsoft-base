@@ -29,6 +29,7 @@ install:
 	install -m 0644 -o root -g root puppet.cfg $(DESTDIR)/etc/nagios-plugins/config/puppet.cfg
 	install -m 0644 -o root -g root nagiostats.cfg $(DESTDIR)/etc/nagios-plugins/config/nagiostats.cfg
 	install -m 0644 -o root -g root smb.cfg $(DESTDIR)/etc/nagios-plugins/config/smb.cfg
+	install -m 0644 -o root -g root nma_notify.cfg $(DESTDIR)/etc/nagios-plugins/config/nma_notify.cfg
 	mkdir -p $(DESTDIR)/usr/share/man/man1
 	#install -m 0644 -o root -g root check_ssl_cert.1 $(DESTDIR)/usr/share/man/man1
 	# keep the utils.sh in the directory (from nagios-plugins), but do not install it:
