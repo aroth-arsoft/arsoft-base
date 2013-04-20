@@ -1,3 +1,10 @@
+arsoft-base (2.55) quantal; urgency=low
+
+  * added arsoft-pnp4nagios package
+  * include NotifyMyAndroid script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 20 Apr 2013 18:38:45 +0200
+
 arsoft-base (2.54) quantal; urgency=low
 
   * more nagios plugins: puppet agent and puppetdb

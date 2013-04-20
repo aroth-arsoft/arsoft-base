@@ -13,6 +13,7 @@ install:
 	install -m 0755 -o root -g root check_jenkins_version.pl $(DESTDIR)/usr/lib/nagios/plugins/check_jenkins_version.pl
 	install -m 0755 -o root -g root capture_plugin.pl $(DESTDIR)/usr/lib/nagios/plugins/capture_plugin.pl
 	install -m 0755 -o root -g root icinga_mail.pl $(DESTDIR)/usr/lib/nagios/icinga_mail.pl
+	install -m 0755 -o root -g root nma.pl $(DESTDIR)/usr/lib/nagios/nma.pl
 	install -m 0755 -o root -g root check_puppet_agent $(DESTDIR)/usr/lib/nagios/plugins/check_puppet_agent
 	install -m 0755 -o root -g root check_puppetdb_dups $(DESTDIR)/usr/lib/nagios/plugins/check_puppetdb_dups
 	install -m 0755 -o root -g root check_puppetdb_memory $(DESTDIR)/usr/lib/nagios/plugins/check_puppetdb_memory
