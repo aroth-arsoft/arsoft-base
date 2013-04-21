@@ -47,6 +47,7 @@ use Data::Dumper;
 # define all used variables
 # generic stuff
 my $debug = "0";
+my $show_environment = "0";
 my ($mailServer, $icinga_url, $pnp4nagios_url, $nagiosbp_url, $nagiosbp_conf, $nagiosbp_state, $tempdir, $originator, $recipient, 
 	$icinga_notificationtype, $icinga_adminemail
 	);
@@ -82,6 +83,7 @@ grep {$_ eq '-h'} @ARGV and do { usage() };
 
 GetOptions (
 	"debug=s"							=>	\$debug,
+    "env=s"                             =>  \$show_environment,
 	"smtphost=s" 						=> 	\$mailServer,
 	"icinga_url=s"						=>	\$icinga_url,
 	"pnp4nagios_url=s"					=>	\$pnp4nagios_url,
@@ -197,7 +199,7 @@ $icinga_processstarttime			= getLocaltimeFromUnixtime($icinga_processstarttime);
 # check if host- or service notification an define subject for mail
 my $subject;
 my $notificationtype;
-if ($icinga_servicestate ne "\$") {
+if ($icinga_servicestate ne "\$" and $icinga_servicestate ne "") {
 	# service notification
 	$subject = "[Icinga] $icinga_notificationtype: $icinga_hostname $icinga_servicedisplayname is $icinga_servicestate";
 	$notificationtype = "SERVICE";
@@ -292,12 +294,17 @@ sub getMessageBody {
 	# add icinga statstics to message body
 	my $statistics4messagebody = getstatistics4messagebody();
 	$messageBody = $messageBody . $statistics4messagebody;
+    
+    if ($show_environment) {
+        my $environment4messagebody = getenvironment4messagebody();
+        $messageBody = $messageBody . $environment4messagebody;
+    }
 
 	# close message body html
 	my $footer4messagebody = getfooter4messagebody();
 	$messageBody = $messageBody . $footer4messagebody;
 
-return $messageBody;
+    return $messageBody;
 }
 
 sub getheader4messagebody {
@@ -305,8 +312,14 @@ sub getheader4messagebody {
 	my $messageBody = "
 	<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">
 		<html xmlns=\"http://www.w3.org/1999/xhtml\">
-		<head>
-		<title></title>
+		<head>";
+		
+    if ($notificationtype eq "SERVICE") {
+        $messageBody = $messageBody . "<title>[Icinga] Service $icinga_notificationtype $icinga_hostname $icinga_servicedesc is $icinga_servicestate ($self_notificationnumber)</title>";
+    } else {
+        $messageBody = $messageBody . "<title>[Icinga] Host $icinga_notificationtype $icinga_hostname $icinga_hostname is $icinga_hoststate ($self_notificationnumber)</title>";
+    }
+    $messageBody = $messageBody. "
 		<meta
 			http-equiv=\"Content-Type\"
 			content=\"text/html; charset=iso-8859-15\" />
@@ -345,7 +358,7 @@ sub getheader4messagebody {
 			$icinga_hostname $icinga_servicedesc is $icinga_servicestate ($self_notificationnumber)</div>
 			<div style=\"margin-bottom: 10px;\"><strong>Output:</strong>$icinga_serviceoutput</div>";
 	} else {
-		$messageBody = $messageBody . "<div style=\"font-weight: bold;\">[Icinga] Service $icinga_notificationtype
+		$messageBody = $messageBody . "<div style=\"font-weight: bold;\">[Icinga] Host $icinga_notificationtype
 			$icinga_hostname $icinga_hostname is $icinga_hoststate ($self_notificationnumber)</div>
 			<div style=\"margin-bottom: 10px;\"><strong>Output:</strong> $icinga_hoststate: $icinga_hostoutput</div>";		
 	}
@@ -629,8 +642,8 @@ sub getservicedetails4messagebody {
 					</tr>
 					<tr>
 						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Service Notes</td>
-						<td><a href=\"$icinga_servicenotesurl\">Click here to get more informations</a></td>
+							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">URL</td>
+						<td><a href=\"$icinga_servicenotesurl\">$icinga_servicenotesurl</a></td>
 					</tr>
 					<tr>
 						<td
@@ -1049,6 +1062,43 @@ sub getnotifications4messagebody {
 	return $messageBody;
 }
 
+sub getenvironment4messagebody {
+    # get acknowledges for message body
+    my $messageBody = "
+    <h2
+    style=\"font-size: 10pt; font-weight: bold; color: #666666; border-bottom: 1px solid #CCCCCC; clear: both; margin-top: 15px;\">Environment</h2>
+        <table
+    width=\"100%\"
+    cellpadding=\"0\"
+    cellspacing=\"0\">
+        <thead
+            style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
+            <tr>
+                <td>Name</td>
+                <td>Value</td>
+            </tr>
+        </thead>
+        <tbody>
+        ";
+
+    my $key;
+    foreach $key (sort keys(%ENV)) {
+        $messageBody = $messageBody . "
+                <tr>
+                    <td
+                        style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">$key</td>
+                    <td>$ENV{$key}</td>
+                </tr>";
+    }
+
+    $messageBody = $messageBody . "
+        </tbody>
+    </table>";
+
+    return $messageBody;
+}
+
+
 sub getnagiosbpjson {
 	my $nagiosbp_json_url = $_[0];
 	my $nagiosbp_url = $_[1];
@@ -1151,19 +1201,18 @@ sub getColorForState {
 	my $servicestate = $_[0];
 	my $servicestate_color;
 	
-	if ($servicestate eq "OK") {
+	if ($servicestate eq "OK" or $servicestate eq "UP") {
 		$servicestate_color = "#00CC33";
-	} elsif ($servicestate eq "WARNING") {
+	} elsif ($servicestate eq "WARNING" or $servicestate eq "UNREACHABLE") {
 		$servicestate_color = "#FFA500";	
-	} elsif ($servicestate eq "CRITICAL") {
+	} elsif ($servicestate eq "CRITICAL" or $servicestate eq "DOWN") {
 		$servicestate_color = "#FF3300";	
 	} elsif ($servicestate eq "UNKNOWN") {
 		$servicestate_color = "#E066FF";
 	} else {
 		$servicestate_color = "#FFFFFF"
 	}
-	
-	return $servicestate_color;	
+	return $servicestate_color;
 }
 
 sub usage {

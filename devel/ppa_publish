@@ -19,8 +19,8 @@ DEFAULT_RELEASES=`lsb_release -cs`
 VALID_RELEASE='hardy intrepid jaunty lucid karmic maverick natty oneiric precise quantal raring'
 
 function usage() {
-	echo -e "\nUsage: $(basename $0) dput-ppa release-a [[release-b] [release-c]]\n"
-	echo -e "\tE.g. $(basename $0) my-ppa gutsy hardy intrepid\n"
+	echo -e "\nUsage: $(basename $SCRIPTFILE) dput-ppa release-a [[release-b] [release-c]]\n"
+	echo -e "\tE.g. $(basename $SCRIPTFILE) my-ppa gutsy hardy intrepid\n"
 	echo "Edits the changelog before calling debuild and dput to publish"
 	echo -e "the source package to the buildd system for each release\n"
 	echo -e "\tRun from the package source directory\n"
@@ -44,9 +44,9 @@ while [ $# -ne 0 ]; do
 	*)
 		echo "Unrecognized parameter $1" >&2
 		exit 1
-	;;                                      
-	esac                                    
-	shift                                   
+	;;
+	esac
+	shift
 done
 
 if [ -z "$DPUT_TARGET" ]; then
@@ -62,12 +62,20 @@ fi
 
 [ -z "$RELEASES" ] && RELEASES="$DEFAULT_RELEASES"
 
-PKGDIR=`readlink -f "$PWD"`
-PKG=`basename "$PKGDIR"`
-if [ ! -f "$PKGDIR/debian/changelog" ]; then
-	echo "Cannot find changelog for package $PKG at $PKGDIR/debian/changelog" >&2
+
+PKGDIR=`readlink -f '.'`
+pushd "$PKGDIR" >/dev/null
+# Find base of package directory
+while [ ! -f debian/changelog ] && [ ! `pwd` = "/" ]; do cd ..; done
+
+if [ ! -f "debian/changelog" ]; then
+	popd >/dev/null 
+	echo "Cannot find debian directory in $PKGDIR or any of its parent directories." >&2
 	exit 1
+else
+	PKGDIR=`readlink -f '.'`
 fi
+echo "Found package root directory at $PKGDIR"
 
 echo "Publishing $PKG to dput target $DPUT_TARGET"
 
@@ -135,4 +143,4 @@ cp -p  "$changelog_original" "$PKGDIR/debian/changelog"
 cp -p  "$control_original" "$PKGDIR/debian/control"
 rm -f "$changelog_original"
 rm -f "$control_original"
-exit 0
+popd >/dev/null

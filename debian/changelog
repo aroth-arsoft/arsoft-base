@@ -1,3 +1,10 @@
+arsoft-base (2.58) quantal; urgency=low
+
+  * fixed icinga/nagios notifications
+  * find root directory of package in ppa_publish
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 21 Apr 2013 17:50:22 +0200
+
 arsoft-base (2.57) quantal; urgency=low
 
   * add spamassassin plugin for nagios

@@ -1,4 +1,5 @@
 #!/usr/bin/perl -w
+# icinga: -epn
 # NMAScript, to communicate with the Notify My Android server.
 #
 # Copyright (c) 2010, Zachary West
