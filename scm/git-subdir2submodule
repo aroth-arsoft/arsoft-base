@@ -5,6 +5,7 @@ clone_bare=1
 clone_git_to_dest=1
 only_extract=0
 only_remove=0
+only_shrink=0
 repo_git=''
 repo_schema=''
 new_repo_name=''
@@ -35,6 +36,7 @@ function usage()
     echo "    --newname <name>   name of the new GIT repository."
     echo "    --only-extract     only extract the subdirectories."
     echo "    --only-remove      only remove the subdirectories."
+    echo "    --shrink           only shrink the GIT repository."
     echo "    -o <dir>           specifies the output directory"
     echo "    --file <path>      text file which contains the submodule specifications."
     exit 0
@@ -323,6 +325,7 @@ while [ $# -ne 0 ]; do
 		'-o') outdir="$2"; shift; ;;
         '--only-extract') only_extract=1; ;;
         '--only-remove') only_remove=1; ;;
+        '--shrink') only_shrink=1; ;;
 		'--file') config_file="$2"; shift; ;;
 		-*)
 			echo "Invalid option $1 specified." >&2
@@ -393,11 +396,6 @@ if [ ! -z "$subdir_config_file" ]; then
 		subdir_repo_public_array[$subdir_num]="$subdir_repo_public"
 		let subdir_num++
 	done < "$subdir_config_file"
-
-	if [ $subdir_num -eq 0  ]; then
-		echo "No subdirectory is loaded from $subdir_config_file" >&2
-		exit 1
-	fi
 fi
 
 if [ -z "$config_file" ]; then
@@ -444,6 +442,11 @@ fi
 
 if [ $only_extract -ne 0 ]; then
 
+    if [ $subdir_num -eq 0  ]; then
+        echo "No subdirectories specified." >&2
+        exit 1
+    fi
+
     RES=0
     # create extra GIT repositories for each subdir
     for ((idx=0; idx < $subdir_num ; idx++)); do
@@ -467,6 +470,11 @@ if [ $only_extract -ne 0 ]; then
         echo "Extraction completed successfully."
     fi
 elif [ $only_remove -ne 0 ]; then
+    if [ $subdir_num -eq 0  ]; then
+        echo "No subdirectories specified." >&2
+        exit 1
+    fi
+
     if [ $keep -ne 0 ]; then
         if [ -d "$cloned_git_dir" ]; then
             temp_git_dir="$cloned_git_dir"
@@ -512,8 +520,38 @@ elif [ $only_remove -ne 0 ]; then
     if [ $RES -eq 0 ]; then
         echo "All subdirectories removed successfully."
     fi
+elif [ $only_shrink -ne 0 ]; then
+    if [ $keep -ne 0 ]; then
+        if [ -d "$cloned_git_dir" ]; then
+            temp_git_dir="$cloned_git_dir"
+            RES=0
+        else
+            temp_git_dir=`mktemp -d "$cloned_git_dir.XXXXXX"`
+            git clone --no-hardlinks $bare_opt "$repo_git" "$temp_git_dir"; RES=$?
+        fi
+    else
+        temp_git_dir=`mktemp -d "$cloned_git_dir.XXXXXX"`
+        git clone --no-hardlinks $bare_opt "$repo_git" "$temp_git_dir"; RES=$?
+    fi
 
+    if [ $RES -eq 0 ]; then
+        if [ "$temp_git_dir" != "$cloned_git_dir" ]; then
+            git_clone_and_shrink "$temp_git_dir" "$cloned_git_dir"; RES=$?
+        else
+            RES=0
+        fi
+        # remove the temporary clone of GIT repo
+        rm -rf "$temp_git_dir"
+    fi
+    if [ $RES -eq 0 ]; then
+        echo "Repository successfully cloned and shrinked."
+    fi
 else
+    if [ $subdir_num -eq 0  ]; then
+        echo "No subdirectories specified." >&2
+        exit 1
+    fi
+
     if [ $keep -ne 0 ]; then
         if [ -d "$cloned_git_dir" ]; then
             temp_git_dir="$cloned_git_dir"
