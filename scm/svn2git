@@ -9,6 +9,8 @@ update_authors_file=0
 update_lookup_table=0
 rootistrunk=0
 nometadata=0
+revision=''
+exclude=''
 
 function usage()
 {
@@ -21,6 +23,9 @@ function usage()
     echo "    --rootistrunk      given SVN repository has trunk as its root directory (no tags, branches)"
     echo "    --lookuptable      generates a lookup table to map SVN revision numbers to GIT commits"
     echo "    --no-metadata      do not include SVN metadata (revision numbers) in the commit messages."
+    echo "    --revision START_REV[:END_REV]"
+    echo "                       Start importing from SVN revision START_REV; optionally end at END_REV."
+    echo "     --exclude REGEX   Specify a Perl regular expression to filter paths when fetching; can be used multiple times."
     exit 0
 }
 
@@ -76,6 +81,14 @@ function convert_using_ruby_svn2git() {
 	fi
 	[ $verbose -ne 0 ] && svn2git_opts="$svn2git_opts --verbose"
 	[ $nometadata -eq 0 ] && svn2git_opts="$svn2git_opts --metadata"
+    [ ! -z "$revision" ] && svn2git_opts="$svn2git_opts --revision $revision"
+    if [ ! -z "$exclude" ]; then
+        IFS=$';'
+        for e in $exclude; do
+            svn2git_opts="$svn2git_opts --exclude \'$e\'"
+        done
+        unset IFS
+    fi
 
 	[ $verbose -ne 0 ] && echo "/usr/local/bin/svn2git \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
 	/usr/local/bin/svn2git "$repo_svn" $svn2git_opts --authors "$authors_file"
@@ -154,6 +167,15 @@ while [ $# -ne 0 ]; do
 		'-v'|'--verbose') verbose=1; ;;
         "--domain") mail_domain="$2"; shift; ;;
         "--authors") authors_file="$2"; shift; ;;
+        '--revision') revision="$2"; shift; ;;
+        '--exclude') 
+            if [ -z "$exclude" ]; then
+                exclude="$2"
+            else
+                exclude="${exclude};${2}"
+            fi
+            shift; 
+            ;;
         "--update-authors") update_authors_file=1; ;;
         '--rootistrunk') rootistrunk=1; ;;
         '--lookuptable') update_lookup_table=1; ;;
