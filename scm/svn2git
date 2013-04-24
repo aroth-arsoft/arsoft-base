@@ -9,6 +9,8 @@ update_authors_file=0
 update_lookup_table=0
 rootistrunk=0
 nometadata=0
+rebase=0
+bare=0
 revision=''
 exclude=''
 scriptfile=`readlink -f "$0"`
@@ -25,6 +27,8 @@ function usage()
     echo "    --rootistrunk      given SVN repository has trunk as its root directory (no tags, branches)"
     echo "    --lookuptable      generates a lookup table to map SVN revision numbers to GIT commits"
     echo "    --no-metadata      do not include SVN metadata (revision numbers) in the commit messages."
+    echo "    --rebase           use existing GIT-SVN repository."
+    echo "    --bare             convert GIT-SVN repository into a bare one."
     echo "    --revision START_REV[:END_REV]"
     echo "                       Start importing from SVN revision START_REV; optionally end at END_REV."
     echo "    --exclude REGEX   Specify a Perl regular expression to filter paths when fetching; can be used multiple times."
@@ -39,50 +43,43 @@ function verbose_exec()
 
 function convert_using_ruby_svn2git() {
 
-	if [ -d "$repo_git" ]; then
-		repo_git=`readlink -f "$repo_git"`
-		if [ -d "$repo_git/.git" ]; then
-			echo "A GIT repository already exists in $repo_git. Refusing to do anything!" >&2
-			return 1
-		elif [ -f "$repo_git/config" -a -f "$repo_git/HEAD" ]; then
-			echo "A bare GIT repository already exists in $repo_git. Refusing to do anything!" >&2
-			return 1
-		else
-			if [ -w "$repo_git" ]; then
-				echo "Warning: The directory $repo_git already exists and will be used as target GIT repository." >&2
-			else
-				echo "The directory $repo_git already exists, but it's not writable." >&2
-				return 1
-			fi
-		fi
-	else
-		# target directory does not yet exist, so create it
-		if ! mkdir -p "$repo_git"; then
-			echo "Failed to create directory $repo_git for GIT repository." >&2
-			return 1
-		fi
-		repo_git=`readlink -f "$repo_git"`
-	fi
+    if [ $rebase -eq 0 ]; then
+        if [ -d "$repo_git" ]; then
+            repo_git=`readlink -f "$repo_git"`
+            if [ -d "$repo_git/.git" ]; then
+                echo "A GIT repository already exists in $repo_git. Refusing to do anything!" >&2
+                return 1
+            elif [ -f "$repo_git/config" -a -f "$repo_git/HEAD" ]; then
+                echo "A bare GIT repository already exists in $repo_git. Refusing to do anything!" >&2
+                return 1
+            else
+                if [ -w "$repo_git" ]; then
+                    echo "Warning: The directory $repo_git already exists and will be used as target GIT repository." >&2
+                else
+                    echo "The directory $repo_git already exists, but it's not writable." >&2
+                    return 1
+                fi
+            fi
+        else
+            # target directory does not yet exist, so create it
+            if ! mkdir -p "$repo_git"; then
+                echo "Failed to create directory $repo_git for GIT repository." >&2
+                return 1
+            fi
+            repo_git=`readlink -f "$repo_git"`
+        fi
+    else
+        if [ ! -d "$repo_git" ]; then
+            echo "Target GIT repository $repo_git does not exist." >&2
+            return 1
+        fi
+    fi
 
-	repo_git_full=`mktemp -d "$repo_git.XXXXXX"`
-	pushd "$repo_git_full" > /dev/null
-
-	echo "Convert the SVN repository into GIT..."
-	tmp=`svn info "$repo_svn/trunk" 2> /dev/null`
-	if [ $? -eq 0 ]; then
-		rootistrunk=0
-	else
-		rootistrunk=1
-	fi
-	svn2git_opts=''
-	if [ $rootistrunk -ne 0 ]; then
-		svn2git_opts="$svn2git_opts --rootistrunk"
-		echo "SVN repository only contains trunk (no tags and branches)."
-	else
-		echo "SVN repository with standard layout (trunk, tags and branches)."
-	fi
-	[ $verbose -ne 0 ] && svn2git_opts="$svn2git_opts --verbose"
-	[ $nometadata -eq 0 ] && svn2git_opts="$svn2git_opts --metadata"
+    local RES=0
+    svn2git_opts=''
+    [ $verbose -ne 0 ] && svn2git_opts="$svn2git_opts --verbose"
+    [ $nometadata -eq 0 ] && svn2git_opts="$svn2git_opts --metadata"
+    [ $rebase -ne 0 ] && svn2git_opts="$svn2git_opts --rebase"
     [ ! -z "$revision" ] && svn2git_opts="$svn2git_opts --revision $revision"
     if [ ! -z "$exclude" ]; then
         IFS=$';'
@@ -92,39 +89,74 @@ function convert_using_ruby_svn2git() {
         unset IFS
     fi
 
-	[ $verbose -ne 0 ] && echo "ruby $scriptdir/svn2git.rb \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
-	ruby $scriptdir/svn2git.rb "$repo_svn" $svn2git_opts --authors "$authors_file"
-	if [ $? -eq 0 ]; then
-		echo "SVN import successful."
+    if [ $rebase -eq 0 ]; then
+        repo_git_full=`mktemp -d "$repo_git.XXXXXX"`
+        pushd "$repo_git_full" > /dev/null
 
-		echo "Convert temporary GIT repository into bare GIT repository..."
-		pushd "$repo_git" > /dev/null
-		git clone --bare "$repo_git_full" "$repo_git"
-		if [ $? -eq 0 ]; then
-			# set some basic configuration properties
-			git config core.sharedrepository 1
-			git config receive.denyNonFastforwards true
-			# The core.sharedrepository flag tells git to keep everything group readable and writable.
-			# The receive.denyNonFastforwards flag makes sure that merges can't happen when you push to 
-			# the repo. You have to do the merges on your local machine, and then push the result.
+        echo "Convert the SVN repository into GIT..."
+        tmp=`svn info "$repo_svn/trunk" 2> /dev/null`
+        if [ $? -eq 0 ]; then
+            rootistrunk=0
+        else
+            rootistrunk=1
+        fi
+        if [ $rootistrunk -ne 0 ]; then
+            svn2git_opts="$svn2git_opts --rootistrunk"
+            echo "SVN repository only contains trunk (no tags and branches)."
+        else
+            echo "SVN repository with standard layout (trunk, tags and branches)."
+        fi
 
-			# Make sure permissions are set properly
-			# find "$repo_git/objects" -type d -exec chmod 02770 {} \;
+        [ $verbose -ne 0 ] && echo "ruby $scriptdir/svn2git.rb \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
+        ruby $scriptdir/svn2git.rb "$repo_svn" $svn2git_opts --authors "$authors_file"; RES=$?
+        if [ $RES -eq 0 ]; then
+            echo "SVN import successful."
 
-			update_lookup_table
+            echo "Convert temporary GIT repository into bare GIT repository..."
+            [ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
+            pushd "$repo_git" > /dev/null
+            git clone $bare_opt "$repo_git_full" "$repo_git"; RES=$?
+            if [ $RES -eq 0 ]; then
+                # set some basic configuration properties
+                git config core.sharedrepository 1
+                git config receive.denyNonFastforwards true
+                # The core.sharedrepository flag tells git to keep everything group readable and writable.
+                # The receive.denyNonFastforwards flag makes sure that merges can't happen when you push to 
+                # the repo. You have to do the merges on your local machine, and then push the result.
 
-			echo "Conversion completed successfully."
-		else
-			echo "Conversion completed with errors." >&2
-		fi
-		popd > /dev/null
-	else
-		echo "SVN import with errors." >&2
-	fi
-	popd > /dev/null
+                # Make sure permissions are set properly
+                # find "$repo_git/objects" -type d -exec chmod 02770 {} \;
 
-	# remove the temporary directory with the full GIT repo
-	rm -rf "$repo_git_full"
+                update_lookup_table
+
+                echo "Conversion completed successfully."
+            else
+                echo "Conversion completed with errors." >&2
+            fi
+            popd > /dev/null
+        else
+            echo "SVN import with errors." >&2
+        fi
+        popd > /dev/null
+
+        # remove the temporary directory with the full GIT repo
+        rm -rf "$repo_git_full"
+    else
+        pushd "$repo_git" > /dev/null
+
+        echo "rebase for $repo_git"
+
+        [ $verbose -ne 0 ] && echo "ruby $scriptdir/svn2git.rb \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
+        ruby $scriptdir/svn2git.rb --rebase $svn2git_opts --authors "$authors_file"; RES=$?
+        if [ $RES -eq 0 ]; then
+            echo "SVN rebase successful."
+
+            update_lookup_table
+        fi
+
+        popd > /dev/null
+    fi
+    return $RES
 }
 
 function update_lookup_table() {
@@ -180,6 +212,8 @@ while [ $# -ne 0 ]; do
             ;;
         "--update-authors") update_authors_file=1; ;;
         '--rootistrunk') rootistrunk=1; ;;
+        '--rebase') rebase=1; ;;
+        '--bare') bare=1; ;;
         '--lookuptable') update_lookup_table=1; ;;
         '--no-metadata') nometadata=1; ;;
         *)
