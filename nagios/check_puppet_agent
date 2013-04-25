@@ -113,12 +113,14 @@ version=$(puppet --version)
 
 function version { echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }'; }
 
-if [ $(version $version) -gt $(version $REQVER) ]; then
-  if [ $(version $FULLCHCKVER) -gt $(version $version) ]; then
-    result 7
-  fi
-else
-  result 8
+if [ ! -z "$REQVER" ]; then
+    if [ $(version $version) -gt $(version $REQVER) ]; then
+        if [ $(version $FULLCHCKVER) -gt $(version $version) ]; then
+            result 7
+        fi
+    else
+        result 8
+    fi
 fi
 
 if [ $use_sudo -ne 0 ]; then
