@@ -6,10 +6,11 @@
 # combined check_smb_share by Michael Hodges with check_smb by Dave Love
 
 REVISION=0.10
-PROGNAME=`/usr/bin/basename $0`
-PROGPATH=`echo $0 | sed -e 's,[\\/][^\\/][^\\/]*$,,'`
+THIS_FILE=`readlink -f "$0"`
+PROGNAME=`basename "$THIS_FILE"`
+PROGPATH=`dirname "$THIS_FILE"`
 
-. $PROGPATH/utils.sh
+. $PROGPATH/utils.sh || exit 3
 
 usage () {
     echo "\

@@ -16,7 +16,7 @@ DPUT_TARGET=''
 RELEASES=''
 PKG=''
 DEFAULT_RELEASES=`lsb_release -cs`
-VALID_RELEASE='hardy intrepid jaunty lucid karmic maverick natty oneiric precise quantal raring'
+VALID_RELEASE='hardy intrepid jaunty lucid karmic maverick natty oneiric precise quantal raring saucy'
 
 function usage() {
 	echo -e "\nUsage: $(basename $SCRIPTFILE) dput-ppa release-a [[release-b] [release-c]]\n"
@@ -34,7 +34,7 @@ while [ $# -ne 0 ]; do
 	"-h") usage;; 
 	"--help") usage;;
 	"--target") DPUT_TARGET="$2"; shift; ;;
-	'hardy'|'intrepid'|'jaunty'|'lucid'|'karmic'|'maverick'|'natty'|'oneiric'|'precise'|'quantal'|'raring')
+	'hardy'|'intrepid'|'jaunty'|'lucid'|'karmic'|'maverick'|'natty'|'oneiric'|'precise'|'quantal'|'raring'|'saucy')
 		if [ -z "$RELEASES" ]; then
 			RELEASES="$1"
 		else
