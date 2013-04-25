@@ -45,13 +45,13 @@ $np->add_arg(
 $np->add_arg(
     spec     => 'warning|w=s',
     help     => '-w, --warning=percent',
-    required => 1,
+    default  => 85,
 );
 
 $np->add_arg(
     spec     => 'critical|c=s',
     help     => '-c, --critical=percent',
-    required => 1,
+    default  => 92,
 );
 
 $np->add_arg(
@@ -88,6 +88,12 @@ if (!$response->is_success) {
 my $data = decode_json($response->decoded_content);
 
 $np->add_perfdata(
+    label => 'init',
+    value => $data->{'HeapMemoryUsage'}->{'init'}, 
+    uom   => undef,
+);
+
+$np->add_perfdata(
     label => 'maximum',
     value => $data->{'HeapMemoryUsage'}->{'max'}, 
     uom   => undef,
@@ -105,10 +111,19 @@ my $code = $np->check_threshold(
     critical => $np->opts->critical * .01 * $data->{'HeapMemoryUsage'}->{'max'},
 );
 
+sub BytesToReadableString {
+   my $c = $_[0];
+   $c >= 1073741824 ? sprintf("%0.2fGB", $c/1073741824)
+      : $c >= 1048576 ? sprintf("%0.2fMB", $c/1048576)
+      : $c >= 1024 ? sprintf("%0.2fKB", $c/1024)
+      : $c . "bytes";
+}
+
 $np->nagios_exit(
     return_code => $code,
-    message     => sprintf('used: %d maximum: %d',
-        $data->{'HeapMemoryUsage'}->{'used'},
-        $data->{'HeapMemoryUsage'}->{'max'},
+    message     => sprintf('used: %s init: %s maximum: %s',
+        BytesToReadableString($data->{'HeapMemoryUsage'}->{'used'}),
+        BytesToReadableString($data->{'HeapMemoryUsage'}->{'init'}),
+        BytesToReadableString($data->{'HeapMemoryUsage'}->{'max'}),
     ),
 );
