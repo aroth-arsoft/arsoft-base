@@ -1,4 +1,4 @@
-arsoft-base (2.60.1~quantal1) quantal; urgency=low
+arsoft-base (2.60.1) quantal; urgency=low
 
   * add missing command definition
 
