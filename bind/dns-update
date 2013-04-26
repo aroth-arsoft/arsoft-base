@@ -9,6 +9,8 @@ nsupdate_key=''
 rrtype='A'
 ttl=86400
 server='localhost'
+got_server=0
+always_update=0
 
 function usage()
 {
@@ -18,7 +20,7 @@ function usage()
 	echo "    --rrtype <rrtype>               specify the RR type for the next operation (default: $rrtype)"
 	echo "    --ttl <seconds>                 specify the TTL for the records (default: $ttl)"
 	echo "    -k,--key <dnskey>               key to use for the update"
-	echo "    --server <dnsserver>            name of the DNS server for updates (default: $server)"
+	echo "    --server <dnsserver>            name of the DNS server for updates (default: $server);"
 	echo "    -a,--add <dnsname> <ipaddr>     adds the given DNS A record"
 	echo "    -d,--delete <dnsname>           deletes the specified DNS A record"
 	echo "    -u,--update <dnsname> <ipaddr>  adds the given DNS A record"
@@ -31,6 +33,58 @@ function usage()
 
 function reverse_ipv4 {
 	echo $1 | nawk -F. '{print $4"."$3"."$2"."$1}'
+}
+
+function import_host {
+
+    local anotherserver=''
+    local hosts_to_import=''
+    shift
+    # parse command line arguments
+    while [ $# -ne 0 ]; do
+        case "$1" in
+            @*)
+                anotherserver="${1:1}"
+                ;;
+            *)
+                [ ! -z "$hosts_to_import" ] && hosts_to_import="$hosts_to_import $1" || hosts_to_import="$1"
+        esac
+        shift
+    done
+
+    if [ -z "$anotherserver" ]; then
+        echo "No DNS server to query specified." >&2
+        return 1
+    fi
+    
+    for host in $hosts_to_import; do
+        addresses=`dig +short "$host" "@$anotherserver" 2>&1`; RES=$?
+        if [ $RES -ne 0 ]; then
+            echo "Error while retrieving address of $host on $anotherserver" >&2
+        elif [ -z "$addresses" ]; then
+            echo "No record for $host on $anotherserver" >&2
+        else
+            useable_addresses=''
+            for ip in $addresses; do
+                if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+                    [ ! -z "$useable_addresses" ] && useable_addresses="$useable_addresses $ip" || useable_addresses="$ip"
+                fi
+            done
+            [ $verbose -ne 0 ] && echo "useable_addresses=$useable_addresses"
+            current_addresses=`dig +short "$host" "@$server" 2>&1`; RES=$?
+            if [ $RES -ne 0 -o "$useable_addresses" != "$current_addresses" -o $always_update -ne 0 ]; then
+                [ $verbose -ne 0 ] && echo "current_addresses=$current_addresses"
+
+                echo "update delete $host." >> "$command_file"
+                for addr in $useable_addresses; do
+                    revaddr=`reverse_ipv4 "$addr"`
+                    echo "update delete $revaddr.in-addr.arpa." >> "$command_file"
+                    echo "update add $host. $ttl IN A $addr" >> "$command_file"
+                    echo "update add $revaddr.in-addr.arpa. $ttl PTR $host." >> "$command_file"
+                done
+            fi
+        fi
+    done
 }
 
 if [ -z "$nsupdate_bin" ]; then
@@ -68,27 +122,8 @@ while [ $# -ne 0 ]; do
 			shift; shift;
 			;;
 		'--import-host'|'--import')
-			hostname="$2"
-			anotherserver="$3"
-			if [ -z "$anotherserver" ]; then
-				echo "No DNS server to query specified." >&2
-				exit 1
-			fi
-			addresses=`dig +short "$hostname" "@$anotherserver" 2>&1`; RES=$?
-			if [ $RES -ne 0 ]; then
-				echo "Error while retrieving address of $hostname on $anotherserver" >&2
-			elif [ -z "$addresses" ]; then
-				echo "No record for $hostname on $anotherserver" >&2
-			else
-				echo "update delete $hostname." >> "$command_file"
-				for addr in $addresses; do
-					revaddr=`reverse_ipv4 "$addr"`
-					echo "update delete $revaddr.in-addr.arpa." >> "$command_file"
-					echo "update add $hostname. $ttl IN A $addr" >> "$command_file"
-					echo "update add $revaddr.in-addr.arpa. $ttl PTR $hostname." >> "$command_file"
-				done
-			fi
-			shift; shift;
+            import_host $@
+            break
 			;;
 		"-k","--key") 
 			nsupdate_key="$2"
@@ -115,20 +150,24 @@ while [ $# -ne 0 ]; do
 done
 
 if [ ! -s "$command_file" ]; then
-	echo "No commands specified." >&2
-	exit 1
+	[ $verbose -ne 0 ] && echo "No commands specified."
 else
 	# prepend the server command and append the send command
 	commands="server $server\n${commands}send\n"
 	if [ ! -z "$nsupdate_key" ]; then
 		nsupdate_opts="$nsupdate_opts -k $nsupdate_key"
 	fi
+    command_file_final=`mktemp`
+    echo "server $server" >> "$command_file_final"
+    cat "$command_file" >> "$command_file_final"
+    echo "send" >> "$command_file_final"
 	if [ $noop -eq 0 ]; then
 		[ $verbose -ne 0 ] && echo "cat \"$command_file\" | \"$nsupdate_bin\" $nsupdate_opts"
-		cat "$command_file" | "$nsupdate_bin" $nsupdate_opts
+		cat "$command_file_final" | "$nsupdate_bin" $nsupdate_opts
 	else
-		cat "$command_file"
+		cat "$command_file_final"
 	fi
+    rm -f "$command_file_final"
 fi
 
 rm -f "$command_file"
