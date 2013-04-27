@@ -1,3 +1,9 @@
+arsoft-base (2.61) quantal; urgency=low
+
+  * fixed check_puppet_agent for nagios user
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 27 Apr 2013 15:48:20 +0200
+
 arsoft-base (2.60.1) quantal; urgency=low
 
   * add missing command definition

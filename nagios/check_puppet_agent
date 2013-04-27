@@ -123,16 +123,18 @@ do
   esac
 done
 
+function check_pid_running { ps -p $@ 2>&1 > /dev/null; }
+
 # check puppet daemon:
 if [ $RUNNING -eq 0 ]; then
 	[ ! -f $pidfile ] && result 10
-	pid=`cat $pidfile`
-	kill -0 &>1 > /dev/null $pid && result 11
+	pid=`cat $pidfile 2>/dev/null`
+	check_pid_running $pid && result 11
 	result 10
 else
 	[ ! -f $pidfile ] && result 4
-	pid=`cat $pidfile`
-	if kill -0 &>1 > /dev/null $pid; then
+	pid=`cat $pidfile 2>/dev/null`
+	if check_pid_running $pid; then
 		# agent is running, so let's continue with the next tests
 		true
 	else
