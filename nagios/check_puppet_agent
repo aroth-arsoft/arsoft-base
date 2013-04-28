@@ -57,7 +57,7 @@ RUNNING=1
 result () {
   case $1 in
     0) echo "OK: Puppet agent ${version} running, catalog version ${config_str}"; exit $STATE_OK;;
-    1) echo "WARNING: last_run_summary.yaml not found or incomplete"; exit $STATE_WARNING;;
+    1) echo "WARNING: $statefile not found or incomplete"; exit $STATE_WARNING;;
     2) echo "WARNING: Last run at ${last_run_str} was ${time_since_last} seconds ago. warn is ${WARN}"; exit $STATE_WARNING;;
     3) echo "CRITICAL: Last run  ${last_run_str} was ${time_since_last} seconds ago. crit is ${CRIT}"; exit $STATE_CRITICAL;;
     4) echo "CRITICAL: Puppet daemon not running"; exit $STATE_CRITICAL;;
@@ -65,7 +65,7 @@ result () {
     6) echo "CRITICAL: Last run had 1 or more errors. Check the logs"; exit $STATE_CRITICAL;;
     7) echo "OK: Puppet agent ${version} running"; exit $STATE_OK;;
     8) echo "WARNING: Running obsolute puppet agent version ${version}. current is ${REQVER}"; exit $STATE_WARNING;;
-    9) echo "WARNING: last_run_summary.yaml not readable"; exit $STATE_WARNING;;
+    9) echo "WARNING: $statefile not readable"; exit $STATE_WARNING;;
     10) echo "OK: Puppet agent not running"; exit $STATE_OK;;
     11) echo "CRITICAL: Puppet agent is running, but should not be running"; exit $STATE_CRITICAL;;
   esac
