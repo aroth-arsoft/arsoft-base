@@ -48,7 +48,7 @@ if [ $? -eq 0 ]; then
 	fi
 else
 	RET=$STATE_CRITICAL
-	RESULT="unable to determine state of  package database (error $APTRES)"
+	RESULT="unable to determine state of package database (error $APTRES)"
 fi
 
 echo $RESULT

@@ -1,3 +1,9 @@
+arsoft-base (2.62) raring; urgency=low
+
+  * remove check_puppet_agent (moved to python)
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 28 Apr 2013 19:38:16 +0200
+
 arsoft-base (2.61) quantal; urgency=low
 
   * fixed check_puppet_agent for nagios user
