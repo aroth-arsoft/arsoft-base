@@ -67,6 +67,8 @@ cups_update_conf() {
 			[ ! -d "$BACKUP_DIR" ] && mkdir "$BACKUP_DIR"
 			mv "$CUPS_CLIENT_CONF" "$BACKUP_CUPS_CLIENT_CONF"
 			mv "$tmp" "$CUPS_CLIENT_CONF"
+		else
+			rm -f "$tmp"
 		fi
 	fi
 }
