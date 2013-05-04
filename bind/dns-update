@@ -125,7 +125,7 @@ while [ $# -ne 0 ]; do
             import_host $@
             break
 			;;
-		"-k","--key") 
+		'-k'|'--key')
 			nsupdate_key="$2"
 			shift
 			;;
