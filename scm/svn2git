@@ -7,7 +7,9 @@ mail_domain=''
 authors_file=''
 update_authors_file=0
 update_lookup_table=0
-rootistrunk=0
+rootistrunk='auto'
+nobranches=0
+notags=0
 nometadata=0
 rebase=0
 bare=0
@@ -94,17 +96,32 @@ function convert_using_ruby_svn2git() {
         pushd "$repo_git_full" > /dev/null
 
         echo "Convert the SVN repository into GIT..."
-        tmp=`svn info "$repo_svn/trunk" 2> /dev/null`
-        if [ $? -eq 0 ]; then
-            rootistrunk=0
-        else
-            rootistrunk=1
+        if [ "$rootistrunk" == 'auto' ]; then
+            tmp=`svn info "$repo_svn/trunk" 2> /dev/null`
+            if [ $? -eq 0 ]; then
+                rootistrunk=0
+            else
+                rootistrunk=1
+            fi
         fi
         if [ $rootistrunk -ne 0 ]; then
             svn2git_opts="$svn2git_opts --rootistrunk"
             echo "SVN repository only contains trunk (no tags and branches)."
         else
-            echo "SVN repository with standard layout (trunk, tags and branches)."
+            local standard_layout=1
+            if [ $nobranches -ne 0 ]; then
+                svn2git_opts="$svn2git_opts --nobranches"
+                standard_layout=0
+            fi
+            if [ $notags -ne 0 ]; then
+                svn2git_opts="$svn2git_opts --notags"
+                standard_layout=0
+            fi
+            if [ $standard_layout -ne 0 ]; then
+                echo "SVN repository with standard layout (trunk, tags and branches)."
+            else
+                echo "SVN repository with custom layout."
+            fi
         fi
 
         [ $verbose -ne 0 ] && echo "ruby $scriptdir/svn2git.rb \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
@@ -194,6 +211,7 @@ function update_lookup_table() {
 	popd > /dev/null
 }
 
+echo "svn2git got cmdline: $@"
 # parse command line arguments
 while [ $# -ne 0 ]; do
     case "$1" in
@@ -212,6 +230,8 @@ while [ $# -ne 0 ]; do
             ;;
         "--update-authors") update_authors_file=1; ;;
         '--rootistrunk') rootistrunk=1; ;;
+        '--nobranches') nobranches=1; ;;
+        '--notags') notags=1; ;;
         '--rebase') rebase=1; ;;
         '--bare') bare=1; ;;
         '--lookuptable') update_lookup_table=1; ;;
@@ -265,6 +285,14 @@ if [ $update_lookup_table -eq 0 ]; then
 	elif [ -d "$repo_svn" ]; then
 		repo_svn="file://$repo_svn"
 		echo "Local SVN repository specified. Using URL $repo_svn" >&2
+    else
+        repo_name=`basename "$repo_svn"`
+        if [ "$repo_name" == 'trunk' -o "$repo_name" == 'branches' -o "$repo_name" == 'tags' ]; then
+            d=`dirname "$repo_svn"`
+            if [ -d "$d" ]; then
+                repo_svn="file://$repo_svn"
+            fi
+        fi
 	fi
 
 	if [ -z "$repo_git" ]; then
@@ -273,7 +301,12 @@ if [ $update_lookup_table -eq 0 ]; then
 	fi
 
 	repo_name=`basename "$repo_svn"`
+    if [ "$repo_name" == 'trunk' -o "$repo_name" == 'branches' -o "$repo_name" == 'tags' ]; then
+        d=`dirname "$repo_svn"`
+        repo_name=`basename "$d"`
+    fi
 	echo "Repository name: $repo_name"
+    echo "Repository URL: $repo_svn"
 
 	[ -z "$mail_domain" ] && mail_domain=`dnsdomainname`
 	if [ -z "$authors_file" ]; then
