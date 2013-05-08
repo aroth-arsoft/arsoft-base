@@ -23,6 +23,7 @@ install:
 	install -m 0755 -o root -g root check_smb $(DESTDIR)/usr/lib/nagios/plugins/check_smb
 	install -m 0755 -o root -g root check_spamassassin_bayes $(DESTDIR)/usr/lib/nagios/plugins/check_spamassassin_bayes
 	install -m 0755 -o root -g root check_spamd.pl $(DESTDIR)/usr/lib/nagios/plugins/check_spamd.pl
+	install -m 0755 -o root -g root check_ps $(DESTDIR)/usr/lib/nagios/plugins/check_ps
 	mkdir -p $(DESTDIR)/etc/nagios-plugins/config
 	install -m 0644 -o root -g root apt_upgrade.cfg $(DESTDIR)/etc/nagios-plugins/config/apt_upgrade.cfg
 	install -m 0644 -o root -g root dhcp-remote.cfg $(DESTDIR)/etc/nagios-plugins/config/dhcp-remote.cfg
@@ -32,6 +33,7 @@ install:
 	install -m 0644 -o root -g root smb.cfg $(DESTDIR)/etc/nagios-plugins/config/smb.cfg
 	install -m 0644 -o root -g root nma_notify.cfg $(DESTDIR)/etc/nagios-plugins/config/nma_notify.cfg
 	install -m 0644 -o root -g root spamassassin.cfg $(DESTDIR)/etc/nagios-plugins/config/spamassassin.cfg
+	install -m 0644 -o root -g root ps.cfg $(DESTDIR)/etc/nagios-plugins/config/ps.cfg
 	mkdir -p $(DESTDIR)/usr/share/man/man1
 	#install -m 0644 -o root -g root check_ssl_cert.1 $(DESTDIR)/usr/share/man/man1
 	# keep the utils.sh in the directory (from nagios-plugins), but do not install it:
