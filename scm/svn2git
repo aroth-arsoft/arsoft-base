@@ -13,6 +13,7 @@ notags=0
 nometadata=0
 rebase=0
 bare=0
+clone=0
 revision=''
 exclude=''
 scriptfile=`readlink -f "$0"`
@@ -31,6 +32,7 @@ function usage()
     echo "    --no-metadata      do not include SVN metadata (revision numbers) in the commit messages."
     echo "    --rebase           use existing GIT-SVN repository."
     echo "    --bare             convert GIT-SVN repository into a bare one."
+    echo "    --clone            clone generated repo after conversion (does not work with rebase)."
     echo "    --revision START_REV[:END_REV]"
     echo "                       Start importing from SVN revision START_REV; optionally end at END_REV."
     echo "    --exclude REGEX   Specify a Perl regular expression to filter paths when fetching; can be used multiple times."
@@ -63,12 +65,14 @@ function convert_using_ruby_svn2git() {
                 fi
             fi
         else
-            # target directory does not yet exist, so create it
-            if ! mkdir -p "$repo_git"; then
-                echo "Failed to create directory $repo_git for GIT repository." >&2
-                return 1
+            if [ $clone -ne 0 ]; then
+                # target directory does not yet exist, so create it
+                if ! mkdir -p "$repo_git"; then
+                    echo "Failed to create directory $repo_git for GIT repository." >&2
+                    return 1
+                fi
+                repo_git=`readlink -f "$repo_git"`
             fi
-            repo_git=`readlink -f "$repo_git"`
         fi
     else
         if [ ! -d "$repo_git" ]; then
@@ -129,35 +133,51 @@ function convert_using_ruby_svn2git() {
         if [ $RES -eq 0 ]; then
             echo "SVN import successful."
 
-            echo "Convert temporary GIT repository into bare GIT repository..."
-            [ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
-            pushd "$repo_git" > /dev/null
-            git clone $bare_opt "$repo_git_full" "$repo_git"; RES=$?
-            if [ $RES -eq 0 ]; then
-                # set some basic configuration properties
-                git config core.sharedrepository 1
-                git config receive.denyNonFastforwards true
-                # The core.sharedrepository flag tells git to keep everything group readable and writable.
-                # The receive.denyNonFastforwards flag makes sure that merges can't happen when you push to 
-                # the repo. You have to do the merges on your local machine, and then push the result.
+            if [ $clone -ne 0 ]; then
+                echo "Convert temporary GIT repository into bare GIT repository..."
+                [ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
+                pushd "$repo_git" > /dev/null
+                git clone $bare_opt "$repo_git_full" "$repo_git"; RES=$?
+                if [ $RES -eq 0 ]; then
+                    # set some basic configuration properties
+                    git config core.sharedrepository 1
+                    git config receive.denyNonFastforwards true
+                    # The core.sharedrepository flag tells git to keep everything group readable and writable.
+                    # The receive.denyNonFastforwards flag makes sure that merges can't happen when you push to 
+                    # the repo. You have to do the merges on your local machine, and then push the result.
 
-                # Make sure permissions are set properly
-                # find "$repo_git/objects" -type d -exec chmod 02770 {} \;
+                    # Make sure permissions are set properly
+                    # find "$repo_git/objects" -type d -exec chmod 02770 {} \;
 
-                update_lookup_table
+                    update_lookup_table
 
-                echo "Conversion completed successfully."
+                    echo "Conversion completed successfully."
+                else
+                    echo "Conversion completed with errors." >&2
+                fi
+                popd > /dev/null
+                popd > /dev/null
             else
-                echo "Conversion completed with errors." >&2
+                popd > /dev/null
+                [ -d "$repo_git" ] && echo "targetdir $repo_git already exists"
+                #update_lookup_table
+                echo "mv \"$repo_git_full\" \"$repo_git\""
+                mv "$repo_git_full" "$repo_git"; RES=$?
+                if [ $RES -eq 0 ]; then
+                    echo "Conversion completed successfully."
+                else
+                    echo "Failed to move $repo_git_full to $repo_git."
+                fi
             fi
-            popd > /dev/null
         else
             echo "SVN import with errors." >&2
+            popd > /dev/null
         fi
-        popd > /dev/null
 
-        # remove the temporary directory with the full GIT repo
-        rm -rf "$repo_git_full"
+        if [ $clone -ne 0 ]; then
+            # remove the temporary directory with the full GIT repo
+            rm -rf "$repo_git_full"
+        fi
     else
         pushd "$repo_git" > /dev/null
 
@@ -182,7 +202,7 @@ function update_lookup_table() {
 	#
 	# Usage:
 	#	createLookupTable > lookupTable.txt
-	local lookup_table_file="$repo_git/svn2git_lookup"
+	local lookup_table_file="$repo_git.svn2git_lookup"
 	
 	pushd "$repo_git" > /dev/null
 	echo "Creates a lookup table between SVN IDs and Git IDs..."
@@ -234,6 +254,7 @@ while [ $# -ne 0 ]; do
         '--notags') notags=1; ;;
         '--rebase') rebase=1; ;;
         '--bare') bare=1; ;;
+        '--clone') clone=1; ;;
         '--lookuptable') update_lookup_table=1; ;;
         '--no-metadata') nometadata=1; ;;
         *)
