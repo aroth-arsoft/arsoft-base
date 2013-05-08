@@ -1,3 +1,9 @@
+arsoft-base (2.64) raring; urgency=low
+
+  * add check_ps to nagios plugins
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 08 May 2013 19:52:16 +0200
+
 arsoft-base (2.63) raring; urgency=low
 
   * minor bug fixes and enhancements
