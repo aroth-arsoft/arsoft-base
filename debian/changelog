@@ -1,3 +1,9 @@
+arsoft-base (2.65) raring; urgency=low
+
+  * add check_ntp_configured_peer 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 09 May 2013 16:41:51 +0200
+
 arsoft-base (2.64) raring; urgency=low
 
   * add check_ps to nagios plugins
