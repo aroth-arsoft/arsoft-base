@@ -11,6 +11,14 @@ expire_threshold_days_default=30
 
 function usage() {
 	echo "usage: apt-key-import [--keyserver keyserver] [--id keyid] [--keylist filename]"
+	echo "  -h, -?, --help          shows this usage information."
+	echo "  -v, --verbose           enables the verbose output."
+	echo "  -u, --update            updates the keys."
+	echo "  -e, --expire [days]     lists all keys which expire within the specified number of days."
+	echo "                          (if not number is specified $expire_threshold_days_default is used)"
+	echo "  -k, --keyserver         specifies the keyserver to for key retrieval"
+	echo "  -i, --id                specifies the id of a key to import"
+	echo "  -l, --keylist           specifies a file which contains a list of keys for import"
 	exit 0
 }
 
