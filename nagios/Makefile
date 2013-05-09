@@ -24,7 +24,7 @@ install:
 	install -m 0755 -o root -g root check_spamassassin_bayes $(DESTDIR)/usr/lib/nagios/plugins/check_spamassassin_bayes
 	install -m 0755 -o root -g root check_spamd.pl $(DESTDIR)/usr/lib/nagios/plugins/check_spamd.pl
 	install -m 0755 -o root -g root check_ps $(DESTDIR)/usr/lib/nagios/plugins/check_ps
-	install -m 0755 -o root -g check_ntp_configured_peer $(DESTDIR)/usr/lib/nagios/plugins/check_ntp_configured_peer
+	install -m 0755 -o root -g root check_ntp_configured_peer $(DESTDIR)/usr/lib/nagios/plugins/check_ntp_configured_peer
 	mkdir -p $(DESTDIR)/etc/nagios-plugins/config
 	install -m 0644 -o root -g root apt_upgrade.cfg $(DESTDIR)/etc/nagios-plugins/config/apt_upgrade.cfg
 	install -m 0644 -o root -g root dhcp-remote.cfg $(DESTDIR)/etc/nagios-plugins/config/dhcp-remote.cfg
