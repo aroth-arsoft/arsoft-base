@@ -11,6 +11,7 @@ function usage() {
 	echo "   files <pkgs>   lists the files of the given packages"
 	echo "   restore <pkgs> restores the configuration of the given packages"
 	echo "   depends <pkgs> shows all depends of the specified packages."
+	exit 0
 }
 
 function action_size() {
@@ -26,9 +27,9 @@ function action_size() {
 	done
 
 	if [ $limit -gt 0 ]; then
-		results=`dpkg-query --show --showformat='${Package;-50}\t${Installed-Size}\n' | sort -k 2 -n | grep -v deinstall | tail -n "$limit"`
+		results=`LANG=C dpkg-query --show --showformat='${Package;-50}\t${Installed-Size}\n' | sort -k 2 -n | grep -v deinstall | tail -n "$limit"`
 	else
-		results=`dpkg-query --show --showformat='${Package;-50}\t${Installed-Size}\n' | sort -k 2 -n | grep -v deinstall`
+		results=`LANG=C dpkg-query --show --showformat='${Package;-50}\t${Installed-Size}\n' | sort -k 2 -n | grep -v deinstall`
 	fi
 	echo "$results" | tail -n 10
 	if [ $human_readable -eq 0 ]; then
@@ -66,9 +67,9 @@ function action_restore() {
 		case "$1" in
 			*)
 				[ -z "$pkgs" ] && pkgs="$1" || pkgs="$pkgs $1"
-				;;                                      
-		esac                                    
-		shift                                   
+				;;
+		esac
+		shift
 	done
 	
 	for pkg in $pkgs; do
@@ -159,7 +160,7 @@ function action_depends() {
 # parse command line arguments
 while [ $# -ne 0 ]; do        
 	case "$1" in          
-	"--help") usage; exit 0;; 
+	'-?'|'-h'|'--help') usage;; 
 	*)
 		if [ -z "$action" ]; then
 			action="$1"
