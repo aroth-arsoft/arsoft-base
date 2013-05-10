@@ -308,7 +308,14 @@ if [ $update_lookup_table -eq 0 ]; then
 		echo "Local SVN repository specified. Using URL $repo_svn" >&2
     else
         repo_name=`basename "$repo_svn"`
-        if [ "$repo_name" == 'trunk' -o "$repo_name" == 'branches' -o "$repo_name" == 'tags' ]; then
+        repo_schema=${repo_svn%*://*}
+        echo "repo_schema=\"$repo_schema\""
+        if [ "$repo_schema" == 'http' -o "$repo_schema" == 'https' ]; then
+            repo_name=${repo_svn##*://}
+            repo_name=${repo_name//./_}
+            repo_name=${repo_name//\//_}
+            echo "new name=$repo_name"
+        elif [ "$repo_name" == 'trunk' -o "$repo_name" == 'branches' -o "$repo_name" == 'tags' ]; then
             d=`dirname "$repo_svn"`
             if [ -d "$d" ]; then
                 repo_svn="file://$repo_svn"
@@ -321,8 +328,9 @@ if [ $update_lookup_table -eq 0 ]; then
 		exit 1
 	fi
 
-	repo_name=`basename "$repo_svn"`
-    if [ "$repo_name" == 'trunk' -o "$repo_name" == 'branches' -o "$repo_name" == 'tags' ]; then
+    if [ "$repo_schema" == 'http' -o "$repo_schema" == 'https' ]; then
+        true
+    elif [ "$repo_name" == 'trunk' -o "$repo_name" == 'branches' -o "$repo_name" == 'tags' ]; then
         d=`dirname "$repo_svn"`
         repo_name=`basename "$d"`
     fi
@@ -331,22 +339,28 @@ if [ $update_lookup_table -eq 0 ]; then
 
 	[ -z "$mail_domain" ] && mail_domain=`dnsdomainname`
 	if [ -z "$authors_file" ]; then
+        echo ${str// /_}
 		if [ -f "$HOME/.svn2git/authors_$repo_name" -a $update_authors_file -eq 0 ]; then
 			authors_file="$HOME/.svn2git/authors_$repo_name"
 		else
+            authors_file="$HOME/.svn2git/authors_$repo_name"
 			author_map_temp=`mktemp /tmp/svn2git.XXXXXX`
-			echo "Gathering information about authors from $repo_svn..."
+			echo "Update authors from $repo_svn and put into $authors_file ..."
 			svn log "$repo_svn" |\
 				awk -F '|' "/r[0-9]+/ { sub(/^[ ]+/, \"\", \$2); sub(/[ ]+$/, \"\", \$2); org=\$2; sub(/@.*/, \"\", \$2); print org \" = \" \$2 \" <\" \$2 \"@$mail_domain>\"; }" |\
 				sort -u > "$author_map_temp"
 			cp "$author_map_temp" "$HOME/.svn2git/authors_$repo_name"
-			authors_file="$HOME/.svn2git/authors_$repo_name"
 			rm -f "$author_map_temp"
 		fi
 	fi
 	echo "Author map: $authors_file"
 
-	convert_using_ruby_svn2git
+	convert_using_ruby_svn2git; RES=$?
+    if [ $RES -eq 0 ]; then
+        echo "Conversion completed successfully."
+    else
+        echo "Conversion failed (error $RES)."
+    fi
 else
 	if [ -z "$repo_git" ]; then
 		echo "No GIT repository specified." >&2
@@ -354,5 +368,6 @@ else
 	fi
 	repo_git=`readlink -f "$repo_git"`
 	
-	update_lookup_table
+	update_lookup_table; RES=$?
 fi
+exit $RES
