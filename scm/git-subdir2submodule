@@ -82,6 +82,14 @@ function git_shrink()
 	elif [ -d "$repodir/refs/original" ]; then
 		rm -rf "$repodir/refs/original"
 	fi
+    
+    if [ $RES -eq 0 ]; then
+        verbose_exec git filter-branch --prune-empty --tag-name-filter cat -- --all; RES=$?
+        if [ $RES -ne 0 ]; then
+            echo "Failed to prune empty commits from GIT repository $repodir" >&2
+        fi
+    fi
+
 	if [ $RES -eq 0 ]; then
 		git remote rm origin; RES=$?
 		if [ $RES -ne 0 ]; then
@@ -118,12 +126,15 @@ function git_clone_and_shrink()
 {
 	local repodir="$1"
 	local destdir="$2"
+    local clone_bare="$3"
 
 	pushd "$repodir" > /dev/null
 
     local start_time=`date +%s`
     local end_time
     local total_time
+
+    [ $clone_bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
 
 	# cloning to reduce size
 	git clone --no-hardlinks $bare_opt "$repodir" "$destdir"; RES=$?
@@ -219,7 +230,7 @@ function subdir_to_submodule()
 		if [ $clone_git_to_dest -ne 0 ]; then
 			# final cloning to reduce size
 			echo "Cloning $subdir_git_dir to $destdir"
-			git_clone_and_shrink "$subdir_git_dir" "$destdir"; RES=$?
+			git_clone_and_shrink "$subdir_git_dir" "$destdir" $clone_bare; RES=$?
 			if [ $RES -eq 0 ]; then
 				echo "Subdirectory cloned from $subdir_git_dir to $destdir"
 			else
@@ -361,6 +372,7 @@ else
 	else
 		repo_schema="${repo_git%://*}"
 	fi
+    [ -d "$repo_git/.git" ] && repo_is_bare=0 || repo_is_bare=1
 fi
 
 [ -z "$outdir" ] && outdir=`readlink -f $(pwd)`
@@ -408,9 +420,13 @@ else
     repo_name="$new_repo_name"
 fi
 cloned_git_dir="$outdir/${repo_name}.git"
+#if [ "$cloned_git_dir" == "$repo_git" ]; then
+#    cloned_git_dir="$outdir/${repo_name}-new.git"
+#fi
 
 echo "GIT repository: $repo_git"
 echo "GIT repository name: $repo_name"
+echo "GIT bare: $repo_is_bare"
 echo "Output directory: $outdir"
 if [ ! -z "$config_file" ]; then
     echo "Subdirectory config: $config_file"
@@ -510,7 +526,7 @@ elif [ $only_remove -ne 0 ]; then
     fi
     if [ $RES -eq 0 ]; then
         if [ "$temp_git_dir" != "$cloned_git_dir" ]; then
-            git_clone_and_shrink "$temp_git_dir" "$cloned_git_dir"; RES=$?
+            git_clone_and_shrink "$temp_git_dir" "$cloned_git_dir" $repo_is_bare; RES=$?
         else
             RES=0
         fi
@@ -536,7 +552,7 @@ elif [ $only_shrink -ne 0 ]; then
 
     if [ $RES -eq 0 ]; then
         if [ "$temp_git_dir" != "$cloned_git_dir" ]; then
-            git_clone_and_shrink "$temp_git_dir" "$cloned_git_dir"; RES=$?
+            git_clone_and_shrink "$temp_git_dir" "$cloned_git_dir" $repo_is_bare; RES=$?
         else
             RES=0
         fi
@@ -675,7 +691,12 @@ else
         
         if [ $RES -eq 0 ]; then
             if [ "$temp_git_dir" != "$cloned_git_dir" ]; then
-                git_clone_and_shrink "$temp_git_dir" "$cloned_git_dir"; RES=$?
+                if [ "$repo_git" == "$cloned_git_dir" ]; then
+                    repo_git_base=`basename "$repo_git" .git`
+                    repo_git_bak="$outdir/${repo_git_base}-org.git"
+                    mv "$repo_git" "$repo_git_bak"
+                fi
+                git_clone_and_shrink "$temp_git_dir" "$cloned_git_dir" $repo_is_bare; RES=$?
             else
                 RES=0
             fi
