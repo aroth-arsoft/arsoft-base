@@ -8,12 +8,16 @@
 # Based on discussion at http://kerneltrap.org/mailarchive/git/2007/11/12/406496
 
 repo_git=''
+num_large_objects=10
+num_recent_commits=1
 
 function usage()
 {
     echo "git-info <gitrepo>"
     echo "    -h, --help         shows this help screen"
     echo "    -v, --verbose      enable verbose output"
+	echo "    --num-large <num>      number of large objects (default: $num_large_objects)"
+	echo "    --num-commits <num>    number of recent commits (default: $num_recent_commits)"
     exit 0
 }
 
@@ -39,7 +43,6 @@ function largest_objects() {
 
 	if [ ! -z "$objects" ]; then
 		echo "All sizes are in kB's. The pack column is the size of the object, compressed, inside the pack file."
-		echo "$objects"
 		all_objects_rev_list=`LANG=C git rev-list --all --objects`
 		output="size,pack,SHA,location"
 		for y in $objects
@@ -67,6 +70,8 @@ while [ $# -ne 0 ]; do
     case "$1" in
 		'-?'|'-h'|'--help') usage;;
 		'-v'|'--verbose') verbose=1; ;;
+		'--num-large') num_large_objects=$2; shift; ;;
+		'--num-commits') num_recent_commits=$2; shift; ;;
         *)
 			if [ -z "$repo_git" ]; then
 				repo_git="$1"
@@ -115,11 +120,11 @@ if [ -d .git -o -f packed-refs ]; then
 	fi
 	
 	echo "== Largest objects"
-	largest_objects 10
+	largest_objects $num_large_objects
 	echo
  
 	echo "== Most Recent Commit"
-	git --no-pager log --max-count=1
+	git --no-pager log --max-count=$num_recent_commits
 	echo
 
 	echo "Type 'git log' for more commits, or 'git show' for full commit details."
