@@ -72,6 +72,28 @@ function largest_objects() {
 	echo -e $output | column -t -s ', '
 }
 
+function git_get_magic_dir() {
+	local repo_dir="$1"
+	local RES=0
+	if [ -f "$repo_dir/packed-refs" ]; then
+		# repo without working directory (bare)
+		magicdir="$repo_dir"
+	elif [ -d "$repo_dir/.git" ]; then
+		# regular repo with working directory
+		magicdir="$repo_dir/.git"
+	elif [ -f "$repo_dir/.git" ]; then
+		# submodule within a working directory
+		magicdir=`cat "$repo_dir/.git"`
+		magicdir=${magicdir#gitdir: }
+	else
+		# invalid repo directory
+		magicdir=''
+		RES=1
+	fi
+	echo "$magicdir"
+	return $RES
+}
+
 script_options=''
 # parse command line arguments
 while [ $# -ne 0 ]; do

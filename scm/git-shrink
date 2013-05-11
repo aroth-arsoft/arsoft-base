@@ -5,6 +5,7 @@ repo_git=''
 repo_schema=''
 object_remove_list=''
 remove_origin=0
+filelist=''
 
 function usage()
 {
@@ -70,10 +71,14 @@ function git_shrink()
 		fi
 	fi
 
-	if [ -d "$repodir/.git/refs/original" ]; then
-		rm -rf "$repodir/.git/refs/original"
-	elif [ -d "$repodir/refs/original" ]; then
-		rm -rf "$repodir/refs/original"
+	magicdir=`git_get_magic_dir "$repodir"`
+	if [ ! -z "$magicdir" ]; then
+		if [ -d "$magicdir/refs/original" ]; then
+			rm -rf "$magicdir/refs/original"; RES=$?
+			if [ $RES -ne 0 ]; then
+				echo "Failed to remove ref original from GIT repository $repodir" >&2
+			fi
+		fi
 	fi
 
 	if [ $RES -eq 0 ]; then
@@ -177,12 +182,35 @@ function is_git_repo() {
 	fi
 }
 
+function git_get_magic_dir() {
+	local repo_dir="$1"
+	local RES=0
+	if [ -f "$repo_dir/packed-refs" ]; then
+		# repo without working directory (bare)
+		magicdir="$repo_dir"
+	elif [ -d "$repo_dir/.git" ]; then
+		# regular repo with working directory
+		magicdir="$repo_dir/.git"
+	elif [ -f "$repo_dir/.git" ]; then
+		# submodule within a working directory
+		magicdir=`cat "$repo_dir/.git"`
+		magicdir=${magicdir#gitdir: }
+	else
+		# invalid repo directory
+		magicdir=''
+		RES=1
+	fi
+	echo "$magicdir"
+	return $RES
+}
+
 # parse command line arguments
 while [ $# -ne 0 ]; do
     case "$1" in
 		'-?'|'-h'|'--help') usage;;
 		'-v'|'--verbose') verbose=1; ;;
 		'--remove-origin') remove_origin=1; ;;
+		'--filelist') filelist="$2"; shift; ;;
 		-*)
 			echo "Invalid option $1 specified." >&2
 			exit 1
@@ -214,11 +242,20 @@ fi
 
 git_work_dir=`readlink -f '.'`
 
+if [ ! -z "$filelist" ]; then
+	declare -a fields
+	while IFS=$'\t ' read -r -a fields; do
+		[ ${#fields[*]} -eq 0 -o "${fields[0]:0:1}" == "#" ] && continue
+		object_to_remove="${fields[0]}"
+		object_remove_list="$object_remove_list $object_to_remove"
+	done < "$filelist"
+fi
+
 pushd "$git_work_dir" >/dev/null
 
 if [ -z "$repo_git" -o "$repo_git" == '.' ]; then
 	# Find base of git directory
-	while [ ! -d .git ] && [ ! -f packed-refs ] && [ ! `pwd` = "/" ]; do cd ..; done
+	while [ ! -d .git ] && [ ! -f .git ] && [ ! -f packed-refs ] && [ ! `pwd` = "/" ]; do cd ..; done
 	real_repo_git=`readlink -f '.'`
 	RES=0
 else
@@ -228,6 +265,7 @@ else
 	git_clone_deep "$real_repo_git" "$repo_git" 1; RES=$?
 fi
 echo "real_repo_git=$real_repo_git"
+echo "object_remove_list=$object_remove_list"
 
 if [ $RES -eq 0 ]; then
 	# do the hard shrinking work
@@ -240,7 +278,7 @@ if [ ! -z "$repo_git" -a "$repo_git" != '.' ]; then
 		git_push_all "$real_repo_git"
 	fi
 	# and remove the temp directory (in any case)
-	#[ -d "$real_repo_git" ] && rm -rf "$real_repo_git"
+	[ -d "$real_repo_git" ] && rm -rf "$real_repo_git"
 fi
 
 popd > /dev/null

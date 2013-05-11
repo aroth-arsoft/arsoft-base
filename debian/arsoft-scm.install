@@ -3,5 +3,7 @@ usr/bin/oodiff
 usr/bin/zipdiff
 usr/bin/imagediff
 usr/bin/svn2git
+usr/bin/git-deep-clone
 usr/bin/git-info
+usr/bin/git-shrink
 usr/bin/git-subdir2submodule
