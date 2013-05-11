@@ -637,7 +637,9 @@ else
                     subdir_name=${subdir_name_array[$idx]}
                     subdir_repo=${subdir_repo_array[$idx]}
 
-                    add_submodule "$temp_git_dir" "$subdir" "$subdir_repo"; RES=$?
+					rel_path=$(relative_path $cloned_git_dir $subdir_repo)
+
+                    add_submodule "$temp_git_dir" "$subdir" "$rel_path"; RES=$?
                     if [ $RES -eq 0 ]; then
                         echo "Submodule $subdir successfully added."
                     else

@@ -3,7 +3,9 @@ SCM_BIN_SCRIPTS := mimediff \
 		zipdiff \
 		imagediff \
 		svn2git \
+		git-deep-clone \
 		git-info \
+		git-shrink \
 		git-subdir2submodule
 
 .PHONY: all

@@ -1,0 +1,47 @@
+#!/bin/bash
+ 
+# author: Duane Johnson
+# email: duane.johnson@gmail.com
+# date: 2008 Jun 12
+# license: MIT
+#
+# Based on discussion at http://kerneltrap.org/mailarchive/git/2007/11/12/406496
+
+repo_git=''
+clone_opts=''
+
+function usage()
+{
+    echo "git-deep-clone <remote-url>"
+    echo "    -h, --help         shows this help screen"
+    echo "    -v, --verbose      enable verbose output"
+    exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
+        *)
+			if [ -z "$repo_git" ]; then
+				repo_git="$1"
+			else
+				clone_opts="$clone_opts $1"
+			fi
+            ;;
+    esac
+    shift
+done
+
+if [ -z "$repo_git" ]; then
+	echo "You must specify a repository to clone."
+	exit 1
+fi
+
+git clone "$repo_git"; RES=$?
+if [ $RES -eq 0 ]; then
+	for branch in `git branch -a | grep remotes | egrep -v '(HEAD|master)'`; do
+		git branch --track ${branch##*/} $branch
+	done
+fi
