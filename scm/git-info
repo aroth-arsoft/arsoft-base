@@ -8,16 +8,25 @@
 # Based on discussion at http://kerneltrap.org/mailarchive/git/2007/11/12/406496
 
 repo_git=''
+verbose=0
+recursive=0
+only_branch_info=0
 num_large_objects=10
 num_recent_commits=1
+show_config=0
+display_name=''
 
 function usage()
 {
     echo "git-info <gitrepo>"
-    echo "    -h, --help         shows this help screen"
-    echo "    -v, --verbose      enable verbose output"
-	echo "    --num-large <num>      number of large objects (default: $num_large_objects)"
-	echo "    --num-commits <num>    number of recent commits (default: $num_recent_commits)"
+    echo "    -h, --help                 shows this help screen"
+    echo "    -v, --verbose              enable verbose output"
+    echo "    -r, --recurse-submodules   shows repository information for each submodule"
+    echo "    --branches                 only show the branches information"
+    echo "    --config                   displays the repository configuration"
+	echo "    --num-large <num>          number of large objects (default: $num_large_objects)"
+	echo "    --num-commits <num>        number of recent commits (default: $num_recent_commits)"
+	echo "    --name <name>              use the given string as display name"
     exit 0
 }
 
@@ -29,20 +38,18 @@ function usage()
 
 # set the internal field spereator to line break, so that we can iterate easily over the verify-pack output
 function largest_objects() {
-	local max_objects="$1"
+	local magicdir="$1"
+	local max_objects="$2"
 	IFS=$'\n';
 
 	# list all objects including their size, sort by size, take top 10
-	if [ -d .git ]; then
-		objects=`LANG=C git verify-pack -v .git/objects/pack/pack-*.idx | grep -v chain | sort -k3nr | head -n $max_objects`
-	elif [ -d objects/pack ]; then
-		objects=`LANG=C git verify-pack -v objects/pack/pack-*.idx | grep -v chain | sort -k3nr | head -n $max_objects`
+	if [ -d "$magicdir/objects/pack" ]; then
+		objects=`LANG=C git verify-pack -v $magicdir/objects/pack/pack-*.idx | grep -v chain | sort -k3nr | head -n $max_objects`
 	else
 		objects=''
 	fi
 
 	if [ ! -z "$objects" ]; then
-		echo "All sizes are in kB's. The pack column is the size of the object, compressed, inside the pack file."
 		all_objects_rev_list=`LANG=C git rev-list --all --objects`
 		output="size,pack,SHA,location"
 		for y in $objects
@@ -59,22 +66,32 @@ function largest_objects() {
 			output="${output}\n${size},${compressedSize},${location}"
 		done
 	else
-		$output=''
+		output=''
 	fi
 
 	echo -e $output | column -t -s ', '
 }
 
+script_options=''
 # parse command line arguments
 while [ $# -ne 0 ]; do
     case "$1" in
 		'-?'|'-h'|'--help') usage;;
-		'-v'|'--verbose') verbose=1; ;;
-		'--num-large') num_large_objects=$2; shift; ;;
-		'--num-commits') num_recent_commits=$2; shift; ;;
+		'-v'|'--verbose') verbose=1; script_options="$script_options $1"; ;;
+		'-r'|'--recurse-submodules') recursive=1; ;;
+		'--config') show_config=1; script_options="$script_options $1"; ;;
+		'--num-large') num_large_objects=$2; script_options="$script_options $1 $2"; shift; ;;
+		'--num-commits') num_recent_commits=$2; script_options="$script_options $1 $2"; shift; ;;
+		'--branches') only_branch_info=1; script_options="$script_options $1"; ;;
+		'--name') display_name="$2"; shift;;
         *)
 			if [ -z "$repo_git" ]; then
-				repo_git="$1"
+				if [ ! -d "$1" ]; then
+					echo "Invalid directory $1 specified." >&2
+					exit 1
+				else
+					repo_git="$1"
+				fi
 			else
 				echo "repository already specified." >&2
 				exit 1
@@ -90,57 +107,94 @@ else
 	repo_git=`readlink -f "$repo_git"`
 fi
 
+script_file=`readlink -f "$0"`
+script_dir=`dirname "$script_file"`
+script_name=`basename "$script_file"`
+
 pushd "$repo_git" >/dev/null
  
 # Find base of git directory
-while [ ! -d .git ] && [ ! -f packed-refs ] && [ ! `pwd` = "/" ]; do cd ..; done
- 
+while [ ! -d .git ] && [ ! -f .git ] && [ ! -f packed-refs ] && [ ! `pwd` = "/" ]; do cd ..; done
 
 # Show various information about this git directory
-if [ -d .git -o -f packed-refs ]; then
+if [ -d .git -o -f .git -o -f packed-refs ]; then
 	if [ -f packed-refs ]; then
+		magicdir='.'
 		repo_is_bare=1
-	else
+		repo_is_submodule=0
+	elif [ -d .git ]; then
+		magicdir='.git'
 		repo_is_bare=0
+		repo_is_submodule=0
+	else
+		magicdir=`cat .git`
+		magicdir=${magicdir#gitdir: }
+		repo_is_bare=0
+		repo_is_submodule=1
 	fi
-
-	echo "== Remote URL:"
-	git remote -v
+	
+	actual_repo_git=`readlink -f '.'`
+	magicdir=`readlink -f "$actual_repo_git/$magicdir"`
+	[ -z "$display_name" ] && display_name=`basename "$actual_repo_git"`
+	
+	if [ $repo_is_bare -ne 0 ]; then
+		echo "== $display_name GIT Repository $actual_repo_git (bare)"
+	elif [ $repo_is_submodule -ne 0 ]; then
+		echo "== $display_name GIT Repository $actual_repo_git (submodule)"
+	else
+		echo "== $display_name GIT Repository $actual_repo_git"
+	fi
+	echo "  Magic dir: $magicdir"
 	echo
 
-	echo "== Remote Branches: "
+	if [ $only_branch_info -eq 0 ]; then
+		echo "== $display_name remote URLs:"
+		git remote -v
+		echo
+	fi
+
+	echo "== $display_name Remote Branches: "
 	git branch -r
 	echo
 
-	echo "== Local Branches:"
+	echo "== $display_name Local Branches:"
 	git branch
 	echo
+
+	if [ $only_branch_info -eq 0 ]; then
+		if [ $show_config -ne 0 ]; then
+			echo "== $display_name Repository configuration ($magicdir/config)"
+			cat $magicdir/config
+			echo
+		fi
+		
+		if [ $num_large_objects -gt 0 ]; then
+			echo "== $display_name $num_large_objects largest objects (sizes in kB)"
+			largest_objects "$magicdir" $num_large_objects
+			echo
+		fi
 	
+		if [ $num_recent_commits -gt 0 ]; then
+			echo "== $display_name $num_recent_commits most recent commits"
+			git --no-pager log --max-count=$num_recent_commits
+			echo
+		fi
+	fi
+
 	if [ $repo_is_bare -eq 0 ]; then
-		echo "== Submodules:"
-		git submodule status
-		echo
+		all_submodule=`git submodule status`
+		if [ ! -z "$all_submodule" ]; then
+			echo "== $display_name Submodules:"
+			echo "$all_submodule"
+			echo
+			
+			if [ $recursive -ne 0 ]; then
+				submodule_cmdline="$script_file --recurse-submodules $script_options --name "$display_name/\$name" \"$actual_repo_git/\$path\""
+				git submodule foreach --quiet "$submodule_cmdline"
+			fi
+		fi
 	fi
 
-	if [ $repo_is_bare -ne 0 ]; then
-		echo "== Repository configuration (.git/config)"
-		cat .git/config
-		echo
-	else
-		echo "== Repository configuration (config)"
-		cat config
-		echo
-	fi
-	
-	echo "== $num_large_objects largest objects"
-	largest_objects $num_large_objects
-	echo
- 
-	echo "== $num_recent_commits most recent commits"
-	git --no-pager log --max-count=$num_recent_commits
-	echo
-
-	echo "Type 'git log' for more commits, or 'git show' for full commit details."
 else
 	echo "Not a git repository."
 fi
