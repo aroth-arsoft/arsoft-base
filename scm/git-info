@@ -95,8 +95,15 @@ pushd "$repo_git" >/dev/null
 # Find base of git directory
 while [ ! -d .git ] && [ ! -f packed-refs ] && [ ! `pwd` = "/" ]; do cd ..; done
  
+
 # Show various information about this git directory
 if [ -d .git -o -f packed-refs ]; then
+	if [ -f packed-refs ]; then
+		repo_is_bare=1
+	else
+		repo_is_bare=0
+	fi
+
 	echo "== Remote URL:"
 	git remote -v
 	echo
@@ -108,22 +115,28 @@ if [ -d .git -o -f packed-refs ]; then
 	echo "== Local Branches:"
 	git branch
 	echo
+	
+	if [ $repo_is_bare -eq 0 ]; then
+		echo "== Submodules:"
+		git submodule status
+		echo
+	fi
 
-	if [ -f .git/config ]; then 
-		echo "== Configuration (.git/config)"
+	if [ $repo_is_bare -ne 0 ]; then
+		echo "== Repository configuration (.git/config)"
 		cat .git/config
 		echo
 	else
-		echo "== Configuration (config)"
+		echo "== Repository configuration (config)"
 		cat config
 		echo
 	fi
 	
-	echo "== Largest objects"
+	echo "== $num_large_objects largest objects"
 	largest_objects $num_large_objects
 	echo
  
-	echo "== Most Recent Commit"
+	echo "== $num_recent_commits most recent commits"
 	git --no-pager log --max-count=$num_recent_commits
 	echo
 
