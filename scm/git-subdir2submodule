@@ -164,6 +164,7 @@ function subdir_to_submodule()
 	local repodir="$1"
 	local subdir="$2"
 	local destdir="$3"
+	local bare="$4"
 	if [ -d "$destdir" ]; then
 		if [ $force -eq 0 ]; then
 			if [ $keep -ne 0 ]; then
@@ -185,57 +186,45 @@ function subdir_to_submodule()
     local end_time
     local total_time
 
-	[ $clone_bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
+	[ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
 
 	subdir_git_dir=`mktemp -d "$destdir.XXXXXX"`
 	pushd "$subdir_git_dir" > /dev/null
 	git clone --no-hardlinks $bare_opt "$repodir" "$subdir_git_dir"; RES=$?
 	if [ $RES -eq 0 ]; then
-		git filter-branch -f --tag-name-filter cat --index-filter "git rm -qrf --cached --ignore-unmatch $subdir" --prune-empty -- --all; RES=$?
-		#git filter-branch --subdirectory-filter "$subdir" --prune-empty HEAD -- --all; RES=$?
-		if [ $RES -eq 0 ]; then
-			if [ $clone_bare -eq 0 ]; then
-				git reset --hard; RES=$?
-				if [ $RES -ne 0 ]; then
-					echo "Reset the GIT repository $subdir_git_dir failed." >&2
-				fi
-			fi
-			if [ $RES -eq 0 ]; then
-				git_shrink "$subdir_git_dir" 0; RES=$?
-				if [ $RES -eq 0 ]; then
-					echo "Subdirectory successfully converted into $subdir_git_dir."
-				else
-					echo "Failed to reduce size of GIT repository $subdir_git_dir." >&2
-				fi
-			fi
-		else
+		git filter-branch -f --subdirectory-filter "$subdir" --prune-empty -- --all; RES=$?
+		end_time=`date +%s`
+		total_time=$(( $end_time - $start_time ))
+		if [ $RES -ne 0 ]; then
 			echo "Filter branch to GIT repository $subdir_git_dir failed ($total_time seconds)" >&2
 		fi
 	else
+		end_time=`date +%s`
+		total_time=$(( $end_time - $start_time ))
 		echo "Failed to clone GIT repository $repodir to $subdir_git_dir ($total_time seconds)" >&2
 	fi
-    end_time=`date +%s`
-    total_time=$(( $end_time - $start_time ))
 
 	popd > /dev/null
 	
 	if [ $RES -eq 0 ]; then
+		# mark the directory as converted in the global array
 		for ((idx=0; idx < $subdir_num ; idx++)); do
 			current_subdir=${subdir_array[$idx]}
 			if [ "$subdir" == "$current_subdir" ]; then
+				# found the entry
 				subdir_converted_array[$idx]=1
 				break
 			fi
 		done
 
-        echo "Subdirectory conversion took $total_time seconds."
-
 		if [ $clone_git_to_dest -ne 0 ]; then
 			# final cloning to reduce size
 			echo "Cloning $subdir_git_dir to $destdir"
 			git_clone_and_shrink "$subdir_git_dir" "$destdir" $clone_bare; RES=$?
+			end_time=`date +%s`
+			total_time=$(( $end_time - $start_time ))
 			if [ $RES -eq 0 ]; then
-				echo "Subdirectory cloned from $subdir_git_dir to $destdir"
+				echo "Extraction of $subdir to $destdir in $total_time seconds."
 			else
 				echo "Final cloning the GIT repository $subdir_git_dir failed." >&2
 			fi
@@ -244,7 +233,9 @@ function subdir_to_submodule()
 			rm -rf "$subdir_git_dir"
 		else
 			mv "$subdir_git_dir" "$destdir"
-			echo "Subdirectory moved from $subdir_git_dir to $destdir"
+			end_time=`date +%s`
+			total_time=$(( $end_time - $start_time ))
+			echo "Extraction of $subdir to $destdir in $total_time seconds (with move)."
 		fi
 	else
 		# remove the temporary clone of GIT repo
@@ -607,7 +598,7 @@ else
             subdir_repo=${subdir_repo_array[$idx]}
 
             subdir_start_time=`date +%s`
-            subdir_to_submodule "$temp_git_dir" "$subdir" "$subdir_repo"; RES=$?
+            subdir_to_submodule "$temp_git_dir" "$subdir" "$subdir_repo" "$bare"; RES=$?
             subdir_end_time=`date +%s`
             subdir_total_time=$(( $subdir_end_time - $subdir_start_time ))
             if [ $RES -eq 0 ]; then
