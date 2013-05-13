@@ -224,6 +224,9 @@ module Svn2Git
         regex = []
         unless rootistrunk
           regex << "#{trunk}[/]" unless trunk.nil?
+            tags = tags.join('|') unless tags.nil?
+            branches = branches.join('|') unless tags.nil?
+          
           regex << "#{tags}[/][^/]+[/]" unless tags.nil?
           regex << "#{branches}[/][^/]+[/]" unless branches.nil?
         end
@@ -345,6 +348,8 @@ module Svn2Git
             regex = []
             unless rootistrunk
             regex << "#{trunk}[/]" unless trunk.nil?
+            tags = tags.join('|') unless tags.nil?
+            branches = branches.join('|') unless tags.nil?
             regex << "#{tags}[/][^/]+[/]" unless tags.nil?
             regex << "#{branches}[/][^/]+[/]" unless branches.nil?
             end
