@@ -16,6 +16,9 @@ bare=0
 clone=0
 revision=''
 exclude=''
+trunk=''
+tags=''
+branches=''
 scriptfile=`readlink -f "$0"`
 scriptdir=`dirname "$scriptfile"`
 
@@ -35,7 +38,10 @@ function usage()
     echo "    --clone            clone generated repo after conversion (does not work with rebase)."
     echo "    --revision START_REV[:END_REV]"
     echo "                       Start importing from SVN revision START_REV; optionally end at END_REV."
-    echo "    --exclude REGEX   Specify a Perl regular expression to filter paths when fetching; can be used multiple times."
+    echo "    --exclude REGEX    Specify a Perl regular expression to filter paths when fetching; can be used multiple times."
+    echo "    --trunk TRUNK      name of a trunk directory"
+    echo "    --branches BRANCH  name of a branch directory; can be specified multiple times"
+    echo "    --tags TAG         name of a tag directory; can be specified multiple times"
     exit 0
 }
 
@@ -87,6 +93,51 @@ function convert_using_ruby_svn2git() {
     [ $nometadata -eq 0 ] && svn2git_opts="$svn2git_opts --metadata"
     [ $rebase -ne 0 ] && svn2git_opts="$svn2git_opts --rebase"
     [ ! -z "$revision" ] && svn2git_opts="$svn2git_opts --revision $revision"
+    if [ "$rootistrunk" == 'auto' ]; then
+        tmp=`svn info "$repo_svn/trunk" 2> /dev/null`
+        if [ $? -eq 0 ]; then
+            rootistrunk=0
+        else
+            rootistrunk=1
+        fi
+        [ -z "$trunk" ] && trunk='trunk'
+    fi
+    if [ $rootistrunk -ne 0 ]; then
+        svn2git_opts="$svn2git_opts --rootistrunk"
+        echo "SVN repository only contains trunk (no tags and branches)."
+    else
+        local standard_layout=1
+        if [ $nobranches -ne 0 ]; then
+            svn2git_opts="$svn2git_opts --nobranches"
+            standard_layout=0
+        fi
+        if [ $notags -ne 0 ]; then
+            svn2git_opts="$svn2git_opts --notags"
+            standard_layout=0
+        fi
+        if [ $standard_layout -ne 0 ]; then
+            echo "SVN repository with standard layout (trunk, tags and branches)."
+        else
+            echo "SVN repository with custom layout."
+        fi
+    fi
+    if [ ! -z "$trunk" ]; then
+        svn2git_opts="$svn2git_opts --trunk $trunk"
+    fi
+    if [ ! -z "$tags" ]; then
+        IFS=$';'
+        for e in $tags; do
+            svn2git_opts="$svn2git_opts --tags $e"
+        done
+        unset IFS
+    fi
+    if [ ! -z "$branches" ]; then
+        IFS=$';'
+        for e in $branches; do
+            svn2git_opts="$svn2git_opts --branches $e"
+        done
+        unset IFS
+    fi
     if [ ! -z "$exclude" ]; then
         IFS=$';'
         for e in $exclude; do
@@ -100,33 +151,6 @@ function convert_using_ruby_svn2git() {
         pushd "$repo_git_full" > /dev/null
 
         echo "Convert the SVN repository into GIT..."
-        if [ "$rootistrunk" == 'auto' ]; then
-            tmp=`svn info "$repo_svn/trunk" 2> /dev/null`
-            if [ $? -eq 0 ]; then
-                rootistrunk=0
-            else
-                rootistrunk=1
-            fi
-        fi
-        if [ $rootistrunk -ne 0 ]; then
-            svn2git_opts="$svn2git_opts --rootistrunk"
-            echo "SVN repository only contains trunk (no tags and branches)."
-        else
-            local standard_layout=1
-            if [ $nobranches -ne 0 ]; then
-                svn2git_opts="$svn2git_opts --nobranches"
-                standard_layout=0
-            fi
-            if [ $notags -ne 0 ]; then
-                svn2git_opts="$svn2git_opts --notags"
-                standard_layout=0
-            fi
-            if [ $standard_layout -ne 0 ]; then
-                echo "SVN repository with standard layout (trunk, tags and branches)."
-            else
-                echo "SVN repository with custom layout."
-            fi
-        fi
 
         [ $verbose -ne 0 ] && echo "ruby $scriptdir/svn2git.rb \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
         ruby $scriptdir/svn2git.rb "$repo_svn" $svn2git_opts --authors "$authors_file"; RES=$?
@@ -240,6 +264,23 @@ while [ $# -ne 0 ]; do
         "--domain") mail_domain="$2"; shift; ;;
         "--authors") authors_file="$2"; shift; ;;
         '--revision') revision="$2"; shift; ;;
+        '--trunk') trunk="$2"; shift; ;;
+        '--branches') 
+            if [ -z "$branches" ]; then
+                branches="$2"
+            else
+                branches="${branches};${2}"
+            fi
+            shift; 
+            ;;
+        '--tags') 
+            if [ -z "$tags" ]; then
+                tags="$2"
+            else
+                tags="${tags};${2}"
+            fi
+            shift; 
+            ;;
         '--exclude') 
             if [ -z "$exclude" ]; then
                 exclude="$2"
