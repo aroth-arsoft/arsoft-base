@@ -194,17 +194,19 @@ function subdir_to_submodule()
 	if [ $RES -eq 0 ]; then
         echo "Extract $subdir from $repodir to $subdir_git_dir"
         logmsg=`mktemp "$destdir.log.XXXXXX"`
-        verbose_exec git filter-branch --force --subdirectory-filter "$subdir" --prune-empty -- --all 2>&1 | tee "$logmsg"; RES=$?
-        if [ $RES -ne 0 ]; then
-            msg_first_line=`cat "$logmsg" | head -n1`
-            if [ "$msg_first_line" == "Found nothing to rewrite" ]; then
+        git filter-branch --force --subdirectory-filter "$subdir" --prune-empty -- --all 2>&1 | tee "$logmsg"; RES=$?
+        msg_first_line=`cat "$logmsg" | head -n1`
+        #echo "GOt msg $msg_first_line"
+        if [ "$msg_first_line" == "Found nothing to rewrite" ]; then
+            echo "Filterbranch failed"
+            verbose_exec git filter-branch --index-filter 'git rm -f --quiet --cached --ignore-unmatch *' -- --all; RES=$?
+            if [ $RES -ne 0 ]; then
                 echo "Subdirectory successfully converted into $subdir_git_dir (was empty)." | tee -a "$LOGFILE"
-                RES=0
+            else
+                echo "Given directory does not exist in repository and clean all failed." | tee -a "$LOGFILE"
             fi
-         elif [ $RES -eq 0 ]; then
-            true
         else
-            echo "Filter branch to GIT repository $subdir_git_dir failed with $RES ($total_time seconds)" >&2
+            RES=0
         fi
         rm -f "$logmsg"
 		end_time=`date +%s`
