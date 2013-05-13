@@ -13,22 +13,27 @@ module Svn2Git
       if @options[:rebase]
          show_help_message('Too many arguments') if args.size > 0
          verify_working_tree_is_clean
+      elsif @options[:rebasebranch]
+         show_help_message('Too many arguments') if args.size > 0
+         verify_working_tree_is_clean
       else
          show_help_message('Missing SVN_URL parameter') if args.empty?
          show_help_message('Too many arguments') if args.size > 1
-         @url = args.first.gsub(' ', "\\ ")
+         @url = args.first
       end
     end
 
     def run!
       if @options[:rebase]
         get_branches
+      elsif @options[:rebasebranch]
+        get_rebasebranch
       else
         clone!
       end
-      fix_branches
-      fix_tags
-      fix_trunk
+      fix_branches unless @options[:branches].nil?
+      fix_tags unless @options[:tags].nil?
+      fix_trunk unless @options[:trunk].nil?
       optimize_repos
     end
 
@@ -40,11 +45,13 @@ module Svn2Git
       options[:nominimizeurl] = false
       options[:rootistrunk] = false
       options[:trunk] = 'trunk'
-      options[:branches] = 'branches'
-      options[:tags] = 'tags'
+      options[:branches] = []
+      options[:tags] = []
       options[:exclude] = []
       options[:revision] = nil
       options[:username] = nil
+      options[:rewriteroot] = nil
+      options[:rebasebranch] = false
 
       if File.exists?(File.expand_path(DEFAULT_AUTHORS_FILE))
         options[:authors] = DEFAULT_AUTHORS_FILE
@@ -71,11 +78,11 @@ module Svn2Git
         end
 
         opts.on('--branches BRANCHES_PATH', 'Subpath to branches from repository URL (default: branches)') do |branches|
-          options[:branches] = branches
+          options[:branches] << branches
         end
 
         opts.on('--tags TAGS_PATH', 'Subpath to tags from repository URL (default: tags)') do |tags|
-          options[:tags] = tags
+          options[:tags] << tags
         end
 
         opts.on('--rootistrunk', 'Use this if the root level of the repo is equivalent to the trunk and there are no tags or branches') do
@@ -113,12 +120,21 @@ module Svn2Git
           options[:authors] = authors
         end
 
+        opts.on('--rewrite-root URL', "Use --rewrite-root=URL option to git svn init (see git svn docs); implies --metadata") do |rewriteroot|
+          options[:rewriteroot] = rewriteroot
+          options[:metadata] = true
+        end
+
         opts.on('--exclude REGEX', 'Specify a Perl regular expression to filter paths when fetching; can be used multiple times') do |regex|
           options[:exclude] << regex
         end
 
-        opts.on('-v', '--verbose', 'Be verbose in logging -- useful for debugging issues.') do
+        opts.on('-v', '--verbose', 'Be verbose in logging -- useful for debugging issues') do
           options[:verbose] = true
+        end
+
+        opts.on('--rebasebranch REBASEBRANCH', 'Rebase specified branch.') do |rebasebranch|
+          options[:rebasebranch] = rebasebranch
         end
 
         opts.separator ""
@@ -132,6 +148,15 @@ module Svn2Git
       end
 
       @opts.parse! args
+
+      # Set default branches and tags if not explicitely configured
+      if ! options[:branches].nil? && options[:branches].length == 0 
+        options[:branches] << 'branches'
+      end
+      if ! options[:tags].nil? && options[:tags].length == 0 
+        options[:tags] << 'tags'
+      end
+
       options
     end
 
@@ -148,17 +173,19 @@ module Svn2Git
       exclude = @options[:exclude]
       revision = @options[:revision]
       username = @options[:username]
+      rewriteroot = @options[:rewriteroot]
 
       if rootistrunk
         # Non-standard repository layout.  The repository root is effectively 'trunk.'
         cmd = "git svn init --prefix=svn/ "
         cmd += "--username=#{username} " unless username.nil?
         cmd += "--no-metadata " unless metadata
+        cmd += "--rewrite-root=#{rewriteroot} " unless rewriteroot.nil?
         if nominimizeurl
           cmd += "--no-minimize-url "
         end
-        cmd += "--trunk=#{@url}"
-        run_command(cmd)
+        cmd += "'--trunk=#{@url}'"
+        run_command(cmd, true, true)
 
       else
         cmd = "git svn init --prefix=svn/ "
@@ -166,16 +193,21 @@ module Svn2Git
         # Add each component to the command that was passed as an argument.
         cmd += "--username=#{username} " unless username.nil?
         cmd += "--no-metadata " unless metadata
+        cmd += "--rewrite-root=#{rewriteroot} " unless rewriteroot.nil?
         if nominimizeurl
           cmd += "--no-minimize-url "
         end
         cmd += "--trunk=#{trunk} " unless trunk.nil?
-        cmd += "--tags=#{tags} " unless tags.nil?
-        cmd += "--branches=#{branches} " unless branches.nil?
+        tags.each do |tags|
+          cmd += "--tags=#{tags} "
+        end unless tags.nil?
+        branches.each do |branches|
+          cmd += "--branches=#{branches} "
+        end unless branches.nil?
 
-        cmd += @url
+        cmd += "\'#{@url}\'"
 
-        run_command(cmd)
+        run_command(cmd, true, true)
       end
 
       run_command("git config --local svn.authorsfile #{authors}") unless authors.nil?
@@ -196,9 +228,14 @@ module Svn2Git
           regex << "#{branches}[/][^/]+[/]" unless branches.nil?
         end
         regex = '^(?:' + regex.join('|') + ')(?:' + exclude.join('|') + ')'
-        cmd += "'--ignore-paths=#{regex}'"
+        cmd += "'--ignore-paths=#{regex}' "
       end
-      run_command(cmd)
+
+      # add user name here to force git svn to ask for the same username as
+      # the one used for initializing the repo.
+      cmd += "--username=#{username} " unless username.nil?
+
+      run_command(cmd, true, true)
 
       get_branches
     end
@@ -211,6 +248,34 @@ module Svn2Git
 
       # Tags are remote branches that start with "tags/".
       @tags = @remote.find_all { |b| b.strip =~ %r{^svn\/tags\/} }
+
+    end
+
+    def get_rebasebranch
+	  get_branches 
+	  @local = @local.find_all{|l| l == @options[:rebasebranch]}
+	  @remote = @remote.find_all{|r| r.include? @options[:rebasebranch]}
+
+      if @local.count > 1 
+        pp "To many matching branches found (#{@local})."
+        exit 1
+      elsif @local.count == 0
+	    pp "No local branch named \"#{@options[:rebasebranch]}\" found."
+        exit 1
+      end
+
+      if @remote.count > 2 # 1 if remote is not pushed, 2 if its pushed to remote
+        pp "To many matching remotes found (#{@remotes})"
+        exit 1
+      elsif @remote.count == 0
+	    pp "No remote branch named \"#{@options[:rebasebranch]}\" found."
+        exit 1
+      end
+	  pp "Local branches \"#{@local}\" found"
+	  pp "Remote branches \"#{@remote}\" found"
+
+      @tags = [] # We only rebase the specified branch
+
     end
 
     def fix_tags
@@ -230,7 +295,7 @@ module Svn2Git
 
         original_git_committer_date = ENV['GIT_COMMITTER_DATE']
         ENV['GIT_COMMITTER_DATE'] = escape_quotes(date)
-        run_command("git tag -a -m \"#{escape_quotes(subject)}\" \"#{escape_quotes(id)}\" \"#{escape_quotes(tag)}\"")
+        run_command("git tag -f -a -m \"#{escape_quotes(subject)}\" \"#{escape_quotes(id)}\" \"#{escape_quotes(tag)}\"")
         ENV['GIT_COMMITTER_DATE'] = original_git_committer_date
 
         run_command("git branch -d -r \"#{escape_quotes(tag)}\"")
@@ -256,12 +321,47 @@ module Svn2Git
       svn_branches.delete_if { |b| b.strip !~ %r{^svn\/} }
 
       if @options[:rebase]
-         run_command("git svn fetch")
+        trunk = @options[:trunk]
+        branches = @options[:branches]
+        tags = @options[:tags]
+        metadata = @options[:metadata]
+        nominimizeurl = @options[:nominimizeurl]
+        rootistrunk = @options[:rootistrunk]
+        authors = @options[:authors]
+        exclude = @options[:exclude]
+        revision = @options[:revision]
+        username = @options[:username]
+        rewriteroot = @options[:rewriteroot]
+          
+        cmd = "git svn fetch "
+        unless revision.nil?
+            range = revision.split(":")
+            range[1] = "HEAD" unless range[1]
+            cmd += "-r #{range[0]}:#{range[1]} "
+        end
+        unless exclude.empty?
+            # Add exclude paths to the command line; some versions of git support
+            # this for fetch only, later also for init.
+            regex = []
+            unless rootistrunk
+            regex << "#{trunk}[/]" unless trunk.nil?
+            regex << "#{tags}[/][^/]+[/]" unless tags.nil?
+            regex << "#{branches}[/][^/]+[/]" unless branches.nil?
+            end
+            regex = '^(?:' + regex.join('|') + ')(?:' + exclude.join('|') + ')'
+            cmd += "'--ignore-paths=#{regex}' "
+        end
+
+        # add user name here to force git svn to ask for the same username as
+        # the one used for initializing the repo.
+        cmd += "--username=#{username} " unless username.nil?
+
+        run_command(cmd, true, true)
       end
 
       svn_branches.each do |branch|
         branch = branch.gsub(/^svn\//,'').strip
-        if @options[:rebase] && (@local.include?(branch) || branch == 'trunk')
+        if @options[:rebase] && (@local.include?(branch) || branch == 'trunk') && !(branch == 'trunk' && @options[:trunk].nil?)
            lbranch = branch
            lbranch = 'master' if branch == 'trunk'
            run_command("git checkout -f \"#{lbranch}\"")
@@ -290,16 +390,23 @@ module Svn2Git
       run_command("git gc")
     end
 
-    def run_command(cmd, exit_on_error=true)
+    def run_command(cmd, exit_on_error=true, printout_output=false)
       log "Running command: #{cmd}"
 
       ret = ''
 
       cmd = "2>&1 #{cmd}"
       IO.popen(cmd) do |stdout|
-        stdout.each do |line|
-          log line
-          ret << line
+        if printout_output
+          stdout.each_char do |character|
+            $stdout.print character
+            ret << character
+          end
+        else
+          stdout.each do |line|
+            log line
+            ret << line
+          end
         end
       end
 
@@ -330,9 +437,12 @@ module Svn2Git
     end
 
     def escape_quotes(str)
-      str.gsub("'", "'\\\\''")
-    end
 
+
+      #str.gsub("'", "'\\\\''").gsub('"', '\\\\"')
+      str.gsub(/'|"/) { |c| "\\#{c}" }
+
+    end
   end
 end
 
