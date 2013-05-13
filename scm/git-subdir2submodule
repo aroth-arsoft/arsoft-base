@@ -589,9 +589,12 @@ else
 
 	[ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
 
+    remove_temp_git_dir=1
+
     if [ $keep -ne 0 ]; then
         if [ -d "$cloned_git_dir" ]; then
             temp_git_dir="$cloned_git_dir"
+            remove_temp_git_dir=0
             RES=0
         else
             temp_git_dir=`mktemp -d "$cloned_git_dir.XXXXXX"`
@@ -733,6 +736,7 @@ else
 				fi
 				# leave the cloned GIT repository for submodule re-add
 				popd > /dev/null
+                echo "remove submodule_temp_git_dir=$submodule_temp_git_dir RES=$RES"
 				rm -rf "$submodule_temp_git_dir"
 			else
 				echo "Failed to clone $temp_git_dir into $submodule_temp_git_dir." >&2
@@ -754,7 +758,7 @@ else
                 RES=0
             fi
             # remove the temporary clone of GIT repo
-            rm -rf "$temp_git_dir"
+            [ $remove_temp_git_dir -ne 0 ] && rm -rf "$temp_git_dir"
 
             if [ $RES -eq 0 ]; then
                 echo "Conversion completed successfully."
@@ -798,7 +802,7 @@ else
             else
                 echo "Conversion failed; remove temporary GIT repository at $temp_git_dir."
                 # remove the temporary clone of GIT repo
-                rm -rf "$temp_git_dir"
+                [ $remove_temp_git_dir -ne 0 ] && rm -rf "$temp_git_dir"
             fi
         fi
     else
