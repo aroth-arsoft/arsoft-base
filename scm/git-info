@@ -50,7 +50,8 @@ function largest_objects() {
 	fi
 
 	if [ ! -z "$objects" ]; then
-		all_objects_rev_list=`LANG=C git rev-list --all --objects`
+		all_objects_rev_list_file=`mktemp`
+		all_objects_rev_list=`LANG=C git rev-list --all --objects > "$all_objects_rev_list_file"`
 		output="size,pack,SHA,location"
 		for y in $objects
 		do
@@ -61,10 +62,11 @@ function largest_objects() {
 			# extract the SHA
 			sha=`echo $y | cut -f 1 -d ' '`
 			# find the objects location in the repository tree
-			location=`echo "$all_objects_rev_list" | grep $sha`
+			location=`grep "$sha" "$all_objects_rev_list_file"`
 			#lineBreak=`echo -e "\n"`
 			output="${output}\n${size},${compressedSize},${location}"
 		done
+		rm -f "$all_objects_rev_list_file"
 	else
 		output=''
 	fi
