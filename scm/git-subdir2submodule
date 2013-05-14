@@ -21,7 +21,6 @@ declare -a subdir_array
 declare -a subdir_converted_array
 declare -a subdir_name_array
 declare -a subdir_repo_array
-declare -a subdir_repo_public_array
 
 function usage()
 {
@@ -422,14 +421,10 @@ if [ ! -z "$subdir_config_file" ]; then
 			subdir_git_dir="$outdir/${repo_name}-${subdir_name_safe}"
 		fi
 		#echo "subdir_git_dir=$subdir_git_dir"
-
-		[ ${#fields[*]} -gt 2 ] && subdir_repo_public="${fields[2]}" || subdir_repo_public="$subdir_git_dir"
-
 		subdir_array[$subdir_num]="$subdir"
 		subdir_converted_array[$subdir_num]=0
 		subdir_name_array[$subdir_num]="$subdir_name"
 		subdir_repo_array[$subdir_num]="$subdir_git_dir"
-		subdir_repo_public_array[$subdir_num]="$subdir_repo_public"
 		let subdir_num++
 	done < "$subdir_config_file"
 fi
@@ -462,12 +457,10 @@ for ((idx=0; idx < $subdir_num ; idx++)); do
     subdir=${subdir_array[$idx]}
     subdir_name=${subdir_name_array[$idx]}
     subdir_repo=${subdir_repo_array[$idx]}
-    subdir_repo_public=${subdir_repo_public_array[$idx]}
     echo "  $subdir_repo"
     echo "    subdir: $subdir"
     if [ $only_remove -eq 0 ]; then
         echo "    name: $subdir_name"
-        echo "    public url: $subdir_repo_public"
         rel_path=$(relative_path $cloned_git_dir $subdir_repo)
         echo "    relative url: $rel_path"
     fi
@@ -766,32 +759,12 @@ else
                 echo "Conversion completed successfully."
                 echo "Main repository is available at $cloned_git_dir"
                 echo "Repositories for subdirectories:"
-                show_todo=0
                 for ((idx=0; idx < $subdir_num ; idx++)); do
                     subdir=${subdir_array[$idx]}
                     subdir_name=${subdir_name_array[$idx]}
                     subdir_repo=${subdir_repo_array[$idx]}
-                    subdir_repo_public=${subdir_repo_public_array[$idx]}
-                    if [ "$subdir_repo_public" != "$subdir_repo" ]; then
-                        echo "  $subdir_repo (as $subdir_repo_public)"
-                        show_todo=1
-                    else
-                        echo "  $subdir_repo"
-                    fi
+                    echo "  $subdir_repo"
                 done
-                
-                if [ $show_todo -ne 0 ]; then
-                    echo "Further steps required:"
-                    for ((idx=0; idx < $subdir_num ; idx++)); do
-                        subdir=${subdir_array[$idx]}
-                        subdir_name=${subdir_name_array[$idx]}
-                        subdir_repo=${subdir_repo_array[$idx]}
-                        subdir_repo_public=${subdir_repo_public_array[$idx]}
-                        if [ "$subdir_repo_public" != "$subdir_repo" ]; then
-                            echo " - copy $subdir_repo to $subdir_repo_public"
-                        fi
-                    done
-                fi
             else
                 echo "Failed to move temporary GIT repository $temp_git_dir to $cloned_git_dir." >&2
             fi
