@@ -201,9 +201,9 @@ function subdir_to_submodule()
             echo "Filterbranch failed"
             verbose_exec git filter-branch --index-filter 'git rm -f --quiet --cached --ignore-unmatch *' -- --all; RES=$?
             if [ $RES -ne 0 ]; then
-                echo "Subdirectory successfully converted into $subdir_git_dir (was empty)." | tee -a "$LOGFILE"
+                echo "Subdirectory successfully converted into $subdir_git_dir (was empty)."
             else
-                echo "Given directory does not exist in repository and clean all failed." | tee -a "$LOGFILE"
+                echo "Given directory does not exist in repository and clean all failed." >&2
             fi
         else
             RES=0
