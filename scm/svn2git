@@ -141,14 +141,14 @@ function convert_using_ruby_svn2git() {
     if [ ! -z "$exclude" ]; then
         IFS=$';'
         for e in $exclude; do
-            svn2git_opts="$svn2git_opts --exclude '$e'"
+            svn2git_opts="$svn2git_opts --exclude $e"
         done
         unset IFS
     fi
 
     if [ $rebase -eq 0 ]; then
-        repo_git_full=`mktemp -d "$repo_git.XXXXXX"`
-        pushd "$repo_git_full" > /dev/null
+        [ ! -d "$repo_git" ] && mkdir -p "$repo_git"
+        pushd "$repo_git" > /dev/null
 
         echo "Convert the SVN repository into GIT..."
 
@@ -156,52 +156,10 @@ function convert_using_ruby_svn2git() {
         ruby $scriptdir/svn2git.rb "$repo_svn" $svn2git_opts --authors "$authors_file"; RES=$?
         if [ $RES -eq 0 ]; then
             echo "SVN import successful."
-
-            if [ $clone -ne 0 ]; then
-                echo "Convert temporary GIT repository into bare GIT repository..."
-                [ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
-                pushd "$repo_git" > /dev/null
-                git clone $bare_opt "$repo_git_full" "$repo_git"; RES=$?
-                if [ $RES -eq 0 ]; then
-                    # set some basic configuration properties
-                    git config core.sharedrepository 1
-                    git config receive.denyNonFastforwards true
-                    # The core.sharedrepository flag tells git to keep everything group readable and writable.
-                    # The receive.denyNonFastforwards flag makes sure that merges can't happen when you push to 
-                    # the repo. You have to do the merges on your local machine, and then push the result.
-
-                    # Make sure permissions are set properly
-                    # find "$repo_git/objects" -type d -exec chmod 02770 {} \;
-
-                    update_lookup_table
-
-                    echo "Conversion completed successfully."
-                else
-                    echo "Conversion completed with errors." >&2
-                fi
-                popd > /dev/null
-                popd > /dev/null
-            else
-                popd > /dev/null
-                [ -d "$repo_git" ] && echo "targetdir $repo_git already exists"
-                #update_lookup_table
-                echo "mv \"$repo_git_full\" \"$repo_git\""
-                mv "$repo_git_full" "$repo_git"; RES=$?
-                if [ $RES -eq 0 ]; then
-                    echo "Conversion completed successfully."
-                else
-                    echo "Failed to move $repo_git_full to $repo_git."
-                fi
-            fi
         else
             echo "SVN import with errors." >&2
-            popd > /dev/null
         fi
-
-        if [ $clone -ne 0 ]; then
-            # remove the temporary directory with the full GIT repo
-            rm -rf "$repo_git_full"
-        fi
+        popd > /dev/null
     else
         pushd "$repo_git" > /dev/null
 
