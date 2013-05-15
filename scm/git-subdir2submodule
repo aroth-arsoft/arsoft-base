@@ -198,17 +198,23 @@ function subdir_to_submodule()
 	if [ $RES -eq 0 ]; then
         echo "Extract $subdir from $repodir to $subdir_git_dir"
         logmsg=`mktemp "$destdir.log.XXXXXX"`
-        git filter-branch --force --subdirectory-filter "$subdir" --prune-empty -- --all 2>&1 | tee "$logmsg"; RES=$?
+        git filter-branch --force --tag-name-filter cat --subdirectory-filter "$subdir" --prune-empty -- --all 2>&1 | tee "$logmsg"; RES=$?
         msg_first_line=`cat "$logmsg" | head -n1`
         #echo "GOt msg $msg_first_line"
         if [ "$msg_first_line" == "Found nothing to rewrite" ]; then
             echo "Filterbranch failed"
-            verbose_exec git filter-branch --index-filter 'git rm -f --quiet --cached --ignore-unmatch *' -- --all; RES=$?
-            if [ $RES -ne 0 ]; then
-                echo "Subdirectory successfully converted into $subdir_git_dir (was empty)."
-            else
-                echo "Given directory does not exist in repository and clean all failed." >&2
-            fi
+            rm -rf "$subdir_git_dir"/*
+            git init
+            local commit_msg="extracted subdirectory $subdir from $repodir is empty"
+            echo "$commit_msg" > empty
+            git add empty
+            git commit -a -m "$commit_msg"
+#             verbose_exec git filter-branch --index-filter 'git rm -f --quiet --cached --ignore-unmatch *' -- --all; RES=$?
+#             if [ $RES -ne 0 ]; then
+#                 echo "Subdirectory successfully converted into $subdir_git_dir (was empty)."
+#             else
+#                 echo "Given directory does not exist in repository and clean all failed." >&2
+#             fi
         else
             RES=0
         fi
@@ -240,7 +246,7 @@ function subdir_to_submodule()
 		if [ $clone_git_to_dest -ne 0 ]; then
 			# final cloning to reduce size
 			echo "Cloning $subdir_git_dir to $destdir"
-			git_clone_and_shrink "$subdir_git_dir" "$destdir" $clone_bare 0; RES=$?
+			git_clone_and_shrink "$subdir_git_dir" "$destdir" $bare 0; RES=$?
 			end_time=`date +%s`
 			total_time=$(( $end_time - $start_time ))
 			if [ $RES -eq 0 ]; then
