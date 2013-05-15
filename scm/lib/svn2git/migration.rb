@@ -185,6 +185,21 @@ module Svn2Git
           cmd += "--no-minimize-url "
         end
         cmd += "'--trunk=#{@url}'"
+      unless exclude.empty?
+        # Add exclude paths to the command line; some versions of git support
+        # this for fetch only, later also for init.
+        regex = []
+        unless rootistrunk
+          regex << "#{trunk}[/]" unless trunk.nil?
+            tags = tags.join('|') unless tags.nil?
+            branches = branches.join('|') unless tags.nil?
+          
+          regex << "#{tags}[/][^/]+[/]" unless tags.nil?
+          regex << "#{branches}[/][^/]+[/]" unless branches.nil?
+        end
+        regex = '^(?:' + regex.join('|') + ')(?:' + exclude.join('|') + ')'
+        cmd += "'--ignore-paths=#{regex}' "
+      end
         run_command(cmd, true, true)
 
       else
@@ -204,20 +219,6 @@ module Svn2Git
         branches.each do |branches|
           cmd += "--branches=#{branches} "
         end unless branches.nil?
-
-        cmd += "\'#{@url}\'"
-
-        run_command(cmd, true, true)
-      end
-
-      run_command("git config --local svn.authorsfile #{authors}") unless authors.nil?
-
-      cmd = "git svn fetch "
-      unless revision.nil?
-        range = revision.split(":")
-        range[1] = "HEAD" unless range[1]
-        cmd += "-r #{range[0]}:#{range[1]} "
-      end
       unless exclude.empty?
         # Add exclude paths to the command line; some versions of git support
         # this for fetch only, later also for init.
@@ -232,6 +233,20 @@ module Svn2Git
         end
         regex = '^(?:' + regex.join('|') + ')(?:' + exclude.join('|') + ')'
         cmd += "'--ignore-paths=#{regex}' "
+      end
+
+        cmd += "\'#{@url}\'"
+
+        run_command(cmd, true, true)
+      end
+
+      run_command("git config --local svn.authorsfile #{authors}") unless authors.nil?
+
+      cmd = "git svn fetch "
+      unless revision.nil?
+        range = revision.split(":")
+        range[1] = "HEAD" unless range[1]
+        cmd += "-r #{range[0]}:#{range[1]} "
       end
 
       # add user name here to force git svn to ask for the same username as
@@ -341,20 +356,6 @@ module Svn2Git
             range = revision.split(":")
             range[1] = "HEAD" unless range[1]
             cmd += "-r #{range[0]}:#{range[1]} "
-        end
-        unless exclude.empty?
-            # Add exclude paths to the command line; some versions of git support
-            # this for fetch only, later also for init.
-            regex = []
-            unless rootistrunk
-            regex << "#{trunk}[/]" unless trunk.nil?
-            tags = tags.join('|') unless tags.nil?
-            branches = branches.join('|') unless tags.nil?
-            regex << "#{tags}[/][^/]+[/]" unless tags.nil?
-            regex << "#{branches}[/][^/]+[/]" unless branches.nil?
-            end
-            regex = '^(?:' + regex.join('|') + ')(?:' + exclude.join('|') + ')'
-            cmd += "'--ignore-paths=#{regex}' "
         end
 
         # add user name here to force git svn to ask for the same username as
