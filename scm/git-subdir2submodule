@@ -594,7 +594,7 @@ else
         echo "No subdirectories specified." >&2
         exit 1
     fi
-
+    RES=0
 	[ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
 
     remove_temp_git_dir=1
