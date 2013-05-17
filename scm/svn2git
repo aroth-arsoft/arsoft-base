@@ -7,6 +7,7 @@ mail_domain=''
 authors_file=''
 update_authors_file=0
 update_lookup_table=0
+lookup_table_file=''
 rootistrunk='auto'
 nobranches=0
 notags=0
@@ -179,6 +180,8 @@ function convert_using_ruby_svn2git() {
 }
 
 function update_lookup_table() {
+    local repo_git="$1"
+    local output_file="$2"
 	# This script creates a 'lookup table', matching SVN revision IDs with GIT revision IDs
 	# Run it inside a GIT repository that is imported from SVN with "git svn".
 	#
@@ -195,20 +198,20 @@ function update_lookup_table() {
 	gitlist_temp=`mktemp /tmp/svn2git.XXXXXX`
 	
 	# Now extract the git hash and the svn ID. Then we join lines pair-wise and we have our table
-	cat "$revlist_temp" | grep git-svn-id | sed -r -e 's/[[:space:]]+git-svn-id: [[:print:]]+@([[:digit:]]+) .*/\1/' > "$svnlist_temp"
-	cat "$revlist_temp" | awk '/^commit/ { print $2 }' > "$gitlist_temp"
+	grep git-svn-id "$revlist_temp" | sed -r -e 's/[[:space:]]+git-svn-id: [[:print:]]+@([[:digit:]]+) .*/\1/' > "$svnlist_temp"
+	awk '/^commit/ { print $2 }' "$revlist_temp" > "$gitlist_temp"
 	
 	#cp "$revlist_temp" "$repo_git/revlist"
 	#cp "$svnlist_temp" "$repo_git/svnlist"
 	#cp "$gitlist_temp" "$repo_git/commitlist"
 
 	# Join them and write the lookup table to standard output
-	paste "$svnlist_temp" "$gitlist_temp" | sort -n > "$lookup_table_file"
+	paste "$svnlist_temp" "$gitlist_temp" | sort -n > "$output_file"
 
 	# Clean up
 	rm -f "$svnlist_temp" "$gitlist_temp" "$revlist_temp"
 	
-	echo "Completed: $lookup_table_file"
+	echo "Completed: $output_file"
 
 	popd > /dev/null
 }
@@ -254,7 +257,8 @@ while [ $# -ne 0 ]; do
         '--rebase') rebase=1; ;;
         '--bare') bare=1; ;;
         '--clone') clone=1; ;;
-        '--lookuptable') update_lookup_table=1; ;;
+        '--lookuptable') 
+            update_lookup_table=1; lookup_table_file="$2"; shift; ;;
         '--no-metadata') nometadata=1; ;;
         *)
 			if [ $update_lookup_table -eq 0 ]; then
@@ -278,9 +282,6 @@ while [ $# -ne 0 ]; do
     esac
     shift
 done
-
-script_file=`readlink -f "$0"`
-script_dir=`dirname "$script_file"`
 
 if [ ! -x "/usr/bin/git" ]; then
 	echo "GIT not installed. Please install using 'sudo apt-get install git-core'." >&2
@@ -366,7 +367,9 @@ else
 		exit 1
 	fi
 	repo_git=`readlink -f "$repo_git"`
-	
-	update_lookup_table; RES=$?
+	update_lookup_table "$repo_git" "$lookup_table_file"; RES=$?
+    if [ $RES -eq 0 ]; then
+        git submodule foreach "$script_file" --lookuptable "$lookup_table_file" .
+    fi
 fi
 exit $RES
