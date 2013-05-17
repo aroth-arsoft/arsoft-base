@@ -21,7 +21,7 @@ $opt[1] = "--vertical-label \"percent\" -u 100 -l 0 -r --title \"CPU/Memory Usag
 $opt[2] = "--vertical-label \"minutes\" -u 100 -l 0 -r --title \"cputime for $hostname / $servicedesc\" ";
 
 $def[1] =  "DEF:cpu=$rrdfile:$DS[1]:AVERAGE " ;
-$def[1] .=  "DEF:memory=$rrdfile:$DS[2]:AVERAGE " ;
+$def[1] =  "DEF:memory=$rrdfile:$DS[2]:AVERAGE " ;
 $def[2] .=  "DEF:cputime=$rrdfile:$DS[3]:AVERAGE " ;
 
 $def[1] .= "COMMENT:\"\\t\\t\\tLAST\\t\\t\\tAVERAGE\\t\\t\\tMAX\\n\" " ;
