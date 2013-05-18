@@ -1,3 +1,9 @@
+arsoft-base (2.70) raring; urgency=low
+
+  * fixed check_ps pnp4nagios template
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 18 May 2013 10:11:15 +0200
+
 arsoft-base (2.69) raring; urgency=low
 
   * nagios and pnp4nagios bug fixes

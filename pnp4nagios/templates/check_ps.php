@@ -17,8 +17,8 @@
 #   PNP Template for check_ps.sh
 #   Author: Mike Adolphs (http://www.matejunkie.com/
 
-$opt[1] = "--vertical-label \"percent\" -u 100 -l 0 -r --title \"CPU/Memory Usage for $hostname / $servicedesc\" ";
-$opt[2] = "--vertical-label \"minutes\" -u 100 -l 0 -r --title \"cputime for $hostname / $servicedesc\" ";
+$opt[1] = "--vertical-label \"percent\" -X 0 --title \"CPU/Memory Usage for $hostname / $servicedesc\" ";
+$opt[2] = "--vertical-label \"minutes\" -X 0 --title \"cputime for $hostname / $servicedesc\" ";
 
 $def[1] =  "DEF:cpu=$rrdfile:$DS[1]:AVERAGE " ;
 $def[1] .=  "DEF:memory=$rrdfile:$DS[2]:AVERAGE " ;
