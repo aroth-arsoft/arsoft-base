@@ -11,3 +11,4 @@
 /*.substvars
 /files
 /*.debhelper.log
+/arsoft-pnp4nagios/

@@ -1,3 +1,9 @@
+arsoft-base (2.71) raring; urgency=low
+
+  * drop ntfsprogs 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 20 May 2013 17:38:43 +0200
+
 arsoft-base (2.70) raring; urgency=low
 
   * fixed check_ps pnp4nagios template
