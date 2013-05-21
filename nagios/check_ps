@@ -138,18 +138,13 @@ get_vals() {
         echo "CRITICAL - Process is not running!"
         exit $ST_CR
     fi
-
     ps_user=`echo ${tmp_output} | awk '{print $1}'`
     ps_pid=`echo ${tmp_output} | awk '{print $2}' `
-    ps_cpu=`echo ${tmp_output} | awk '{print $3}'`
-    ps_mem=`echo ${tmp_output} | awk '{print $4}' `
+    ps_cpu=`echo ${tmp_output} | awk '{print $3 "%"}'`
+    ps_mem=`echo ${tmp_output} | awk '{print $4 "%"}' `
     ps_start=`echo ${tmp_output} | awk '{print $9}' `
 
-    tmp_ps_cputime=`echo ${tmp_output} | awk '{print $10}'`
-    tmp_ps_cpuhours=`echo ${tmp_ps_cputime} | awk -F \: '{print $1}'`
-    tmp_ps_cpumin=`echo ${tmp_ps_cputime} | awk -F \: '{print $2}'`
-    ps_cputime=`echo "scale=0; (${tmp_ps_cpuhours} * 60) + \
-${tmp_ps_cpumin}" | bc -l`
+    ps_cputime=`echo ${tmp_output} | awk '{print $10}' | awk -F\: '{ print $1 * 60 + $2 "s"; }'`
 }
 
 do_wccalc() {
@@ -182,8 +177,8 @@ do_wccalc() {
 
 do_output() {
 	process=`echo ${process} | sed 's/\[//g' |  sed 's/\]//g'`
-	output="Process: ${process}, User: ${ps_user}, CPU: ${ps_cpu}%, \
-RAM: ${ps_mem}%, Start: ${ps_start}, CPU Time: ${ps_cputime} min"
+	output="Process: ${process}, User: ${ps_user}, CPU: ${ps_cpu}, \
+RAM: ${ps_mem}, Start: ${ps_start}, CPU Time: ${ps_cputime}"
 }
 
 do_perfdata() {
