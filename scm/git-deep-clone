@@ -8,7 +8,9 @@
 # Based on discussion at http://kerneltrap.org/mailarchive/git/2007/11/12/406496
 
 repo_git=''
+destdir=''
 clone_opts=''
+bare=0
 
 function usage()
 {
@@ -23,9 +25,13 @@ while [ $# -ne 0 ]; do
     case "$1" in
 		'-?'|'-h'|'--help') usage;;
 		'-v'|'--verbose') verbose=1; ;;
+        '--bare') bare=1; ;;
+        -*) clone_opts="$clone_opts $1"; ;;
         *)
 			if [ -z "$repo_git" ]; then
 				repo_git="$1"
+            elif [ -z "$destdir" ]; then
+                destdir="$1"
 			else
 				clone_opts="$clone_opts $1"
 			fi
@@ -39,9 +45,19 @@ if [ -z "$repo_git" ]; then
 	exit 1
 fi
 
-git clone "$repo_git"; RES=$?
+if [ -z "$destdir" ]; then
+    repo_dir=`dirname "$repo_git"`
+    current_dir=`readlink -f "."`
+    [ $bare -eq 0 ] && repo_name=`basename "$repo_git" .git` || repo_name=`basename "$repo_git"`
+    destdir="$current_dir/$repo_name"
+fi
+
+git clone $clone_opts "$repo_git" "$destdir"; RES=$?
 if [ $RES -eq 0 ]; then
+    pushd "$destdir" > /dev/null
 	for branch in `git branch -a | grep remotes | egrep -v '(HEAD|master)'`; do
-		git branch --track ${branch##*/} $branch
+		git branch --track ${branch##*/} $branch; RES=$?
+        [ $RES -ne 0 ] && break
 	done
+    popd "$destdir" > /dev/null
 fi
