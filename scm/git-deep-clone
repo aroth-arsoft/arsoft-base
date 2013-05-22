@@ -52,7 +52,9 @@ if [ -z "$destdir" ]; then
     destdir="$current_dir/$repo_name"
 fi
 
-git clone $clone_opts "$repo_git" "$destdir"; RES=$?
+[ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
+
+git clone $bare_opt $clone_opts "$repo_git" "$destdir"; RES=$?
 if [ $RES -eq 0 ]; then
     pushd "$destdir" > /dev/null
 	for branch in `git branch -a | grep remotes | egrep -v '(HEAD|master)'`; do
