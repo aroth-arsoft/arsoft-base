@@ -746,7 +746,8 @@ else
 				all_branches=`git branch --all --no-abbrev --no-color --no-column`
 				all_remote_branches=`echo "$all_branches" | grep remotes | egrep -v '(HEAD|master)'`
 				for branch in $all_remote_branches; do
-					git branch --track ${branch##*/} $branch; RES=?
+					git branch --track ${branch##*/} $branch; RES=$?
+                    [ $RES -ne 0 ] && break
 				done
 				
 				if [ $RES -eq 0 ]; then
