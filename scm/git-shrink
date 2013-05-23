@@ -41,6 +41,7 @@ function git_shrink()
 
     if [ $RES -eq 0 ]; then
 		if [ ! -z "$objects_to_remove" ]; then
+            [ $verbose -ne 0 ] && echo "remove empty commits"
 			verbose_exec git filter-branch -f --tag-name-filter cat --index-filter "git rm -qrf --cached --ignore-unmatch $objects_to_remove" --prune-empty -- --all; RES=$?
 			if [ $RES -ne 0 ]; then
 				echo "Failed to prune empty commits from GIT repository $repodir" >&2
@@ -50,6 +51,7 @@ function git_shrink()
 
     if [ $RES -eq 0 ]; then
 		if [ -z "$objects_to_remove" ]; then
+            [ $verbose -ne 0 ] && echo "Remove given objects and empty commits"
 			verbose_exec git filter-branch -f --prune-empty --tag-name-filter cat -- --all; RES=$?
 			if [ $RES -ne 0 ]; then
 				echo "Failed to prune empty commits from GIT repository $repodir" >&2
@@ -61,6 +63,7 @@ function git_shrink()
 		if [ $remove_origin -ne 0 ]; then
 			has_origin=`git remote -v | grep origin`
 			if [ $? -eq 0 ]; then
+                [ $verbose -ne 0 ] && echo "Remove origin"
 				verbose_exec git remote rm origin; RES=$?
 				if [ $RES -ne 0 ]; then
 					echo "Failed to remove origin from GIT repository $repodir" >&2
@@ -74,6 +77,7 @@ function git_shrink()
 	magicdir=`git_get_magic_dir "$repodir"`
 	if [ ! -z "$magicdir" ]; then
 		if [ -d "$magicdir/refs/original" ]; then
+            [ $verbose -ne 0 ] && echo "Remove refs/original directory"
 			rm -rf "$magicdir/refs/original"; RES=$?
 			if [ $RES -ne 0 ]; then
 				echo "Failed to remove ref original from GIT repository $repodir" >&2
@@ -82,6 +86,7 @@ function git_shrink()
 	fi
 
 	if [ $RES -eq 0 ]; then
+        [ $verbose -ne 0 ] && echo "Expire reflog"
 		verbose_exec git reflog expire --expire=now --all; RES=$?
 		if [ $RES -ne 0 ]; then
 			echo "Failed to clean up reflog for the GIT repository $repodir" >&2
@@ -89,6 +94,7 @@ function git_shrink()
 	fi
 	
 	if [ $RES -eq 0 ]; then
+        [ $verbose -ne 0 ] && echo "Perform garbage collection"
 		verbose_exec git gc --aggressive --prune=now; RES=$?
 		if [ $RES -ne 0 ]; then
 			echo "Garbage collection in GIT repository $repodir failed." >&2
@@ -121,11 +127,14 @@ function git_clone_deep() {
     
     [ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
 
-    verbose_exec git clone $bare_opt "$remote_url" .; RES=$?
+    verbose_exec git clone $bare_opt "$remote_url" "$repodir"; RES=$?
     if [ $RES -eq 0 ]; then
-		for branch in `git branch -a | grep remotes | egrep -v '(HEAD|master)'`; do
-			verbose_exec branch --track ${branch##*/} $branch
-		done
+        pushd "$repodir" > /dev/null
+        for branch in `git branch -a | grep remotes | egrep -v '(HEAD|master)'`; do
+            verbose_exec git branch --track ${branch##*/} $branch; RES=$?
+            [ $RES -ne 0 ] && break
+        done
+        popd > /dev/null
 	fi
 	popd > /dev/null
 
@@ -253,26 +262,33 @@ fi
 
 pushd "$git_work_dir" >/dev/null
 
+is_remote_repo=0
 if [ -z "$repo_git" -o "$repo_git" == '.' ]; then
 	# Find base of git directory
 	while [ ! -d .git ] && [ ! -f .git ] && [ ! -f packed-refs ] && [ ! `pwd` = "/" ]; do cd ..; done
 	real_repo_git=`readlink -f '.'`
 	RES=0
+elif [ -d "$repo_git" ]; then
+    real_repo_git=`readlink -f "$repo_git"`
+    RES=0
 else
 	# assume we got a remote url, so we first create a temp directory
 	real_repo_git=`mktemp -d "$git_work_dir/git-shrink.XXXXXX"`
 	# clone it (deep) to the temp dir
 	git_clone_deep "$real_repo_git" "$repo_git" 1; RES=$?
+    is_remote_repo=1
 fi
-echo "real_repo_git=$real_repo_git"
-echo "object_remove_list=$object_remove_list"
+[ $verbose -ne 0 ] && echo "Repository directory: $real_repo_git"
+if [ $verbose -ne 0 ]; then
+    [ ! -z "$object_remove_list" ] && echo "Object to remove: $object_remove_list"
+fi
 
 if [ $RES -eq 0 ]; then
 	# do the hard shrinking work
 	git_shrink "$real_repo_git" "$object_remove_list" "$remove_origin"; RES=$?
 fi
 
-if [ ! -z "$repo_git" -a "$repo_git" != '.' ]; then
+if [ $is_remote_repo -ne 0 ]; then
 	if [ $RES -eq 0 ]; then
 		# push the modifications back to the original
 		git_push_all "$real_repo_git"
