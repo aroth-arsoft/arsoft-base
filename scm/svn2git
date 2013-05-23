@@ -171,7 +171,7 @@ function convert_using_ruby_svn2git() {
         if [ $RES -eq 0 ]; then
             echo "SVN rebase successful."
 
-            update_lookup_table
+            #update_lookup_table
         fi
 
         popd > /dev/null
