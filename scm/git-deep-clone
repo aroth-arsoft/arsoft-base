@@ -61,5 +61,5 @@ if [ $RES -eq 0 ]; then
 		git branch --track ${branch##*/} $branch; RES=$?
         [ $RES -ne 0 ] && break
 	done
-    popd "$destdir" > /dev/null
+    popd > /dev/null
 fi
