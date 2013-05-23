@@ -37,6 +37,5 @@ install:
 	install -m 0644 -o root -g root ps.cfg $(DESTDIR)/etc/nagios-plugins/config/ps.cfg
 	install -m 0644 -o root -g root ntpex.cfg $(DESTDIR)/etc/nagios-plugins/config/ntpex.cfg
 	mkdir -p $(DESTDIR)/usr/share/man/man1
-	#install -m 0644 -o root -g root check_ssl_cert.1 $(DESTDIR)/usr/share/man/man1
 	# keep the utils.sh in the directory (from nagios-plugins), but do not install it:
 	#install -m 0755 -o root -g root utils.sh $(DESTDIR)/usr/lib/nagios/plugins/utils.sh
