@@ -127,6 +127,28 @@ function git_clone() {
     return $RES
 }
 
+function git_get_magic_dir() {
+    local repo_dir="$1"
+    local RES=0
+    if [ -f "$repo_dir/packed-refs" ]; then
+        # repo without working directory (bare)
+        magicdir="$repo_dir"
+    elif [ -d "$repo_dir/.git" ]; then
+        # regular repo with working directory
+        magicdir="$repo_dir/.git"
+    elif [ -f "$repo_dir/.git" ]; then
+        # submodule within a working directory
+        magicdir=`cat "$repo_dir/.git"`
+        magicdir=${magicdir#gitdir: }
+    else
+        # invalid repo directory
+        magicdir=''
+        RES=1
+    fi
+    echo "$magicdir"
+    return $RES
+}
+
 function git_shrink()
 {
 	local repodir="$1"
@@ -137,11 +159,16 @@ function git_shrink()
     local end_time
     local total_time
 
-	if [ -d "$repodir/.git/refs/original" ]; then
-		rm -rf "$repodir/.git/refs/original"
-	elif [ -d "$repodir/refs/original" ]; then
-		rm -rf "$repodir/refs/original"
-	fi
+    magicdir=`git_get_magic_dir "$repodir"`
+    if [ ! -z "$magicdir" ]; then
+        if [ -d "$magicdir/refs/original" ]; then
+            [ $verbose -ne 0 ] && echo "Remove refs/original directory"
+            rm -rf "$magicdir/refs/original"; RES=$?
+            if [ $RES -ne 0 ]; then
+                echo "Failed to remove ref original from GIT repository $repodir" >&2
+            fi
+        fi
+    fi
     
     if [ $RES -eq 0 ]; then
 		if [ $remove_empty_commits -ne 0 ]; then
@@ -287,7 +314,6 @@ function subdir_to_submodule()
 	git_clone "$repodir" "$subdir_git_dir" $bare; RES=$?
 	if [ $RES -eq 0 ]; then
         echo "Extract $subdir from $repodir to $subdir_git_dir"
-        logmsg=`mktemp "$destdir.log.XXXXXX"`
         local all_local_branches=`git branch`
         # eliminate star marker
         all_local_branches="${all_local_branches//\*/}"
@@ -365,16 +391,27 @@ function fully_remove_subdir()
 	#git filter-branch --tree-filter 'git rm -r -f --ignore-unmatch *.pyc' HEAD
 	git filter-branch -f --tag-name-filter cat --index-filter "git rm -qrf --cached --ignore-unmatch $subdirs" --prune-empty -- --all; RES=$?
 	if [ $RES -eq 0 ]; then
-		if [ -d "$repodir/.git/refs/original" ]; then
-			rm -rf "$repodir/.git/refs/original"
-		elif [ -d "$repodir/refs/original" ]; then
-			rm -rf "$repodir/refs/original"
-		fi
-		git reflog expire --all; RES=$?
+        magicdir=`git_get_magic_dir "$repodir"`
+        if [ ! -z "$magicdir" ]; then
+            if [ -d "$magicdir/refs/original" ]; then
+                [ $verbose -ne 0 ] && echo "Remove refs/original directory"
+                rm -rf "$magicdir/refs/original"; RES=$?
+                if [ $RES -ne 0 ]; then
+                    echo "Failed to remove ref original from GIT repository $repodir" >&2
+                fi
+            fi
+        fi
+
+		git reflog expire --expire=now --all; RES=$?
 		if [ $RES -eq 0 ]; then
-			git gc --aggressive --prune; RES=$?
+			git gc --aggressive --prune=now; RES=$?
 			if [ $RES -eq 0 ]; then
-				echo "Successfully removed $subdirs from GIT repository $repodir"
+                git repack -ad; RES=$?
+                if [ $RES -eq 0 ]; then
+                    echo "Successfully removed $subdirs from GIT repository $repodir"
+                else
+                    echo "Repack of GIT repository $repodir failed." >&2
+                fi
 			else
 				echo "Garbage collection in GIT repository $repodir failed." >&2
 			fi
