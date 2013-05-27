@@ -83,6 +83,9 @@ function git_shrink()
 				echo "Failed to remove ref original from GIT repository $repodir" >&2
 			fi
 		fi
+	else
+		RES=1
+		echo "Failed to determine magic directory for GIT repository $repodir" >&2
 	fi
 
 	if [ $RES -eq 0 ]; then

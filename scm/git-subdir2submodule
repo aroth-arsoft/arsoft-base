@@ -168,6 +168,9 @@ function git_shrink()
                 echo "Failed to remove ref original from GIT repository $repodir" >&2
             fi
         fi
+	else
+		RES=1
+		echo "Failed to determine magic directory for GIT repository $repodir" >&2
     fi
     
     if [ $RES -eq 0 ]; then
@@ -400,23 +403,28 @@ function fully_remove_subdir()
                     echo "Failed to remove ref original from GIT repository $repodir" >&2
                 fi
             fi
+		else
+			RES=1
+			echo "Failed to determine magic directory for GIT repository $repodir" >&2
         fi
 
-		git reflog expire --expire=now --all; RES=$?
-		if [ $RES -eq 0 ]; then
-			git gc --aggressive --prune=now; RES=$?
+        if [ $RES -eq 0 ]; then
+			git reflog expire --expire=now --all; RES=$?
 			if [ $RES -eq 0 ]; then
-                git repack -ad; RES=$?
-                if [ $RES -eq 0 ]; then
-                    echo "Successfully removed $subdirs from GIT repository $repodir"
-                else
-                    echo "Repack of GIT repository $repodir failed." >&2
-                fi
+				git gc --aggressive --prune=now; RES=$?
+				if [ $RES -eq 0 ]; then
+					git repack -ad; RES=$?
+					if [ $RES -eq 0 ]; then
+						echo "Successfully removed $subdirs from GIT repository $repodir"
+					else
+						echo "Repack of GIT repository $repodir failed." >&2
+					fi
+				else
+					echo "Garbage collection in GIT repository $repodir failed." >&2
+				fi
 			else
-				echo "Garbage collection in GIT repository $repodir failed." >&2
+				echo "Failed to expire reflog information in GIT repository $repodir." >&2
 			fi
-		else
-			echo "Failed to expire reflog information in GIT repository $repodir." >&2
 		fi
 	else
 		echo "Failed to filter subdirectories $subdirs from GIT repository $repodir." >&2
@@ -775,9 +783,16 @@ else
                     subdir_total_time=$(( $subdir_end_time - $subdir_start_time ))
                     if [ $RES -eq 0 ]; then
                         echo "Subdirectories $subdirs_to_remove successfully removed ($subdir_total_time seconds)."
+                        git_shrink "$temp_git_dir" 0; RES=$?
+                        if [ $RES -eq 0 ]; then
+							echo "Repository $temp_git_dir successfully shrinked."
+                        else
+							echo "Failed to shrink repository $temp_git_dir" >&2
+                        fi
                     else
                         echo "Failed to remove subdirectories $subdirs_to_remove ($subdir_total_time seconds)." >&2
                     fi
+                    
                 fi
             fi
         else
