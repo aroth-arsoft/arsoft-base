@@ -158,6 +158,22 @@ function git_shrink()
     local start_time=`date +%s`
     local end_time
     local total_time
+    
+    if [ $RES -eq 0 ]; then
+		if [ $remove_empty_commits -ne 0 ]; then
+			verbose_exec git filter-branch --prune-empty --tag-name-filter cat -- --all; RES=$?
+			if [ $RES -ne 0 ]; then
+				echo "Failed to prune empty commits from GIT repository $repodir" >&2
+			fi
+		fi
+    fi
+
+    if [ $RES -eq 0 ]; then
+		git remote rm origin; RES=$?
+		if [ $RES -ne 0 ]; then
+			echo "Failed to remove origin from GIT repository $repodir" >&2
+		fi
+	fi
 
     magicdir=`git_get_magic_dir "$repodir"`
     if [ ! -z "$magicdir" ]; then
@@ -172,22 +188,6 @@ function git_shrink()
 		RES=1
 		echo "Failed to determine magic directory for GIT repository $repodir" >&2
     fi
-    
-    if [ $RES -eq 0 ]; then
-		if [ $remove_empty_commits -ne 0 ]; then
-			verbose_exec git filter-branch --prune-empty --tag-name-filter cat -- --all; RES=$?
-			if [ $RES -ne 0 ]; then
-				echo "Failed to prune empty commits from GIT repository $repodir" >&2
-			fi
-		fi
-    fi
-
-	if [ $RES -eq 0 ]; then
-		git remote rm origin; RES=$?
-		if [ $RES -ne 0 ]; then
-			echo "Failed to remove origin from GIT repository $repodir" >&2
-		fi
-	fi
 	
 	if [ $RES -eq 0 ]; then
 		git reflog expire --expire=now --all; RES=$?

@@ -41,7 +41,7 @@ function git_shrink()
 
     if [ $RES -eq 0 ]; then
 		if [ ! -z "$objects_to_remove" ]; then
-            [ $verbose -ne 0 ] && echo "remove empty commits"
+            [ $verbose -ne 0 ] && echo "Remove given objects and empty commits"
 			verbose_exec git filter-branch -f --tag-name-filter cat --index-filter "git rm -qrf --cached --ignore-unmatch $objects_to_remove" --prune-empty -- --all; RES=$?
 			if [ $RES -ne 0 ]; then
 				echo "Failed to prune empty commits from GIT repository $repodir" >&2
@@ -51,7 +51,7 @@ function git_shrink()
 
     if [ $RES -eq 0 ]; then
 		if [ -z "$objects_to_remove" ]; then
-            [ $verbose -ne 0 ] && echo "Remove given objects and empty commits"
+            [ $verbose -ne 0 ] && echo "remove empty commits"
 			verbose_exec git filter-branch -f --prune-empty --tag-name-filter cat -- --all; RES=$?
 			if [ $RES -ne 0 ]; then
 				echo "Failed to prune empty commits from GIT repository $repodir" >&2
