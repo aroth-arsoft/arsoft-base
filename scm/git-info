@@ -51,7 +51,8 @@ function largest_objects() {
         LANG=C git rev-list --all --objects > "$all_objects_rev_list_file"
 	fi
 
-    local output='size,pack,type,SHA,location'
+    local output
+    [ $only_deleted -eq 0 ] && output='size,pack,type,SHA,location' || output='size,pack,type,SHA,location,base-SHA'
     while IFS=$'\n' read -r line; do
         declare -a fields
         IFS=$' ' read -r -a fields <<< "$line"
@@ -69,7 +70,7 @@ function largest_objects() {
         # extract the compressed size in bytes
         [ ${#fields[*]} -gt 3 ] && compressedSize=$((${fields[3]} /1024)) || compressedSize=0
         # extract the base-SHA1 when the object was deleted
-        [ ${#fields[*]} -gt 7 ] && base_sha=${fields[7]} || base_sha=''
+        [ ${#fields[*]} -gt 6 ] && base_sha=${fields[6]} || base_sha=''
         
         [ -z $base_sha ] && object_deleted=0 || object_deleted=1
         
@@ -77,7 +78,11 @@ function largest_objects() {
 			# find the objects location in the repository tree
 			location=`awk "/$sha/ { print \\\$2 }" "$all_objects_rev_list_file"`
 
-			output="${output}\n${size},${compressedSize},${object_type},${sha},${location}"
+			if [ $only_deleted -eq 0 ]; then
+				output="${output}\n${size},${compressedSize},${object_type},${sha},${location}"
+			else
+				output="${output}\n${size},${compressedSize},${object_type},${sha},${location},${base_sha}"
+			fi
 		fi
 
     done < "$all_objects_list_file"
