@@ -153,6 +153,7 @@ function git_shrink()
 {
 	local repodir="$1"
 	local remove_empty_commits="$2"
+	local remove_origin=1
 	
 	pushd "$repodir" > /dev/null
     local start_time=`date +%s`
@@ -168,10 +169,18 @@ function git_shrink()
 		fi
     fi
 
-    if [ $RES -eq 0 ]; then
-		git remote rm origin; RES=$?
-		if [ $RES -ne 0 ]; then
-			echo "Failed to remove origin from GIT repository $repodir" >&2
+	if [ $RES -eq 0 ]; then
+		if [ $remove_origin -ne 0 ]; then
+			has_origin=`git remote -v | grep origin`
+			if [ $? -eq 0 ]; then
+                [ $verbose -ne 0 ] && echo "Remove origin"
+				verbose_exec git remote rm origin; RES=$?
+				if [ $RES -ne 0 ]; then
+					echo "Failed to remove origin from GIT repository $repodir" >&2
+				fi
+			else
+				echo "No remote named origin to remove."
+			fi
 		fi
 	fi
 
