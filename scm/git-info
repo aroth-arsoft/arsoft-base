@@ -51,17 +51,17 @@ function largest_objects() {
 
     local output='size,pack,type,SHA,location'
     while IFS=$'\n' read -r line; do
-        #echo "$line"
         declare -a fields
         IFS=$' ' read -r -a fields <<< "$line"
+        #echo "${#fields[*]}=${fields[@]}"
         # extract the SHA
         sha=${fields[0]}
         # exttract the object type (commit, tree, blob, etc)
         object_type=${fields[1]}
         # extract the size in bytes
-        [ ${#fields[*]} -gt 4 ] && size=$((${fields[4]} / 1024)) || size=0
+        [ ${#fields[*]} -gt 3 ] && size=$((${fields[3]} / 1024)) || size=0
         # extract the compressed size in bytes
-        [ ${#fields[*]} -gt 5 ] && compressedSize=$((${fields[5]} /1024)) || compressedSize=0
+        [ ${#fields[*]} -gt 4 ] && compressedSize=$((${fields[4]} /1024)) || compressedSize=0
         # find the objects location in the repository tree
         location=`awk "/$sha/ { print \\\$2 }" "$all_objects_rev_list_file"`
 
