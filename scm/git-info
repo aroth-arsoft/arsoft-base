@@ -13,6 +13,7 @@ recursive=0
 only_branch_info=0
 num_large_objects=10
 num_recent_commits=1
+num_deleted_objects=10
 show_config=0
 display_name=''
 
@@ -40,6 +41,7 @@ function usage()
 function largest_objects() {
 	local magicdir="$1"
 	local max_objects="$2"
+	local only_deleted="$3"
 
     local all_objects_list_file=`mktemp`
     local all_objects_rev_list_file=`mktemp`
@@ -66,10 +68,17 @@ function largest_objects() {
         [ ${#fields[*]} -gt 2 ] && size=$((${fields[2]} / 1024)) || size=0
         # extract the compressed size in bytes
         [ ${#fields[*]} -gt 3 ] && compressedSize=$((${fields[3]} /1024)) || compressedSize=0
-        # find the objects location in the repository tree
-        location=`awk "/$sha/ { print \\\$2 }" "$all_objects_rev_list_file"`
+        # extract the base-SHA1 when the object was deleted
+        [ ${#fields[*]} -gt 7 ] && base_sha=${fields[7]} || base_sha=''
+        
+        [ -z $base_sha ] && object_deleted=0 || object_deleted=1
+        
+        if [ $object_deleted -eq $only_deleted ]; then
+			# find the objects location in the repository tree
+			location=`awk "/$sha/ { print \\\$2 }" "$all_objects_rev_list_file"`
 
-        output="${output}\n${size},${compressedSize},${object_type},${sha},${location}"
+			output="${output}\n${size},${compressedSize},${object_type},${sha},${location}"
+		fi
 
     done < "$all_objects_list_file"
     rm -f "$all_objects_rev_list_file"
@@ -110,6 +119,7 @@ while [ $# -ne 0 ]; do
 		'--config') show_config=1; script_options="$script_options $1"; ;;
 		'--num-large') num_large_objects=$2; script_options="$script_options $1 $2"; shift; ;;
 		'--num-commits') num_recent_commits=$2; script_options="$script_options $1 $2"; shift; ;;
+		'--num-deleted') num_deleted_objects=$2; script_options="$script_options $1 $2"; shift; ;;
 		'--branches') only_branch_info=1; script_options="$script_options $1"; ;;
 		'--name') display_name="$2"; shift;;
         *)
@@ -198,7 +208,13 @@ if [ -d .git -o -f .git -o -f packed-refs ]; then
 		
 		if [ $num_large_objects -gt 0 ]; then
 			echo "== $display_name $num_large_objects largest objects (sizes in kB)"
-			largest_objects "$magicdir" $num_large_objects
+			largest_objects "$magicdir" $num_large_objects 0
+			echo
+		fi
+		
+		if [ $num_deleted_objects -gt 0 ]; then
+			echo "== $display_name $num_deleted_objects deleted largest objects (sizes in kB)"
+			largest_objects "$magicdir" $num_deleted_objects 1
 			echo
 		fi
 	
