@@ -34,3 +34,7 @@ arsoft-base binary: binary-without-manpage usr/sbin/tftp-update-installers
 arsoft-base binary: binary-without-manpage usr/sbin/vizone
 arsoft-base binary: binary-without-manpage usr/bin/xpid
 arsoft-base binary: binary-without-manpage usr/bin/wine-rebuild-menu
+arsoft-base: binary-without-manpage usr/sbin/alsa-info
+arsoft-base: binary-without-manpage usr/bin/nss-import-cert
+arsoft-base: binary-without-manpage usr/sbin/slapd-debug
+arsoft-base: binary-without-manpage usr/bin/ssh-setup-keys

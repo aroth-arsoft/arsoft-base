@@ -1,0 +1,205 @@
+#!/bin/bash
+fqdn=`hostname -f`
+domain=`dnsdomainname`
+key_bits=2048
+key_type='rsa'
+declare -a target=()
+target_user=''
+target_domain=''
+target_host=''
+outdir="$HOME/.ssh"
+verbose=0
+force=0
+use_domain_instead_of_fqdn=1
+
+function usage() {
+	echo "usage: ssh-generate-key [OPTIONS] <target0> [target1..targetN]"
+	echo "  generate a SSH key for accessing a remote machine"
+	echo "    -u, --user <username>       specifies the username for the key (default: $USER)"
+	echo "    -d, --domain <domainname>   specifies the domain for the key (default: $(dnsdomainname))"
+	echo "    --host <hostname>           specifies the hostname for the key"
+	echo "    --outdir <dir>              specifies the output directory (default: $outdir)"
+	echo "    -f, --force                 override an existing identity."
+	exit 0
+}
+
+function verbose_exec()
+{
+    [ $verbose -ne 0 ] && echo "$@"
+    "$@"
+}
+
+function has_identify_changed_for_host() {
+	local host="$1"
+	local identityfile="$2"
+	local ssh_config_file="$HOME/.ssh/config"
+	local host_config_present=0
+	local identityfile_for_config="${identityfile//$HOME/~}"
+	local RES=0
+	if [ -f "$ssh_config_file" ]; then
+		host_config=`awk "BEGIN { inside_host=0; exit_code=1; }
+		/^Host\s+$host$/ { inside_host=1; exit_code=0; next }
+		/^Host\s+.*$/ { inside_host=0; next }
+		{ if (inside_host != 0) { print \\\$0; } }
+		END { exit exit_code }
+		" "$ssh_config_file"`
+		if [ $RES -eq 0 ]; then
+			host_config_present=1
+			current_identityfile=`echo "$host_config" | awk '/IdentityFile/ { print $2}'`
+			if [ "$current_identityfile" == "$identityfile_for_config" ]; then
+				RES=1
+			else
+				RES=0
+			fi
+		fi
+	fi
+	if [ $host_config_present -eq 0 ]; then
+		RES=0
+	fi
+	return $RES
+}
+
+function modify_ssh_config_for_host() {
+	local host="$1"
+	local identityfile="$2"
+	local ssh_config_file="$HOME/.ssh/config"
+	local host_config_present=0
+	local identityfile_for_config="${identityfile//$HOME/~}"
+	local RES=0
+	if [ -f "$ssh_config_file" ]; then
+		host_config=`awk "BEGIN { inside_host=0; exit_code=1; }
+		/^Host\s+$host$/ { inside_host=1; exit_code=0; next }
+		/^Host\s+.*$/ { inside_host=0; next }
+		{ if (inside_host != 0) { print \\\$0; } }
+		END { exit exit_code }
+		" "$ssh_config_file"`
+		if [ $RES -eq 0 ]; then
+			host_config_present=1
+			current_identityfile=`echo "$host_config" | awk '/IdentityFile/ { print $2}'`
+			if [ "$current_identityfile" == "$identityfile_for_config" ]; then
+				RES=0
+			else
+				tmpfile=`mktemp "$ssh_config_file.XXXXXX"`
+				#echo "$current_identityfile != $identityfile_for_config"	
+				awk "BEGIN { inside_host=0; exit_code=1; }
+				/^Host\s+$host$/ { inside_host=1; exit_code=0; print; next }
+				/^Host\s+.*$/ { inside_host=0; print; next }
+				/IdentityFile/ { if (inside_host != 0) { print \"    IdentityFile $identityfile_for_config\"; } else { print } next }
+				{ print }
+				END { exit exit_code }
+				" "$ssh_config_file" > "$tmpfile"
+				mv "$tmpfile" "$ssh_config_file"; RES=$?
+			fi
+		fi
+	fi
+	if [ $host_config_present -eq 0 ]; then
+		echo -e "Host $host\n    IdentityFile $identityfile_for_config\n" >> "$ssh_config_file"; RES=$?
+	fi
+	return $RES
+}
+
+function get_full_hostname() {
+	LANG=C host "$1" | awk '/has address/ { print $1 }'
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	"-?"|"-h"|"--help") usage;; 
+	'-v'|'--verbose') verbose=1; ;;
+	'-u'|'--user') target_user="$2"; shift; ;;
+	'-d'|'--domain') target_domain="$2"; shift; ;;
+	'--host') target_host="$2"; shift; ;;
+	'--outdir') outdir="$2"; shift; ;;
+	'-f'|'--force') force=1; ;;
+	*)
+		target+=($1)
+	;;
+	esac
+	shift
+done
+
+if [ -z "$target" ]; then
+	[ -z "$target_user" ] && target_user="$USER"
+	[ -z "$target_domain" ] && target_domain=`dnsdomainname`
+	
+	new_target="${target_user}@${target_domain}"
+
+	target+=($new_target)
+fi
+
+declare -A target_host_full
+declare -A identity_file_for_host
+declare -A identity_file_comments
+for current_target in "${target[@]}"; do
+	if [[ "$current_target" == *@* ]]; then
+		target_user="${current_target%@*}"
+		target_host="${current_target#*@}"
+	else
+		[ -z "$target_user" ] && target_user="$USER"
+		target_host="$current_target"
+	fi
+	if [[ "$target_host" == *.* ]]; then
+		true
+	else
+		target_host=`get_full_hostname $target_host`
+	fi
+	
+	target_host_full[$current_target]="$target_host"
+	
+	if [ $use_domain_instead_of_fqdn -eq 0 ]; then
+		target_comment="${target_user}@${target_host}"
+	else
+		target_host_domain="${target_host#*.}"
+		target_host_name="${target_host%%.*}"
+		target_comment="${target_user}@${target_host_domain}"
+	fi
+
+	identity_basename="id_${target_comment//@/_at_}"
+	identity_file="${outdir}/${identity_basename}"
+
+	identity_file_for_host[$current_target]="$identity_file"
+	identity_file_comments[$identity_file]="$target_comment"
+done
+
+RES=0
+unique_identity_files=`IFS=$'\n' sort -u <<< "${identity_file_for_host[$current_target][*]}"`
+for identity_file in $unique_identity_files; do
+	comment=${identity_file_comments[$identity_file]}
+	generate_new_key=1
+	if [ -f "$identity_file" ]; then
+		if [ $force -eq 0 ]; then
+			echo "Use existing identify file $identity_file." 2>&1
+			generate_new_key=0
+		else
+			echo "Identify file $identity_file already exists. Overwrite it." 2>&1
+			rm -f "$identity_file"
+		fi
+	fi
+	if [ $generate_new_key -ne 0 ]; then
+		[ $verbose -ne 0 ] && echo "Generate $identity_file ($comment)"
+		verbose_exec ssh-keygen -b $key_bits -t $key_type -C "$comment" -f "$identity_file"; RES=$?
+		if [ $RES -ne 0 ]; then
+			echo "Failed to generate $identity_file ($comment). Abort." 2>&1
+			break
+		fi
+	fi
+done
+
+if [ $RES -eq 0 ]; then
+	for current_target in "${target[@]}"; do
+		target_host="${target_host_full[$current_target]}"
+		identity_file="${identity_file_for_host[$current_target]}"
+		if has_identify_changed_for_host "$target_host" "$identity_file"; then
+			
+			verbose_exec ssh-copy-id -i "$identity_file" "$target_host"; RES=$?
+			if [ $RES -eq 0 ]; then
+				modify_ssh_config_for_host "$target_host" "$identity_file"
+				echo "Identify file $identity_file generated successfuly and copied to $target_host"
+			fi
+		else
+			echo "Identify file $identity_file already in use for host $target_host"
+		fi
+	done
+fi
+

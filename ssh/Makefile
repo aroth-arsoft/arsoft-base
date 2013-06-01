@@ -1,4 +1,4 @@
-SSH_BIN_SCRIPTS := ssh-nogss
+SSH_BIN_SCRIPTS := ssh-nogss ssh-setup-keys
 
 .PHONY: all
 

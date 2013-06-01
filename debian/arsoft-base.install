@@ -10,6 +10,7 @@ usr/bin/puppet-function-check
 usr/bin/postfix-queue-rm
 usr/bin/xpid
 usr/bin/ssh-nogss
+usr/bin/ssh-setup-keys
 usr/bin/postfix-update-maps
 usr/bin/puppet-template-check
 usr/bin/postfix-delete
