@@ -1,6 +1,6 @@
 #!/bin/sh -e
 PKG=arsoft-base
-CERTSUBDIRS='arsoft fastprotect'
+CERTS='arsoft/arsoft_root_ca_1.crt arsoft/arsoft_root_ca_2.crt arsoft/arsoft_root_ca_3.crt fastprotect/fastprotect_root_ca.crt'
 
 if [ "$1" = configure ] ; then
 	dpkg-divert --add --package ${PKG} --rename \
@@ -28,7 +28,7 @@ case "$1" in
 		[ -f /usr/share/ca-certificates/fastprotect/root.crt ] && rm /usr/share/ca-certificates/fastprotect/root.crt
 		# remove any broken links in the /etc/ssl/certs directory (caused by removing files)
 		find /etc/ssl/certs -type l ! -exec test -r {} \; -delete
-
+		
 		sed -r -e "/!?\/usr\/share\/ca-certificates\/arsoft\/arsoft_ca_root.crt/d" \
 			-e "/!?\/usr\/share\/ca-certificates\/arsoft\/arsoft_root_ca.pem/d" \
 			-e "/!?\/usr\/share\/ca-certificates\/fastprotect\/fastprotect_root_ca.pem/d" \
@@ -36,10 +36,12 @@ case "$1" in
 			-e "/!?\/usr\/share\/ca-certificates\/fastprotect\/root.crt/d" \
 			-e "/!?arsoft\/root.crt/d" \
 			-e "/!?fastprotect\/root.crt/d" \
+			-e "/!?fastprotect\/fastprotect_root.crt/d" \
 			-e "/!?arsoft\/arsoft_ca_root.crt/d" \
+			-e "/!?arsoft\/arsoft_root.crt/d" \
 			/etc/ca-certificates.conf > /etc/ca-certificates.conf.dpkg-new
-		for d in $CERTSUBDIRS; do
-			grep -q "$d/${d}_root.crt" /etc/ca-certificates.conf.dpkg-new || echo "$d/${d}_root.crt" >> /etc/ca-certificates.conf.dpkg-new
+		for cert in $CERTS; do
+			grep -q "${cert}" /etc/ca-certificates.conf.dpkg-new || echo "${cert}" >> /etc/ca-certificates.conf.dpkg-new
 		done
 		if cmp -s /etc/ca-certificates.conf /etc/ca-certificates.conf.dpkg-new; then
 			rm -f /etc/ca-certificates.conf.dpkg-new
