@@ -111,6 +111,23 @@ alias ..3="cd ../../.."
 alias ..4="cd ../../../.."
 alias ..5="cd ../../../../.."
 
+# become root
+alias root='sudo -i -s'
+
+# reboot / halt / poweroff
+alias reboot='sudo /sbin/reboot'
+alias poweroff='sudo /sbin/poweroff'
+alias halt='sudo /sbin/halt'
+alias shutdown='sudo /sbin/shutdown'
+
+# some handy aliases for apt-get
+alias agi='apt-get install '
+alias agu='apt-get update && apt-get upgrade'
+alias agdu='apt-get update && apt-get dist-upgrade'
+alias aga='apt-get autoremove'
+alias agr='apt-get remove '
+alias ags='apt-cache search '
+
 function mkdircd () { mkdir -p "$@" && eval cd "\"\$$#\""; }
 
 # ignore from trival commands from history
