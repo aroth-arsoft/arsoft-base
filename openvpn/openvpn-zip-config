@@ -53,7 +53,10 @@ function get_config_name()
 		fallback_name=`basename "${config_file%.*}"`
 	fi
 	local name=''
-	[ -f "$config_file" ] && name=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$config_file"`
+	if [ -f "$config_file" ]; then
+		name=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$config_file"`
+		[ ! -z "$name" ] && name=`basename "${name%.*}"`
+	fi
 	[ -z "$name" ] && echo -n "$fallback_name" || echo -n "$name"
 	return 0
 }
