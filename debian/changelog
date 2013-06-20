@@ -1,3 +1,9 @@
+arsoft-base (2.74) raring; urgency=low
+
+  * fixed openvpn-zip-config script to get correct vpn names
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 20 Jun 2013 06:44:50 +0200
+
 arsoft-base (2.73) raring; urgency=low
 
   * another round of cert mess cleanup
