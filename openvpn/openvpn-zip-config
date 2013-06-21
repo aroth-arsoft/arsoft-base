@@ -112,6 +112,7 @@ function zip_config()
 	[ $verbose -ne 0 ] && echo "compress $name ($ostype, $config_file, $config_dir/*) to $outfile"
 
 	local num_errors=0
+	local RES
 	local zipdir=`mktemp -d /tmp/openvpn_zip.XXXXXX`
 	case "$ostype" in
 		'linux')
@@ -173,12 +174,15 @@ function zip_config()
 	if [ -f "$outfile" ]; then
 		# ... and compare with the new zip content for changes
 		local oldzipdir=`mktemp -d /tmp/openvpn_zip.XXXXXX`
-		local unzipmsg=`/usr/bin/unzip -q "$outfile" -d "$oldzipdir" 2>&1`
+		local unzipmsg
+		unzipmsg=`/usr/bin/unzip -q "$outfile" -d "$oldzipdir" 2>&1`
 		RES=$?
 		if [ $RES -eq 0 ]; then
 			[ $verbose -ne 0 ] && echo "unzipped $outfile to $oldzipdir"
-			local diffmsg=`diff -qrN "$oldzipdir" "$zipdir"`
+			local diffmsg
+			diffmsg=`diff -urN "$oldzipdir" "$zipdir"`
 			RES=$?
+			#echo "RES=$RES $? diffmsg=$diffmsg"
 			[ $RES -eq 0 ] && zip_changed=0 || zip_changed=1
 			[ $verbose -ne 0 ] && echo "diff result $oldzipdir vs $zipdir $zip_changed"
 			rm -rf "$oldzipdir"
@@ -195,7 +199,8 @@ function zip_config()
 		pushd "$zipdir" > /dev/null
 		[ $verbose -ne 0 ] && echo /usr/bin/zip -r "$outfile" . -i \*
 		# TODO: need to pass --encrypt
-		local msg=`/usr/bin/zip -q -r "$outfile" . -i \* 2>&1`
+		local msg
+		msg=`/usr/bin/zip -q -r "$outfile" . -i \* 2>&1`
 		RES=$?
 		popd > /dev/null
 
@@ -336,14 +341,17 @@ function generate_client_config()
 		
 		if [ -z "$client_cert_line" ]; then
 			echo "Missing client certficate $clientcert" >&2
+			rm -rf "$client_configdir"
 			continue
 		fi
 		if [ -z "client_key_line" ]; then
 			echo "Missing client key $clientkey" >&2
+			rm -rf "$client_configdir"
 			continue
 		fi
 		if [ -z "client_ca_line" ]; then
 			echo "Missing server certficate $server_ca" >&2
+			rm -rf "$client_configdir"
 			continue
 		fi
 		
