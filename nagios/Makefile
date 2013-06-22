@@ -25,6 +25,7 @@ install:
 	install -m 0755 -o root -g root check_spamd.pl $(DESTDIR)/usr/lib/nagios/plugins/check_spamd.pl
 	install -m 0755 -o root -g root check_ps $(DESTDIR)/usr/lib/nagios/plugins/check_ps
 	install -m 0755 -o root -g root check_ntp_configured_peer $(DESTDIR)/usr/lib/nagios/plugins/check_ntp_configured_peer
+	install -m 0755 -o root -g root check_openvz_ubc.pl $(DESTDIR)/usr/lib/nagios/plugins/check_openvz_ubc.pl
 	mkdir -p $(DESTDIR)/etc/nagios-plugins/config
 	install -m 0644 -o root -g root apt_upgrade.cfg $(DESTDIR)/etc/nagios-plugins/config/apt_upgrade.cfg
 	install -m 0644 -o root -g root dhcp-remote.cfg $(DESTDIR)/etc/nagios-plugins/config/dhcp-remote.cfg
@@ -36,6 +37,7 @@ install:
 	install -m 0644 -o root -g root spamassassin.cfg $(DESTDIR)/etc/nagios-plugins/config/spamassassin.cfg
 	install -m 0644 -o root -g root ps.cfg $(DESTDIR)/etc/nagios-plugins/config/ps.cfg
 	install -m 0644 -o root -g root ntpex.cfg $(DESTDIR)/etc/nagios-plugins/config/ntpex.cfg
+	install -m 0644 -o root -g root openvz.cfg $(DESTDIR)/etc/nagios-plugins/config/openvz.cfg
 	mkdir -p $(DESTDIR)/usr/share/man/man1
 	# keep the utils.sh in the directory (from nagios-plugins), but do not install it:
 	#install -m 0755 -o root -g root utils.sh $(DESTDIR)/usr/lib/nagios/plugins/utils.sh
