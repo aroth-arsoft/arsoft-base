@@ -1,0 +1,79 @@
+#! /bin/sh
+#
+### BEGIN INIT INFO
+# Required-Start:    $local_fs $remote_fs
+# Required-Stop:     $local_fs $remote_fs
+# Provides:          arsoft-base-system-shutdown
+# Default-Start:
+# Default-Stop:      0 6
+# Short-Description: Run scripts on system shutdown/restart
+# Description:       Run scripts on system shutdown/restart
+### END INIT INFO
+set -e
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+
+NAME="arsoft-base"
+DESC="AR Soft system shutdown"
+SCRIPTNAME="/etc/init.d/$NAME"
+SHUTDOWN_SCRIPTS_DIR="/etc/arsoft-base/system-shutdown.d"
+
+# Load the VERBOSE setting and other rcS variables
+. /lib/init/vars.sh
+
+# Define LSB log_* functions.
+# Depend on lsb-base (>= 3.2-14) to ensure that this file is present
+. /lib/lsb/init-functions
+
+
+# run given script
+run_hook() {
+    local script
+    local exit_status
+    script="$1"
+    shift	# discard the first argument, then the rest are the script's
+
+    if [ -f $script ]; then
+        . $script "$@"
+    fi
+
+    if [ -n "$exit_status" ] && [ "$exit_status" -ne 0 ]; then
+        logger -p daemon.err "$script returned non-zero exit status $exit_status"
+    fi
+
+    return $exit_status
+}
+
+# run scripts in given directory
+run_hookdir() {
+    local dir
+    local exit_status=0
+    dir="$1"
+    shift	# See run_hook
+
+	for script in $(run-parts --list "$dir"); do
+		run_hook $script "$@" || true
+		exit_status=$?
+	done
+
+    return $exit_status
+}
+
+
+case "$1" in
+start|restart|force-reload|status)
+	# nothing, just to keep update-rc.d happy (see debian #630732)
+	;;
+stop)
+	if [ -d "$SHUTDOWN_SCRIPTS_DIR" ]; then
+		[ "$VERBOSE" != "no" ] && log_action_begin_msg "Running $DESC scripts"
+		run_hookdir "$SHUTDOWN_SCRIPTS_DIR" shutdown
+		[ "$VERBOSE" != "no" ] && log_action_end_msg $? "$NAME"
+	fi
+	;;
+*)
+	echo "Usage: $SCRIPTNAME {start|stop|status|restart|force-reload}" >&2
+	exit 3
+	;;
+esac
+:

@@ -13,4 +13,5 @@ install:
 	install -m 0644 -o root -g root profile $(DESTDIR)/usr/share/arsoft-base/profile
 	ln -s /usr/share/arsoft-base/profile $(DESTDIR)/etc/profile
 	install -m 0755 -o root -g root ${SHELL_BIN_SCRIPTS} $(DESTDIR)/usr/bin
-	
+	install -d -m 0755 -o root -g root $(DESTDIR)/etc/arsoft-base/system-startup.d
+	install -d -m 0755 -o root -g root $(DESTDIR)/etc/arsoft-base/system-shutdown.d
