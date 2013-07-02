@@ -1,3 +1,9 @@
+arsoft-base (2.77) raring; urgency=low
+
+  * cleanup dhcp scripts
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 02 Jul 2013 09:45:53 +0200
+
 arsoft-base (2.76) raring; urgency=low
 
   * run scripts on system shutdown
