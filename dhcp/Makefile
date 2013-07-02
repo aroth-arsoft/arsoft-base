@@ -28,8 +28,8 @@ install:
 
 	mkdir -p $(DESTDIR)/etc/dhcp/dhclient-exit-hooks.d
 	mkdir -p $(DESTDIR)/etc/dhcp/dhclient-enter-hooks.d
-	install -m 0755 arsoft-dhcp-client-exit $(DESTDIR)/etc/dhcp/dhclient-exit-hooks.d/arsoft-dhcp-client-exit
-	install -m 0755 arsoft-dhcp-client-enter $(DESTDIR)/etc/dhcp/dhclient-enter-hooks.d/arsoft-dhcp-client-enter
+	install -m 0644 arsoft-dhcp-client-exit $(DESTDIR)/etc/dhcp/dhclient-exit-hooks.d/arsoft-dhcp-client-exit
+	install -m 0644 arsoft-dhcp-client-enter $(DESTDIR)/etc/dhcp/dhclient-enter-hooks.d/arsoft-dhcp-client-enter
 	
 	mkdir -p $(DESTDIR)/etc/NetworkManager/dispatcher.d
 	install -m 0755 -o root -g root nm-dispatch $(DESTDIR)/etc/NetworkManager/dispatcher.d/20arsoft-nm-dispatch
