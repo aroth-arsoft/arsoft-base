@@ -246,10 +246,10 @@ autofs_conf_update() {
 	local autofs_reload=0
 	
 	cp -a "$AUTOFS_LDAP_CONF" "$AUTOFS_LDAP_CONF_ORG" || return
+	tmp=$(mktemp "$AUTOFS_LDAP_CONF.XXXXXX") || return
+	chmod --reference=$AUTOFS_LDAP_CONF $tmp
+	chown --reference=$AUTOFS_LDAP_CONF $tmp
 	if [ ! -z "$ldap_uri" ]; then
-		tmp=$(mktemp "$AUTOFS_LDAP_CONF.XXXXXX") || return
-		chmod --reference=$AUTOFS_LDAP_CONF $tmp
-		chown --reference=$AUTOFS_LDAP_CONF $tmp
 		(
 			sed -r -e "s@^[ #]*LDAP_URI=(.*)\$@LDAP_URI=\"$ldap_uri\"@" \
 				-e "s@^ *MASTER_MAP_NAME=.*\$@MASTER_MAP_NAME=\"auto.master\"@" \
@@ -258,9 +258,6 @@ autofs_conf_update() {
 		) >>$tmp
 		RES=$?
 	else
-		tmp=$(mktemp "$AUTOFS_LDAP_CONF.XXXXXX") || return
-		chmod --reference=$AUTOFS_LDAP_CONF $tmp
-		chown --reference=$AUTOFS_LDAP_CONF $tmp
 		(
 			sed -r -e "s@^[ #]*LDAP_URI=(.*)\$@#LDAP_URI=\1@" \
 				-e "s@^ *MASTER_MAP_NAME=.*\$@MASTER_MAP_NAME=\"/etc/auto.master\"@" \
@@ -273,7 +270,7 @@ autofs_conf_update() {
 			mv "$tmp" "$AUTOFS_LDAP_CONF"
 			autofs_reload=1
 		else
-			rm "$tmp"
+			rm -f "$tmp"
 		fi
 		# always reload the autofs when the interface becomes
 		# available
@@ -297,6 +294,7 @@ autofs_conf_update() {
 		fi
 		autofs_reload=1
 	else
+		rm -f "$tmp"
 		log_warn "failed to modify $AUTOFS_LDAP_CONF"
 	fi
 
