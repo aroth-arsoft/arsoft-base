@@ -1,3 +1,9 @@
+arsoft-base (2.78) raring; urgency=low
+
+  * prepare removal of openvpn-status script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 11 Jul 2013 08:10:27 +0200
+
 arsoft-base (2.77) raring; urgency=low
 
   * cleanup dhcp scripts

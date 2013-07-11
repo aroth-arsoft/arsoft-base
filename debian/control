@@ -32,6 +32,7 @@ Description: installs the AR Soft package repository
 Package: arsoft-openvpn
 Architecture: all
 Depends: arsoft-base, openvpn, ${misc:Depends}
+Recommends: arsoft-python-openvpn
 Description: OpenVPN helper scripts
  Provides a set of script to helper and simplify the OpenVPN configuration.
 
