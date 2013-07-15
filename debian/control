@@ -29,13 +29,6 @@ Depends: ${misc:Depends}
 Description: installs the AR Soft package repository
  Installs all files to access the AR Soft package repository.
 
-Package: arsoft-openvpn
-Architecture: all
-Depends: arsoft-base, openvpn, ${misc:Depends}
-Recommends: arsoft-python-openvpn
-Description: OpenVPN helper scripts
- Provides a set of script to helper and simplify the OpenVPN configuration.
-
 Package: arsoft-vim
 Architecture: all
 Depends: arsoft-base, vim, vim-doc, vim-scripts, ${misc:Depends}
