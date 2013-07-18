@@ -38,12 +38,13 @@ cups_update_conf() {
 		if [ ! -z "$cups_server" ]; then
 			log_info "add remote printers from $cups_server"
 			# using local CUPS server and import all remote printers
-			/usr/sbin/cups-admin --server localhost --add-remote "$cups_server"
+			msg=`/usr/sbin/cups-admin --server localhost --add-remote "$cups_server" 2>&1`
 			if [ $? -eq 0 ]; then
 				# We have added printer from the remote server to the local one
 				# so now we should use it.
 				cups_server='localhost'
 			else
+				log_err "cups-admin error $msg"
 				# something went wrong, so no further actions
 				cups_encryption=''
 				cups_server=''
