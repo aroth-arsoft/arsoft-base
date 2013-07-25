@@ -30,7 +30,6 @@ usr/sbin/slapd-online-config
 usr/sbin/slapd-debug
 usr/sbin/apt-cleanup
 usr/sbin/apt-key-import
-usr/sbin/dns-update
 usr/sbin/nfs-control
 usr/sbin/apt-purge-removed
 usr/sbin/alsa-info
