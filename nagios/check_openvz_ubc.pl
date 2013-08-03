@@ -139,48 +139,56 @@ GetOptions(
 #print $user_beancounters_file;
 
 %containers = parse($user_beancounters_file);
-
-#print Dumper(\%containers);
-
-if ($uid < 0) {
-    
-    if ( $all_uids != 0 )
-    {
-        foreach my $key ( keys %containers )
-        {
-            my %container_values = %{$containers{$key}};
-            check_container($key, \%container_values);
-        }
-    }
-    else
-    {
-        my @container_keys = keys %containers;
-        $uid = $container_keys[0];
-        check_container(0, \%{$containers{$uid}});
-    }
-}
-else 
-{
-    check_container(0, \%{$containers{$uid}});
-}
+my $num_containers_keys = keys( %containers );
 
 my $exitcode = UNKNOWN;
 my $exitmessage = 'UNKNOWN';
 my $exitperfdata;
-if (scalar(@resources_critical) > 0)
-{
-    $exitmessage = 'CRITICAL: ' . join(", ", @resources_critical);
-    $exitcode = CRITICAL;
-}
-elsif (scalar(@resources_warning) > 0)
-{
-    $exitmessage = 'WARNING: ' . join(", ", @resources_warning);
-    $exitcode = WARNING;
-}
+
+#print Dumper(\%containers);
+if ($num_containers_keys) {
+    if ($uid < 0) {
+        
+        if ( $all_uids != 0 )
+        {
+            foreach my $key ( keys %containers )
+            {
+                my %container_values = %{$containers{$key}};
+                check_container($key, \%container_values);
+            }
+        }
+        else
+        {
+            my @container_keys = keys %containers;
+            $uid = $container_keys[0];
+            check_container(0, \%{$containers{$uid}});
+        }
+    }
+    else 
+    {
+        check_container(0, \%{$containers{$uid}});
+    }
+
+    if (scalar(@resources_critical) > 0)
+    {
+        $exitmessage = 'CRITICAL: ' . join(", ", @resources_critical);
+        $exitcode = CRITICAL;
+    }
+    elsif (scalar(@resources_warning) > 0)
+    {
+        $exitmessage = 'WARNING: ' . join(", ", @resources_warning);
+        $exitcode = WARNING;
+    }
+    else
+    {
+        $exitmessage = 'OK';
+        $exitcode = OK;
+    }
+} 
 else
 {
-    $exitmessage = 'OK';
-    $exitcode = OK;
+    $exitmessage = 'UNKNOWN: Unable to read UBC from ' . $user_beancounters_file;
+    $exitcode = UNKNOWN;
 }
 $exitperfdata = join(" ", @perf_data);
 print ($exitmessage . "| " . $exitperfdata . "\n");
