@@ -6,7 +6,7 @@ netcat_bin=`which nc`
 netcat_opts=''
 smtp_port='25'
 smtp_server='localhost'
-maildate=`LANG=C date`
+maildate=`LANG=C date -R`
 domain=`hostname -d`
 from="$USER@$domain"
 replyto=''
@@ -17,7 +17,7 @@ default_to="postmaster@$domain"
 fqdn=`hostname -f`
 scriptfile=`readlink -f "$0"`
 scriptdir=`dirname "$scriptfile"`
-[ "$scriptdir" == '/usr/bin' ] && subject_prefix=`basename "$scriptfile"` || subject_prefix="$scriptfile"
+subject_prefix=`basename "$scriptfile"`
 subject="$subject_prefix: $maildate on $fqdn"
 message=''
 netcat=0
@@ -96,8 +96,8 @@ while [ $# -ne 0 ]; do
 			fi
 			shift 
 			;;
-		"--server") server="$2"; shift ;;
-		"--port") port="$2"; shift ;;
+		"--server") smtp_server="$2"; shift ;;
+		"--port") smtp_port="$2"; shift ;;
 		"-a"|"--attach") attachments="$attachments $2"; shift ;;
 		"-n"|"--netcat") netcat=1; ;;
 		"--html") html=1; ;;
@@ -147,10 +147,10 @@ function recipient_line()
 
 mail_temp=`mktemp /tmp/postfix-sendmail.XXXXXX`
 echo "From: ${from}" >> "$mail_temp"
-recipient_line 'To:' $to >> "$mail_temp"
+recipient_line 'To: ' $to >> "$mail_temp"
 echo "Date: ${maildate}" >> "$mail_temp"
-[ ! -z "${cc// /}" ] && recipient_line 'CC:' $cc >> "$mail_temp"
-[ ! -z "${bcc// /}" ] && recipient_line 'BCC:' $bcc >> "$mail_temp"
+[ ! -z "${cc// /}" ] && recipient_line 'CC: ' $cc >> "$mail_temp"
+[ ! -z "${bcc// /}" ] && recipient_line 'BCC: ' $bcc >> "$mail_temp"
 [ ! -z "$replyto" ] && echo "Reply-To: ${from}" >> "$mail_temp"
 echo "Subject: ${subject}" >> "$mail_temp"
 
@@ -190,24 +190,23 @@ if [ ! -z "$msgfile" -a -f "$msgfile" ]; then
 	echo -e "\n\n" >> "$mail_temp"
 else
 	if [ ! -z "$message" ]; then
-		echo -e "$message\n\n" >> "$mail_temp"
+		echo "$message" >> "$mail_temp"
 	fi
 fi
 
-for attach in $attachments; do
-	FILENAME=`basename "$attach"`
-	MIMETYPE=`LANG=C file -b --mime "$attach"`
-	echo "--$BOUNDARY" >> "$mail_temp"
-	echo "Content-Type: $MIMETYPE; name=\"$FILENAME\"" >> "$mail_temp"
-	echo "Content-Transfer-Encoding: base64" >> "$mail_temp"
-	echo "Content-Disposition: attachment; filename=\"$FILENAME\";" >> "$mail_temp"
-	echo "" >> "$mail_temp"
-	base64 "$attach" >> "$mail_temp"
-	echo "" >> "$mail_temp"
-	echo "" >> "$mail_temp"
-done
-
 if [ $multipart -ne 0 ]; then
+	for attach in $attachments; do
+		FILENAME=`basename "$attach"`
+		MIMETYPE=`LANG=C file -b --mime "$attach"`
+		echo "--$BOUNDARY" >> "$mail_temp"
+		echo "Content-Type: $MIMETYPE; name=\"$FILENAME\"" >> "$mail_temp"
+		echo "Content-Transfer-Encoding: base64" >> "$mail_temp"
+		echo "Content-Disposition: attachment; filename=\"$FILENAME\";" >> "$mail_temp"
+		echo "" >> "$mail_temp"
+		base64 "$attach" >> "$mail_temp"
+		echo "" >> "$mail_temp"
+		echo "" >> "$mail_temp"
+	done
 	echo "--$BOUNDARY--" >> "$mail_temp"
 fi
 
@@ -233,17 +232,20 @@ if [ $debug -eq 0 ]; then
 	else
 		[ $verbose -ne 0 ] && echo "Using netcat on $smtp_server:$smtp_port"
 		
-		mail_netcat_temp=`mktemp /tmp/postfix-sendmail.XXXXXX`		
-		echo "HELO $helo" >> "$mail_netcat_temp"
-		echo "MAIL FROM:<$from>" >> "$mail_netcat_temp"
+		mail_netcat_temp=`mktemp /tmp/postfix-sendmail.XXXXXX`
+		echo -n "HELO $helo"$'\r\n' >> "$mail_netcat_temp"
+		echo -n "MAIL FROM:<$from>"$'\r\n' >> "$mail_netcat_temp"
 		for recipient in $to; do
-			echo "RCPT TO:<$recipient>" >> "$mail_netcat_temp"
+			echo -n "RCPT TO:<$recipient>"$'\r\n' >> "$mail_netcat_temp"
 		done
-		echo "DATA" >> "$mail_netcat_temp"
-		cat "$mail_temp" >> "$mail_netcat_temp"
-		echo "." >> "$mail_netcat_temp"
-		echo "QUIT" >> "$mail_netcat_temp"
+		echo -n "DATA"$'\r\n\r\n' >> "$mail_netcat_temp"
+		#echo -n "Hello"$'\r\n' >> "$mail_netcat_temp"
+		cat "$mail_temp" | tr '\n' '\r\n' >> "$mail_netcat_temp"
+		echo -n $'\r\n' >> "$mail_netcat_temp"
+		echo -n "."$'\r\n' >> "$mail_netcat_temp"
+		echo -n "QUIT"$'\r\n' >> "$mail_netcat_temp"
 
+		[ $verbose -ne 0 ] && cat "$mail_netcat_temp"
 		cat "$mail_netcat_temp" | "${netcat_bin}" ${netcat_opts} "$smtp_server" "$smtp_port"
 		rm "$mail_netcat_temp"
 	fi

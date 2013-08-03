@@ -1,3 +1,9 @@
+arsoft-base (2.82) UNRELEASED; urgency=low
+
+  * fixed check_openvz_ubc.pl to return UNKNOWN on read failure
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 03 Aug 2013 10:50:02 +0200
+
 arsoft-base (2.81) raring; urgency=low
 
   * remove dns-update script
