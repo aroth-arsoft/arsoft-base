@@ -6,7 +6,12 @@ set_proxy_name=''
 declare -i set_proxy_use=0
 
 function usage() {
-	echo "usage: apt-proxy [ARGS]"
+	echo "usage: apt-proxy <action> [params]"
+	echo "action must be one of the following:"
+	echo "  info                 displays the current proxy configuration"
+	echo "  enable               enable the usage of proxy"
+	echo "  disable              disable the usage of proxy"
+	echo "  set <url> [on|off]   sets the proxy address and enables/disables it."
 	exit 0
 }
 
