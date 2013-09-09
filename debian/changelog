@@ -1,4 +1,10 @@
-arsoft-base (2.82) UNRELEASED; urgency=low
+arsoft-base (2.83) raring; urgency=low
+
+  * return unknown for bad address in check_smb
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 09 Sep 2013 08:24:45 +0200
+
+arsoft-base (2.82) raring; urgency=low
 
   * fixed check_openvz_ubc.pl to return UNKNOWN on read failure
 

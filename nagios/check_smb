@@ -1,11 +1,11 @@
-#!/bin/sh
+#!/bin/bash
 
 # Check for sharename on SMB with nagios
 # Michael Hodges <michael@va.com.au> 2011-03-04
 # Modified version of check_smb by Dave Love <fx@gnu.org>
 # combined check_smb_share by Michael Hodges with check_smb by Dave Love
 
-REVISION=0.10
+REVISION=0.11
 THIS_FILE=`readlink -f "$0"`
 PROGNAME=`basename "$THIS_FILE"`
 PROGPATH=`dirname "$THIS_FILE"`
@@ -78,8 +78,13 @@ if [ -z "$share" ]; then
 		exit $STATE_OK
 	else
 		err=`echo "$stdout" | head -n 1`
-		echo "CRITICAL SMB: $err"
-		exit $STATE_CRITICAL
+		if [[ "$err" == *NT_STATUS_BAD_NETWORK_NAME* ]]; then
+			echo "Invalid host name '$host'"
+			exit $STATE_UNKNOWN
+		else
+			echo "CRITICAL SMB: $err"
+			exit $STATE_CRITICAL
+		fi
 	fi
 else
 	if [ $res -eq 0 ]; then
@@ -89,15 +94,17 @@ else
 			echo "OK SMB Share: $share: $description"
 			exit $STATE_OK
 		else
-		echo "$stdout"
-		echo "$res"
-		echo "$description"
 			echo "CRITICAL SMB Share: $share not available."
 			exit $STATE_CRITICAL
 		fi
 	else
 		err=`echo "$stdout" | head -n 1`
-		echo "CRITICAL SMB: $err"
-		exit $STATE_CRITICAL
+		if [[ "$err" == *NT_STATUS_BAD_NETWORK_NAME* ]]; then
+			echo "Invalid host name '$host'"
+			exit $STATE_UNKNOWN
+		else
+			echo "CRITICAL SMB: $err"
+			exit $STATE_CRITICAL
+		fi
 	fi
 fi
