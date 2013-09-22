@@ -1,3 +1,10 @@
+arsoft-base (2.84) raring; urgency=low
+
+  * new version of ppa_publish with distro-specific packaging files
+    capability
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 22 Sep 2013 11:40:55 +0200
+
 arsoft-base (2.83) raring; urgency=low
 
   * return unknown for bad address in check_smb
