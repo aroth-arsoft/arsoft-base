@@ -1,3 +1,9 @@
+arsoft-base (2.86) raring; urgency=low
+
+  * remove check_rkhunter again, because move it to arsoft-python 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 25 Sep 2013 20:10:34 +0200
+
 arsoft-base (2.85) raring; urgency=low
 
   * add check_rkhunter nagios plugin
