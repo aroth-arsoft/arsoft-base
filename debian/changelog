@@ -1,3 +1,9 @@
+arsoft-base (2.87) raring; urgency=low
+
+  * add disk space check for system and user disks
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 08 Oct 2013 17:37:22 +0200
+
 arsoft-base (2.86) raring; urgency=low
 
   * remove check_rkhunter again, because move it to arsoft-python 
