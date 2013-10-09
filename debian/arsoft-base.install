@@ -38,3 +38,4 @@ usr/share/arsoft-base/profile
 usr/bin/wine-rebuild-menu
 usr/share/ca-certificates/arsoft
 usr/share/ca-certificates/fastprotect
+usr/share/pam-configs

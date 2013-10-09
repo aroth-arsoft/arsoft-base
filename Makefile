@@ -1,5 +1,5 @@
 SUBDIRS = apt bind cert cron.daily cyrusimapd desktop \
-	dhcp devel ldap mythtv nagios network \
+	dhcp devel ldap mythtv nagios network pam \
 	nfs openvpn pnp4nagios postfix puppet shell spamassassin \
 	ssh scm sysinfo tftp vim wine
 

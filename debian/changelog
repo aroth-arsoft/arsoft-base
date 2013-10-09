@@ -1,3 +1,9 @@
+arsoft-base (2.88) raring; urgency=low
+
+  * add mkhomedir for pam-auth-config
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 09 Oct 2013 18:07:21 +0200
+
 arsoft-base (2.87) raring; urgency=low
 
   * add disk space check for system and user disks
