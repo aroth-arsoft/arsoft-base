@@ -1,3 +1,9 @@
+arsoft-base (2.89) raring; urgency=low
+
+  * modify ppa_publish to be able to exclude the original tarball from upload
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 16 Oct 2013 08:50:48 +0200
+
 arsoft-base (2.88) raring; urgency=low
 
   * add mkhomedir for pam-auth-config

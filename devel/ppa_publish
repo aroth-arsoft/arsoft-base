@@ -19,6 +19,7 @@ PKG=''
 DEFAULT_RELEASES=`lsb_release -cs`
 VALID_RELEASE='hardy intrepid jaunty lucid karmic maverick natty oneiric precise quantal raring saucy'
 noput=0
+noorig=0
 verbose=0
 
 if [ -f $HOME/.arsoft/ppa_publish.conf ]; then
@@ -35,6 +36,7 @@ function usage() {
 	echo "    -v, --verbose         enable verbose output"
 	echo "    --target name         specifies the target for dput"
 	echo "    --noput               do not upload the package"
+	echo "    --noorig              do not upload the original tarball"
 	echo "RELEASE:"
 	for rel in $VALID_RELEASE; do
 		if $(echo $DEFAULT_RELEASES} | grep -q $rel); then
@@ -53,6 +55,7 @@ while [ $# -ne 0 ]; do
 	'-v'|'--verbose') verbose=1; ;;
 	'--target') DPUT_TARGET="$2"; shift; ;;
 	'--noput') noput=1; ;;
+	'--noorig') noorig=1; ;;
 	'hardy'|'intrepid'|'jaunty'|'lucid'|'karmic'|'maverick'|'natty'|'oneiric'|'precise'|'quantal'|'raring'|'saucy')
 		if [ -z "$RELEASES" ]; then
 			RELEASES="$1"
@@ -143,8 +146,13 @@ for RELEASE in $RELEASES; do
 	export BUILD_TEST=1
 
 	debuild_log=`mktemp /tmp/ppa_publish.XXXXXX`
+	if [ $noorig -eq 0 ]; then
+		debuild_opts='-sa'
+	else
+		debuild_opts='-sd'
+	fi
 	pushd "$PKGDIR"
-	debuild -i -I -S -sa 2>&1 | tee "$debuild_log"
+	debuild -i -I -S $debuild_opts 2>&1 | tee "$debuild_log"
 	if [ $noput -eq 0 ]; then
 		CHANGES=`readlink -f "$PKGDIR/../$(sed -n 's/^.*signfile \(.*\.changes\).*$/\1/p' "$debuild_log")"`
 		if [ -f "$CHANGES" ]; then
