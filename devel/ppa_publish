@@ -17,7 +17,7 @@ DPUT_TARGET=''
 RELEASES=''
 PKG=''
 DEFAULT_RELEASES=`lsb_release -cs`
-VALID_RELEASE='hardy intrepid jaunty lucid karmic maverick natty oneiric precise quantal raring saucy'
+VALID_RELEASE='hardy intrepid jaunty lucid karmic maverick natty oneiric precise quantal raring saucy trusty'
 noput=0
 noorig=0
 verbose=0
@@ -56,7 +56,7 @@ while [ $# -ne 0 ]; do
 	'--target') DPUT_TARGET="$2"; shift; ;;
 	'--noput') noput=1; ;;
 	'--noorig') noorig=1; ;;
-	'hardy'|'intrepid'|'jaunty'|'lucid'|'karmic'|'maverick'|'natty'|'oneiric'|'precise'|'quantal'|'raring'|'saucy')
+	'hardy'|'intrepid'|'jaunty'|'lucid'|'karmic'|'maverick'|'natty'|'oneiric'|'precise'|'quantal'|'raring'|'saucy'|'trusty')
 		if [ -z "$RELEASES" ]; then
 			RELEASES="$1"
 		else
