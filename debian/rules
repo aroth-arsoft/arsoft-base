@@ -1,0 +1,34 @@
+#!/usr/bin/make -f
+# -*- makefile -*-
+
+# Uncomment this to turn on verbose mode.
+export DH_VERBOSE=1
+
+TARGET_DISTRIBUTION := $(shell dpkg-parsechangelog  | awk '/Distribution/ { print $$2}')
+ifeq ($(TARGET_DISTRIBUTION),UNRELEASED)
+	TARGET_DISTRIBUTION := $(shell lsb_release -cs)
+endif
+
+SUBSTVARS=
+
+ifeq ($(TARGET_DISTRIBUTION),lucid)
+	SUBSTVARS += -Vdhcpclient:Depends="dhcp3-client"
+	SUBSTVARS += -Vdhcpserver:Depends="dhcp3-server"
+else
+	SUBSTVARS += -Vdhcpclient:Depends="isc-dhcp-client"
+	SUBSTVARS += -Vdhcpserver:Depends="isc-dhcp-server"
+endif
+
+%:
+	dh $@
+	
+override_dh_auto_install:
+	dh_auto_install -- TARGET_DISTRIBUTION=$(TARGET_DISTRIBUTION)
+
+override_dh_gencontrol:
+	dh_gencontrol -- $(SUBSTVARS)
+
+override_dh_installinit:
+	# we do not want to run the init script in the postinst/prerm, its
+	#  really only useful on shutdown, see Debian bug #645919
+	dh_installinit $@ --no-start -- stop 10 0 6 .

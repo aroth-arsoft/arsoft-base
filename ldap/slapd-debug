@@ -1,0 +1,138 @@
+#!/bin/bash
+
+verbose=0
+quiet=0
+configfile=''
+outdir=''
+force=0
+slapd_user='openldap'
+slapd_group='openldap'
+debuglevel=1
+
+function usage()
+{
+    echo "slapd-debug [OPTIONS]"
+    echo "    -h, --help            shows this help screen"
+    echo "    -v, --verbose         enable verbose output"
+    echo "    -d, --debug <level>   specifies the debug level (default: $debuglevel)"
+    exit 0
+}
+
+function failure() {
+	echo "$@" 1>&2
+	exit 1
+}
+
+function warning() {
+	echo "$@" 1>&2
+}
+
+function verbose() {
+	[ $verbose -ne 0 ] && echo "$@"
+}
+
+
+# Set the paths to slapd as a variable so that someone who really
+# wants to can override the path in /etc/default/slapd.
+SLAPD=/usr/sbin/slapd
+
+# Stop processing if slapd is not there
+[ -x $SLAPD ] || failure "$SLAPD binary is not available."
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+        "-?") usage;;
+        "-h") usage;;
+        "--help") usage;;
+        "-v"|"--verbose") verbose=1; ;;
+        "-d"|"--debug") debuglevel="$2"; shift; ;;
+        *)
+			echo "unknown argument $1"
+        ;;
+    esac
+    shift
+done
+
+# Source the init script configuration
+if [ -f "/etc/default/slapd" ]; then
+	. /etc/default/slapd
+fi
+
+# Load the default location of the slapd config file
+if [ -z "$SLAPD_CONF" ]; then
+	if [ -e /etc/ldap/slapd.d ]; then
+		SLAPD_CONF=/etc/ldap/slapd.d
+	else
+		SLAPD_CONF=/etc/ldap/slapd.conf
+	fi
+fi
+
+if [ -f "$SLAPD_CONF" ]; then
+	true
+elif [ -d "$SLAPD_CONF" ] ; then
+	true
+else
+	failure "No configuration file was found for slapd at $SLAPD_CONF."
+fi
+
+if [ ! -r "$SLAPD_CONF" ]; then
+	failure "Configuration at $SLAPD_CONF is not readable."
+fi
+
+# extend options depending on config type
+if [ -f "$SLAPD_CONF" ]; then
+	SLAPD_OPTIONS="-f $SLAPD_CONF $SLAPD_OPTIONS"
+elif [ -d "$SLAPD_CONF" ] ; then
+	SLAPD_OPTIONS="-F $SLAPD_CONF $SLAPD_OPTIONS"
+fi
+
+# Find out the name of slapd's pid file
+if [ -z "$SLAPD_PIDFILE" ]; then
+	# If using old one-file configuration scheme
+	if [ -f "$SLAPD_CONF" ] ; then
+		SLAPD_PIDFILE=`sed -ne 's/^pidfile[[:space:]]\+\(.\+\)/\1/p' \
+			"$SLAPD_CONF"`
+	# Else, if using new directory configuration scheme
+	elif [ -d "$SLAPD_CONF" ] ; then
+		SLAPD_PIDFILE=`sed -ne \
+			's/^olcPidFile:[[:space:]]\+\(.\+\)[[:space:]]*/\1/p' \
+			"$SLAPD_CONF"/'cn=config.ldif'`
+	fi
+fi
+
+if [ -z "$SLAPD_PIDFILE" ]; then
+	failure "The pidfile for slapd has not been specified"
+else
+	verbose "pid file $SLAPD_PIDFILE"
+fi
+
+# Make sure the pidfile directory exists with correct permissions
+piddir=`dirname "$SLAPD_PIDFILE"`
+verbose "pid directory $piddir"
+if [ ! -d "$piddir" ]; then
+	mkdir -p "$piddir"
+	[ -z "$SLAPD_USER" ] || chown -R "$SLAPD_USER" "$piddir"
+	[ -z "$SLAPD_GROUP" ] || chgrp -R "$SLAPD_GROUP" "$piddir"
+fi
+
+# Pass the user and group to run under to slapd
+if [ "$SLAPD_USER" ]; then
+	SLAPD_OPTIONS="-u $SLAPD_USER $SLAPD_OPTIONS"
+fi
+
+if [ "$SLAPD_GROUP" ]; then
+	SLAPD_OPTIONS="-g $SLAPD_GROUP $SLAPD_OPTIONS"
+fi
+
+if [ ! -z "$debuglevel" -a "$debuglevel" -ne 0 ]; then
+	SLAPD_OPTIONS="-d$debuglevel $SLAPD_OPTIONS"
+fi
+
+if [ -z "$SLAPD_SERVICES" ]; then
+	verbose "no services specified."
+	"$SLAPD" $SLAPD_OPTIONS
+else
+	verbose "use services $SLAPD_SERVICES"
+	"$SLAPD" -h "$SLAPD_SERVICES" $SLAPD_OPTIONS
+fi

@@ -1,0 +1,56 @@
+#!/bin/bash
+
+verbose=0
+slapd_dbdir='/var/lib/ldap'
+force=0
+
+function usage()
+{
+    echo "slapd-clean-db [OPTIONS]"
+    echo "    -h, --help      shows this help screen"
+	echo "    -v, --verbose   enable verbose output"
+	echo "    -f, --force     forces the removal of the slapd database."
+	echo ""
+	echo "  NOTE:You have to specify the --force flag or otherwise this script does nothing."
+    exit 0
+}
+
+function clean_slapd()
+{
+	rm -rf "$slapd_dbdir"/*
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		"-f"|"--force") force=1; ;;
+		*)
+			if [ -z "$configfile" ]; then
+				configfile="$1"
+			else
+				echo "config file $configfile already given." 1>&2
+				exit 1
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ ! -d "$slapd_dbdir" ]; then
+	echo "slapd database directory $slapd_dbdir does not exist." 1>&2
+	exit 1
+fi
+
+status=`/usr/sbin/service slapd status > /dev/null`
+if [ $? -eq 0 ]; then
+	echo "slapd is running." 1>&2
+	exit 1
+else
+	if [ $force -ne 0 ]; then
+		clean_slapd
+	fi
+fi

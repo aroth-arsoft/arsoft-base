@@ -1,0 +1,34 @@
+#!/bin/sh -e
+
+#DEBHELPER#
+
+case "$1" in
+	configure|upgrade)
+		rm /etc/apt/sources.list.d/ppa-aroth.list 2>/dev/null || true
+		rm /etc/apt/sources.list.d/puppetlabs.list 2>/dev/null || true
+
+		## create the apt source list file
+		release=$(lsb_release -c -s)
+		echo "# /etc/apt/sources.list.d/ppa-aroth.list" >> /etc/apt/sources.list.d/ppa-aroth.list
+		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
+		echo "deb-src http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
+
+		echo "# Puppetlabs products" >> /etc/apt/sources.list.d/puppetlabs.list
+		echo "deb http://apt.puppetlabs.com $release main" >> /etc/apt/sources.list.d/puppetlabs.list
+        echo "deb-src http://apt.puppetlabs.com $release main" >> /etc/apt/sources.list.d/puppetlabs.list
+		echo "" >> /etc/apt/sources.list.d/puppetlabs.list
+		echo "# Puppetlabs dependencies" >> /etc/apt/sources.list.d/puppetlabs.list
+        echo "deb http://apt.puppetlabs.com $release dependencies" >> /etc/apt/sources.list.d/puppetlabs.list
+        echo "deb-src http://apt.puppetlabs.com $release dependencies" >> /etc/apt/sources.list.d/puppetlabs.list
+
+		;;
+    abort-upgrade|abort-remove|abort-deconfigure)
+		;;
+
+    *)
+		echo "postinst called with unknown argument \`$1'" >&2
+		exit 1
+		;;
+esac
+
+exit 0

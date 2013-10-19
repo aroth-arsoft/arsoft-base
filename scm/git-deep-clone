@@ -1,0 +1,65 @@
+#!/bin/bash
+ 
+# author: Duane Johnson
+# email: duane.johnson@gmail.com
+# date: 2008 Jun 12
+# license: MIT
+#
+# Based on discussion at http://kerneltrap.org/mailarchive/git/2007/11/12/406496
+
+repo_git=''
+destdir=''
+clone_opts=''
+bare=0
+
+function usage()
+{
+    echo "git-deep-clone <remote-url>"
+    echo "    -h, --help         shows this help screen"
+    echo "    -v, --verbose      enable verbose output"
+    exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
+        '--bare') bare=1; ;;
+        -*) clone_opts="$clone_opts $1"; ;;
+        *)
+			if [ -z "$repo_git" ]; then
+				repo_git="$1"
+            elif [ -z "$destdir" ]; then
+                destdir="$1"
+			else
+				clone_opts="$clone_opts $1"
+			fi
+            ;;
+    esac
+    shift
+done
+
+if [ -z "$repo_git" ]; then
+	echo "You must specify a repository to clone."
+	exit 1
+fi
+
+if [ -z "$destdir" ]; then
+    repo_dir=`dirname "$repo_git"`
+    current_dir=`readlink -f "."`
+    [ $bare -eq 0 ] && repo_name=`basename "$repo_git" .git` || repo_name=`basename "$repo_git"`
+    destdir="$current_dir/$repo_name"
+fi
+
+[ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
+
+git clone $bare_opt $clone_opts "$repo_git" "$destdir"; RES=$?
+if [ $RES -eq 0 ]; then
+    pushd "$destdir" > /dev/null
+	for branch in `git branch -a | grep remotes | egrep -v '(HEAD|master)'`; do
+		git branch --track ${branch##*/} $branch; RES=$?
+        [ $RES -ne 0 ] && break
+	done
+    popd > /dev/null
+fi

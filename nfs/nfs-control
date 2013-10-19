@@ -1,0 +1,308 @@
+#!/bin/bash
+
+verbose=1
+action=''
+
+exportfs=`which /usr/sbin/exportfs`
+mount=`which mount`
+rpcdebug=`which rpcdebug`
+
+# NFS debug flags
+#define NFSDBG_VFS 0x0001
+#define NFSDBG_DIRCACHE 0x0002
+#define NFSDBG_LOOKUPCACHE 0x0004
+#define NFSDBG_PAGECACHE 0x0008
+#define NFSDBG_PROC 0x0010
+#define NFSDBG_XDR 0x0020
+#define NFSDBG_FILE 0x0040
+#define NFSDBG_ROOT 0x0080
+#define NFSDBG_CALLBACK 0x0100
+#define NFSDBG_ALL 0xFFFF 
+
+# knfsd debug flags
+#define NFSDDBG_SOCK 0x0001
+#define NFSDDBG_FH 0x0002
+#define NFSDDBG_EXPORT 0x0004
+#define NFSDDBG_SVC 0x0008
+#define NFSDDBG_PROC 0x0010
+#define NFSDDBG_FILEOP 0x0020
+#define NFSDDBG_AUTH 0x0040
+#define NFSDDBG_REPCACHE 0x0080
+#define NFSDDBG_XDR 0x0100
+#define NFSDDBG_LOCKD 0x0200
+#define NFSDDBG_ALL 0x7FFF
+#define NFSDDBG_NOCHANGE 0xFFFF 
+
+function usage() {
+	echo "usage: nfs-control <action> <options>"
+	echo "possible actions:"
+	echo "  remount"
+	echo "  export"
+	echo "  unexport"
+	echo "  debug <component>"
+	echo "  exports"
+
+	exit 0
+}
+
+function kill_process() {
+	if [ ! -z "$@" ]; then
+		[ $verbose -ne 0 ] && echo "kill $@"
+		kill $@
+	fi
+}
+
+function stop_service() {
+	msg=`/sbin/status --quiet "$1" 2>&1 > /dev/null`
+	[ $? -eq 0 ] && stop "$1"
+}
+
+function nfsremount() {
+	local server=''
+	local dir=''
+	
+	# skip the first argument, because its this command
+	shift
+	# parse command line arguments
+	while [ $# -ne 0 ]; do        
+		case "$1" in          
+		"-s"|"--server") server="$2"; shift;;
+		*)
+			if [ -z "$dir" -a -d "$1" ]; then
+				dir="$1"
+			fi                                  
+		;;                                      
+		esac                                    
+		shift                                   
+	done
+	
+	if [ ! -z "$server" ]; then
+		mounts=`$mount | awk "/$server:\// { print \\\$1 }"`
+		for m in $mounts; do
+			[ $verbose -ne 0 ] && echo "reload $m"
+			$mount -o remount $m
+		done
+	else
+		if [ -z "$dir" ]; then
+			echo "No directory or server given."
+			return 1
+		fi
+
+		$mount -o remount $dir
+	fi
+	
+	return 0
+}
+
+function nfsexport() {
+
+	local client=''
+	local dir=''
+	local options=''
+	
+	# skip the first argument, because its this command
+	shift
+
+
+	# parse command line arguments
+	while [ $# -ne 0 ]; do        
+		case "$1" in          
+		"-c"|"--client") client="$2"; shift;;
+		"-o"|"--option") options="$2"; shift;;
+		*)
+			if [ -z "$dir" -a -d "$1" ]; then
+				dir="$1"
+			fi                                  
+		;;                                      
+		esac                                    
+		shift                                   
+	done
+	
+	if [ -z "$dir" ]; then
+		echo "No directory or server given."
+		return 1
+	fi
+	
+	[ -z "$client" ] && client='*'
+
+	$exportfs -o "$options" "$client:$dir"
+	return 0
+}
+
+function nfsunexport() {
+	local client=''
+	local dir=''
+	local options=''
+	
+	# skip the first argument, because its this command
+	shift
+
+	# parse command line arguments
+	while [ $# -ne 0 ]; do        
+		case "$1" in          
+		"-c"|"--client") client="$2"; shift;;
+		*)
+			if [ -z "$dir" -a -d "$1" ]; then
+				dir="$1"
+			fi                                  
+		;;                                      
+		esac                                    
+		shift                                   
+	done
+	
+	if [ -z "$dir" ]; then
+		echo "No directory given."
+		return 1
+	fi
+	
+	local mountdirq=`echo "$dir" | sed 's@/@\\\\/@g'`
+	is_mounted=`cat /var/lib/nfs/etab | awk "/^$mountdirq/ { print \\\$1 }"`
+	
+	if [ -z "$is_mounted" ]; then
+		echo "Directory $dir not exported."
+		return 1
+	fi
+	
+	if [ -z "$client" ]; then
+		client=`cat /var/lib/nfs/etab | awk "/^$mountdirq/ { split(\\\$2,a,\"(\"); print a[1] }"`
+	fi
+
+	$exportfs -u "$client:$dir"
+
+	return 0
+}
+
+function nfsdebug() {
+	local component=''
+	local action=''
+	
+	# skip the first argument, because its this command
+	shift
+
+	# parse command line arguments
+	while [ $# -ne 0 ]; do        
+		case "$1" in          
+		*)
+			if [ -z "$component" ]; then
+				component="$1"
+			elif [ -z "$action" ]; then
+				action="$1"
+			fi                                  
+		;;                                      
+		esac                                    
+		shift                                   
+	done
+	
+	if [ -z "$component" ]; then
+		echo "No component given."
+		return 1
+	fi
+	if [ -z "$action" ]; then
+		echo "No action given. Either use on or off."
+		return 1
+	fi
+	
+	case "$action" in
+		"on")
+			flags_set='-s all'
+			flags_clear=''
+			gssd_opts='-vvv -rrr'
+			idmapd_opts='-vvv'
+			svcgssd_opts='-vvv'
+			;;
+		"off")
+			flags_set=''
+			flags_clear='-c all'
+			gssd_opts=''
+			idmapd_opts=''
+			svcgssd_opts=''
+			;;
+	esac
+	
+	case "$component" in
+		"nfsd"|"server")
+			"$rpcdebug" -m "nfsd" $flags_set $flags_clear
+			;;
+		"nfs"|"client")
+			"$rpcdebug" -m "nfs" $flags_set $flags_clear
+			;;
+		"rpc")
+			"$rpcdebug" -m "rpc" $flags_set $flags_clear
+			;;
+		"lock"|"nlm")
+			"$rpcdebug" -m "nlm" $flags_set $flags_clear
+			;;
+		"idmap"|"idmapd")
+			idmapd_pid=`pidof rpc.idmapd`
+			kill_process "$idmapd_pid"
+			stop_service idmapd
+			rpc.idmapd $idmapd_opts
+			;;
+		"gss"|"gssd")
+			gssd_pid=`pidof rpc.gssd`
+			kill_process "$gssd_pid"
+			stop_service gssd
+			rpc.gssd $gssd_opts
+			;;
+		"svcgssd")
+			svcgssd_pid=`pidof rpc.svcgssd`
+			kill_process "$svcgssd_pid"
+			rpc.svcgssd $svcgssd_opts
+			;;
+	esac
+
+	return 0
+}
+
+function nfsexports() {
+	local show_used=1
+	local show_active=1
+	
+	# skip the first argument, because its this command
+	shift
+
+	# parse command line arguments
+	while [ $# -ne 0 ]; do        
+		case "$1" in
+		"active") show_active=1; show_used=0; ;;
+		"used") show_active=0; show_used=1; ;;
+		*)
+			;;                                      
+		esac                                    
+		shift                                   
+	done
+	if [ $show_used -ne 0 ]; then
+		echo "Currently used exports:"
+		cat /proc/fs/nfs/exports 
+	fi
+	if [ $show_active -ne 0 ]; then
+		echo "Currently active exports:"
+		"$exportfs" -v
+	fi
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do        
+	case "$1" in          
+	"-?"|"-h"|"--help") usage;; 
+	"-v"|"--verbose") verbose=1 ;;
+	*)                          
+		if [ -z "$action" ]; then
+			action="$1"
+			case "$action" in
+				'remount') nfsremount $@;;
+				'export') nfsexport $@;;
+				'unexport') nfsunexport $@;;
+				'debug') nfsdebug $@;;
+				'exports') nfsexports $@;;
+			esac
+		fi                                  
+	;;                                      
+	esac                                    
+	shift                                   
+done                                            
+
+if [ -z "$action" ]; then
+	echo "No action has been selected."
+	exit 1
+fi

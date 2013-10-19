@@ -1,0 +1,61 @@
+#!/bin/sh -e
+PKG=arsoft-base
+CERTS='arsoft/arsoft_root_ca_1.crt arsoft/arsoft_root_ca_2.crt arsoft/arsoft_root_ca_3.crt fastprotect/fastprotect_root_ca.crt'
+
+if [ "$1" = configure ] ; then
+	dpkg-divert --add --package ${PKG} --rename \
+				--divert /etc/bash.bashrc.distrib /etc/bash.bashrc
+	[ \! -e /etc/bash.bashrc -o -L /etc/bash.bashrc ] && ln -sf /usr/share/arsoft-base/bash/bash.bashrc /etc/bash.bashrc
+	dpkg-divert --add --package ${PKG} --rename \
+				--divert /etc/profile.distrib /etc/profile
+	[ \! -e /etc/profile -o -L /etc/profile ] && ln -sf /usr/share/arsoft-base/profile /etc/profile
+fi
+
+case "$1" in
+	configure|upgrade)
+		# delete old network up/down scripts
+		[ -f /etc/network/if-down.d/00-lo-down ] && rm /etc/network/if-down.d/00-lo-down
+		[ -f /etc/network/if-up.d/zz-lo-up ] && rm /etc/network/if-up.d/zz-lo-up
+		# remove old system info check cron job (use nagios or other monitoring solution
+		# for this instead).
+		[ -f /etc/cron.daily/system-info-check ] && rm /etc/cron.daily/system-info-check
+
+		# remove old/obsolete certificates
+		[ -f /usr/share/ca-certificates/arsoft/arsoft_ca_root.crt ] && rm /usr/share/ca-certificates/arsoft/arsoft_ca_root.crt
+		[ -f /usr/share/ca-certificates/arsoft/arsoft_root_ca.pem ] && rm /usr/share/ca-certificates/arsoft/arsoft_root_ca.pem
+		[ -f /usr/share/ca-certificates/fastprotect/fastprotect_root_ca.pem ] && rm /usr/share/ca-certificates/fastprotect/fastprotect_root_ca.pem
+		[ -f /usr/share/ca-certificates/arsoft/root.crt ] && rm /usr/share/ca-certificates/arsoft/root.crt
+		[ -f /usr/share/ca-certificates/fastprotect/root.crt ] && rm /usr/share/ca-certificates/fastprotect/root.crt
+		# remove any broken links in the /etc/ssl/certs directory (caused by removing files)
+		find /etc/ssl/certs -type l ! -exec test -r {} \; -delete
+		
+		sed -r -e "/!?\/usr\/share\/ca-certificates\/arsoft\/arsoft_ca_root.crt/d" \
+			-e "/!?\/usr\/share\/ca-certificates\/arsoft\/arsoft_root_ca.pem/d" \
+			-e "/!?\/usr\/share\/ca-certificates\/fastprotect\/fastprotect_root_ca.pem/d" \
+			-e "/!?\/usr\/share\/ca-certificates\/arsoft\/root.crt/d" \
+			-e "/!?\/usr\/share\/ca-certificates\/fastprotect\/root.crt/d" \
+			-e "/!?arsoft\/root.crt/d" \
+			-e "/!?fastprotect\/root.crt/d" \
+			-e "/!?fastprotect\/fastprotect_root.crt/d" \
+			-e "/!?arsoft\/arsoft_ca_root.crt/d" \
+			-e "/!?arsoft\/arsoft_root.crt/d" \
+			/etc/ca-certificates.conf > /etc/ca-certificates.conf.dpkg-new
+		for cert in $CERTS; do
+			grep -q "${cert}" /etc/ca-certificates.conf.dpkg-new || echo "${cert}" >> /etc/ca-certificates.conf.dpkg-new
+		done
+		if cmp -s /etc/ca-certificates.conf /etc/ca-certificates.conf.dpkg-new; then
+			rm -f /etc/ca-certificates.conf.dpkg-new
+		else
+			mv -f /etc/ca-certificates.conf /etc/ca-certificates.conf.dpkg-old
+			mv /etc/ca-certificates.conf.dpkg-new /etc/ca-certificates.conf
+		fi
+	
+		# in any case call update-ca-certificates
+		update-ca-certificates
+		
+		;;
+esac
+
+#DEBHELPER#
+
+exit 0

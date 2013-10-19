@@ -1,0 +1,254 @@
+#!/bin/bash
+
+sendmail_bin=`which sendmail`
+sendmail_opts=''
+netcat_bin=`which nc`
+netcat_opts=''
+smtp_port='25'
+smtp_server='localhost'
+maildate=`LANG=C date -R`
+domain=`hostname -d`
+from="$USER@$domain"
+replyto=''
+to=''
+cc=''
+bcc=''
+default_to="postmaster@$domain"
+fqdn=`hostname -f`
+scriptfile=`readlink -f "$0"`
+scriptdir=`dirname "$scriptfile"`
+subject_prefix=`basename "$scriptfile"`
+subject="$subject_prefix: $maildate on $fqdn"
+message=''
+netcat=0
+helo="$fqdn"
+attachments=''
+multipart=0
+html=0
+verbose=0
+debug=0
+
+function usage()
+{
+	echo "postfix-sendmail <params> [msg]"
+	echo "    -h, --help      shows this help screen"
+	echo "    -f, --from      sender address (default: $from)"
+	echo "    -t, --to        receipent address (default: $default_to)"
+	echo "        --cc        add carbon copy receipant address"
+	echo "        --bcc       add blind carbon copy receipant address"
+	echo "    -s, --subject   subject (default: $subject)"
+	echo "    -m, --message   message"
+	echo "    -M, --msgfile   read message from the given file"
+	echo "    --helo          specify the smtp helo (default: $helo)"
+	echo "    --date          specify the message date (default: $maildate)"
+	echo "    --server        specify the mail server (default: $smtp_server)"
+	echo "    --port          specify the mail server port (default: $smtp_port)"
+	echo "    -a, --attach    specify the mail attachment; can be specified multiple times."
+	echo "    --html          send message in HTML."
+	echo "    -n, --netcat    use netcat to send mail (default: $netcat)"
+	echo "    -v,--verbose    verbose output"
+	echo "       --debug      enable debugging; no mail is sent."
+	exit 0
+}
+
+function verbose_exec()
+{
+	[ $verbose -ne 0 ] && echo "$@"
+	"$@"
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"-f"|"--from") from="$2"; shift ;;
+		"-t"|"--to")
+			if [ ! -z "$to" ]; then
+				to="$to ${2//;/ }"
+			else
+				to="${2//;/ }"
+			fi
+			shift ;;
+		'--cc')
+			if [ ! -z "$cc" ]; then
+				cc="$cc ${2//;/ }"
+			else
+				cc="${2//;/ }"
+			fi
+			shift ;;
+		'--bcc')
+			if [ ! -z "$bcc" ]; then
+				bcc="$bcc ${2//;/ }"
+			else
+				bcc="${2//;/ }"
+			fi
+			shift ;;
+		"-s"|"--subject") subject="$2"; shift ;;
+		"-m"|"--message") message="$2"; shift ;;
+		"-M"|"--msgfile") msgfile="$2"; shift ;;
+		"--helo") helo="$2"; shift ;;
+		"--date") 
+			# automatically convert the given date string into RFC 2822 (Internet Message Format)
+			maildate=`date -d "$2" -R 2>/dev/null`
+			if [ $? -ne 0 ]; then
+				echo "given date $2 cannot be converted into RFC 2822 convert date/time string." 1>&2
+				exit 1
+			fi
+			shift 
+			;;
+		"--server") smtp_server="$2"; shift ;;
+		"--port") smtp_port="$2"; shift ;;
+		"-a"|"--attach") attachments="$attachments $2"; shift ;;
+		"-n"|"--netcat") netcat=1; ;;
+		"--html") html=1; ;;
+		"--debug") debug=1; verbose=1; ;;
+		"-v"|"--verbose") verbose=1; sendmail_opts="$sendmail_opts -v";  ;;
+		*)
+			if [ ! -z "$message" ]; then
+				message="$message $1"
+			else
+				message="$1"
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$sendmail_bin" -a "$netcat" -eq 0 ]; then
+	echo "sendmail not available. Please install postfix or sendmail" 1>&2
+	exit 1
+fi
+
+if [ -z "$netcat_bin" -a "$netcat" -ne 0 ]; then
+	echo "netcat not available. Please install netcat" 1>&2
+	exit 1
+fi
+
+if [ ! -z "$attachments" ]; then
+	multipart=1
+fi
+
+[ -z "${to// /}" ] && to="$default_to"
+
+function recipient_line()
+{
+	local first=1
+	echo -n "$1"
+	shift
+	# parse command line arguments
+	while [ $# -ne 0 ]; do
+		[ $first -eq 0 ] && echo -n ";"
+		echo -n "$1"
+		first=0
+		shift
+	done
+	echo
+}
+
+mail_temp=`mktemp /tmp/postfix-sendmail.XXXXXX`
+echo "From: ${from}" >> "$mail_temp"
+recipient_line 'To: ' $to >> "$mail_temp"
+echo "Date: ${maildate}" >> "$mail_temp"
+[ ! -z "${cc// /}" ] && recipient_line 'CC: ' $cc >> "$mail_temp"
+[ ! -z "${bcc// /}" ] && recipient_line 'BCC: ' $bcc >> "$mail_temp"
+[ ! -z "$replyto" ] && echo "Reply-To: ${from}" >> "$mail_temp"
+echo "Subject: ${subject}" >> "$mail_temp"
+
+if [ ! -z "$attachments" ]; then
+	multipart=1
+fi
+
+if [ $html -ne 0 ]; then
+	multipart=1
+fi
+
+if [ $multipart -ne 0 ]; then
+	BOUNDARY=`date +%s|md5sum`
+	BOUNDARY=${BOUNDARY:0:32}
+	echo "Content-Type: multipart/mixed; boundary=\""$BOUNDARY"\"" >> "$mail_temp"
+	echo "" >> "$mail_temp"
+	echo "This is a MIME formatted message.  If you see this text it means that your" >> "$mail_temp"
+	echo "email software does not support MIME formatted messages." >> "$mail_temp"
+	echo "" >> "$mail_temp"
+	echo "--$BOUNDARY" >> "$mail_temp"
+	echo "Content-Transfer-Encoding: 7bit" >> "$mail_temp"
+	echo "Content-Disposition: inline" >> "$mail_temp"
+	if [ $html -eq 0 ]; then
+		echo "Content-Type: text/plain; charset=ISO-8859-1; format=flowed" >> "$mail_temp"
+	else
+		echo "Content-Type: text/html; charset=ISO-8859-1" >> "$mail_temp"
+	fi
+else
+	echo "Content-Type: text/plain; charset=ISO-8859-1; format=flowed" >> "$mail_temp"
+fi
+
+# finalize the message header (even when no message is given)
+echo -e "\n" >> "$mail_temp"
+
+if [ ! -z "$msgfile" -a -f "$msgfile" ]; then
+	cat "$msgfile" >> "$mail_temp"
+	echo -e "\n\n" >> "$mail_temp"
+else
+	if [ ! -z "$message" ]; then
+		echo "$message" >> "$mail_temp"
+	fi
+fi
+
+if [ $multipart -ne 0 ]; then
+	for attach in $attachments; do
+		FILENAME=`basename "$attach"`
+		MIMETYPE=`LANG=C file -b --mime "$attach"`
+		echo "--$BOUNDARY" >> "$mail_temp"
+		echo "Content-Type: $MIMETYPE; name=\"$FILENAME\"" >> "$mail_temp"
+		echo "Content-Transfer-Encoding: base64" >> "$mail_temp"
+		echo "Content-Disposition: attachment; filename=\"$FILENAME\";" >> "$mail_temp"
+		echo "" >> "$mail_temp"
+		base64 "$attach" >> "$mail_temp"
+		echo "" >> "$mail_temp"
+		echo "" >> "$mail_temp"
+	done
+	echo "--$BOUNDARY--" >> "$mail_temp"
+fi
+
+[ $verbose -ne 0 ] && export MAIL_VERBOSE=1
+[ $verbose -ne 0 ] && cat "$mail_temp"
+
+if [ $debug -eq 0 ]; then
+	if [ $netcat -eq 0 ]; then
+		[ $verbose -ne 0 ] && echo "Using sendmail"
+		sendmail_recipients=''
+		for recipient in $to; do
+			sendmail_recipients="$sendmail_recipients \"$recipient\""
+		done
+		if [ -z "$replyto" ]; then
+			sendmail_opts="$sendmail_opts -r \"$from\""
+		else
+			sendmail_opts="$sendmail_opts -r \"$replyto\""
+		fi
+		if [ ! -z "$from" ]; then
+			sendmail_opts="$sendmail_opts -f \"$from\""
+		fi
+		verbose_exec "${sendmail_bin}" ${sendmail_opts} ${sendmail_recipients} < "$mail_temp" 
+	else
+		[ $verbose -ne 0 ] && echo "Using netcat on $smtp_server:$smtp_port"
+		
+		mail_netcat_temp=`mktemp /tmp/postfix-sendmail.XXXXXX`
+		echo -n "HELO $helo"$'\r\n' >> "$mail_netcat_temp"
+		echo -n "MAIL FROM:<$from>"$'\r\n' >> "$mail_netcat_temp"
+		for recipient in $to; do
+			echo -n "RCPT TO:<$recipient>"$'\r\n' >> "$mail_netcat_temp"
+		done
+		echo -n "DATA"$'\r\n\r\n' >> "$mail_netcat_temp"
+		#echo -n "Hello"$'\r\n' >> "$mail_netcat_temp"
+		cat "$mail_temp" | tr '\n' '\r\n' >> "$mail_netcat_temp"
+		echo -n $'\r\n' >> "$mail_netcat_temp"
+		echo -n "."$'\r\n' >> "$mail_netcat_temp"
+		echo -n "QUIT"$'\r\n' >> "$mail_netcat_temp"
+
+		[ $verbose -ne 0 ] && cat "$mail_netcat_temp"
+		cat "$mail_netcat_temp" | "${netcat_bin}" ${netcat_opts} "$smtp_server" "$smtp_port"
+		rm "$mail_netcat_temp"
+	fi
+fi
+
+rm "$mail_temp"

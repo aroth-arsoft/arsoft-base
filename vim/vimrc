@@ -1,0 +1,184 @@
+" Vimrc file for Christian Andersen, http://phuzz.org
+
+set nocompatible    " use vim defaults
+set ls=2            " allways show status line
+set tabstop=4       " numbers of spaces of tab character
+set shiftwidth=4    " numbers of spaces to (auto)indent
+set scrolloff=3     " keep 3 lines when scrolling
+set cindent         " cindent
+set smartindent     " smart indent
+set autoindent      " always set autoindenting on
+set showcmd         " display incomplete commands
+set hlsearch        " highlight searches
+set incsearch       " do incremental searching
+set ruler           " show the cursor position all the time
+set visualbell t_vb=    " turn off error beep/flash
+set novisualbell    " turn off visual bell
+set nobackup        " do not keep a backup file
+"set number          " show line numbers
+set ignorecase      " ignore case when searching 
+"set noignorecase   " don't ignore case
+set notitle           " show title in console title bar
+set ttyfast         " smoother changes
+"set ttyscroll=0        " turn off scrolling, didn't work well with PuTTY
+set modeline        " last lines in document sets vim mode
+set modelines=3     " number lines checked for modelines
+set shortmess=atI   " Abbreviate messages
+set nostartofline   " don't jump to first character when paging
+set whichwrap=b,s,h,l,<,>,[,]   " move freely between files
+"set viminfo='20,<50,s10,h
+
+"set autowrite      " auto saves changes when quitting and swiching buffer
+"set expandtab      " tabs are converted to spaces, use only when required
+"set sm             " show matching braces, somewhat annoying...
+"set nowrap         " don't wrap lines
+
+set bs=2
+set backspace=indent,eol,start
+" * Terminal Settings
+"
+if filereadable($VIMRUNTIME . "/mswin.vim")
+    source $VIMRUNTIME/mswin.vim
+endif
+
+" `XTerm', `RXVT', `Gnome Terminal', and `Konsole' all claim to be "xterm";
+" `KVT' claims to be "xterm-color":
+if &term =~ 'xterm-nouse'
+
+  " `Gnome Terminal' fortunately sets $COLORTERM; it needs <BkSpc> and <Del>
+  " fixing, and it has a bug which causes spurious "c"s to appear, which can be
+  " fixed by unsetting t_RV:
+  if $COLORTERM == 'gnome-terminal'
+    execute 'set t_kb=' . nr2char(8)
+    " [Char 8 is <Ctrl>+H.]
+    fixdel
+    set t_RV=
+
+  " `XTerm', `Konsole', and `KVT' all also need <BkSpc> and <Del> fixing;
+  " there's no easy way of distinguishing these terminals from other things
+  " that claim to be "xterm", but `RXVT' sets $COLORTERM to "rxvt" and these
+  " don't:
+  elseif $COLORTERM == ''
+    execute 'set t_kb=' . nr2char(8)
+    fixdel
+
+  " The above won't work if an `XTerm' or `KVT' is started from within a `Gnome
+  " Terminal' or an `RXVT': the $COLORTERM setting will propagate; it's always
+  " OK with `Konsole' which explicitly sets $COLORTERM to "".
+
+  endif
+endif
+
+" * User Interface
+
+" have syntax highlighting in terminals which can display colours:
+if has('syntax') && (&t_Co > 2)
+  syntax on
+endif
+
+" have command-line completion <Tab> (for filenames, help topics, option names)
+" first list the available options and complete the longest common part, then
+" have further <Tab>s cycle through the possibilities:
+set wildmode=list:longest,full
+
+" when using list, keep tabs at their full width and display `arrows':
+execute 'set listchars+=tab:' . nr2char(187) . nr2char(183)
+" (Character 187 is a right double-chevron, and 183 a mid-dot.)
+
+" have fifty lines of command-line (etc) history:
+set history=50
+
+" horizontal scroll bar
+set guioptions+=b
+set nowrap
+
+" Gadgets Vim
+set wildmenu
+set showcmd             " get some feedback
+set showmode            " show current mode
+set showmatch           " show matching brackets
+set shortmess=aTI       " No "welcome" message - shut up!
+ 
+" * Text Formatting -- Specific File Formats
+
+" enable filetype detection:
+filetype plugin indent on
+filetype on
+
+if has("gui_running")
+    " See ~/.gvimrc
+    set guifont=Monospace\ 10   " use this font 
+    set lines=40        " height = 50 lines
+    set columns=100     " width = 100 columns
+    set background=light    " adapt colors for background
+    set selectmode=mouse,key,cmd
+    set keymodel=
+    behave mswin
+endif
+
+set statusline=%F%m%r%h%w\ [FORMAT=%{&ff}]\ [TYPE=%Y]\ [ASCII=\%03.3b]\ [HEX=\%02.2B]\ [POS=%04l,%04v][%p%%]\ [LEN=%L] 
+
+if has("autocmd")
+
+    " in human-language files, automatically format everything at 72 chars:
+    autocmd FileType mail,human set formatoptions+=t textwidth=72
+
+    " for C-like programming, have automatic indentation:
+    autocmd FileType c,cpp,slang set cindent
+
+    " for actual C (not C++) programming where comments have explicit end
+    " characters, if starting a new line in the middle of a comment automatically
+    " insert the comment leader characters:
+    autocmd FileType c set formatoptions+=ro
+
+    " for Perl programming, have things in braces indenting themselves:
+    autocmd FileType perl set smartindent
+
+    " for CSS, also have things in braces indented:
+    autocmd FileType css set smartindent
+
+    " for HTML, generally format text, but if a long line has been created leave it
+    " alone when editing:
+    autocmd FileType html set formatoptions+=tl
+
+    " for both CSS and HTML, use genuine tab characters for indentation, to make
+    " files a few bytes smaller:
+    autocmd FileType html,css set noexpandtab tabstop=2
+
+    " in makefiles, don't expand tabs to spaces, since actual tab characters are
+    " needed, and have indentation at 8 chars to be sure that all indents are tabs
+    " (despite the mappings later):
+    autocmd FileType make set noexpandtab shiftwidth=8
+    
+    " Restore cursor position
+    " jump to the last position when reopening a file
+    au BufReadPost * if line("'\"") > 1 && line("'\"") <= line("$") | exe "normal! g'\"" | endif    
+
+    " Filetypes (au = autocmd)
+    au FileType helpfile set nonumber       " no line numbers when viewing help
+    au FileType helpfile nnoremap <buffer><cr> <c-]>    " Enter selects subject
+    au FileType helpfile nnoremap <buffer><bs> <c-T>    " Backspace to go back
+
+    " When using mutt, text width=72
+    au FileType mail set textwidth=72
+    au FileType tex set textwidth=72
+    "au BufRead mutt*[0-9] set tw=72
+
+    " Automatically chmod +x Shell and Perl scripts
+    "au BufWritePost   *.sh             !chmod +x %
+    "au BufWritePost   *.pl             !chmod +x %
+
+    " File formats
+    au BufNewFile,BufRead   *.pls   set syntax=dosini
+    au BufNewFile,BufRead   modprobe.conf   set syntax=modconf
+endif
+
+" tab navigation like firefox
+:nmap <C-S-tab> :tabprevious<cr>
+:nmap <C-tab> :tabnext<cr>
+:map <C-S-tab> :tabprevious<cr>
+:map <C-tab> :tabnext<cr>
+:imap <C-S-tab> <ESC>:tabprevious<cr>i
+:imap <C-tab> <ESC>:tabnext<cr>i
+:nmap <C-t> :tabnew<cr>
+:imap <C-t> <ESC>:tabnew<cr> 

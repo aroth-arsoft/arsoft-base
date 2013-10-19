@@ -1,0 +1,187 @@
+#!/bin/bash
+# Build and publish Ubuntu/Debian source packages for several releases
+# without manually editing debian/changelog each time
+#
+# Original written by TJ <ubuntu@tjworld.net> July 2008
+# http://tjworld.net/attachment/wiki/Linux/Ubuntu/Packages/PPAPublishMultipleReleases/ppa_publish
+#
+# Enhancements by <aroth@arsoft-online.com> May 2012
+#  - improved command line parsing
+#  - dput target is now optional, using default from ~/.dput.cf
+#  - check the given releases against the current ubuntu releases
+
+SCRIPTFILE=`readlink -f "$0"`
+SCRIPTNAME=`basename "$SCRIPTFILE"`
+SCRIPTDIR=`dirname "$SCRIPTFILE"`
+DPUT_TARGET=''
+RELEASES=''
+PKG=''
+DEFAULT_RELEASES=`lsb_release -cs`
+VALID_RELEASE='hardy intrepid jaunty lucid karmic maverick natty oneiric precise quantal raring saucy trusty'
+noput=0
+noorig=0
+verbose=0
+
+if [ -f $HOME/.arsoft/ppa_publish.conf ]; then
+	source $HOME/.arsoft/ppa_publish.conf
+fi
+
+function usage() {
+	echo "Usage: $SCRIPTNAME [OPTIONS] [RELEASE]"
+	echo "  Edits the changelog before calling debuild and dput to publish"
+	echo "  the source package to the buildd system for each release"
+	echo "  Run from the package source directory"
+	echo "OPTIONS:"
+	echo "    -h, --help            shows this help"
+	echo "    -v, --verbose         enable verbose output"
+	echo "    --target name         specifies the target for dput"
+	echo "    --noput               do not upload the package"
+	echo "    --noorig              do not upload the original tarball"
+	echo "RELEASE:"
+	for rel in $VALID_RELEASE; do
+		if $(echo $DEFAULT_RELEASES} | grep -q $rel); then
+			echo "        $rel (default)"
+		else
+			echo "        $rel"
+		fi
+	done
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	'-?'|'-h'|'--help') usage;; 
+	'-v'|'--verbose') verbose=1; ;;
+	'--target') DPUT_TARGET="$2"; shift; ;;
+	'--noput') noput=1; ;;
+	'--noorig') noorig=1; ;;
+	'hardy'|'intrepid'|'jaunty'|'lucid'|'karmic'|'maverick'|'natty'|'oneiric'|'precise'|'quantal'|'raring'|'saucy'|'trusty')
+		if [ -z "$RELEASES" ]; then
+			RELEASES="$1"
+		else
+			RELEASES="$RELEASES $1"
+		fi
+		;;
+	*)
+		echo "Unrecognized parameter $1" >&2
+		exit 1
+	;;
+	esac
+	shift
+done
+
+if [ -z "$DPUT_TARGET" ]; then
+	if [ -f "$HOME/.dput.cf" ]; then
+		DPUT_TARGET=`awk -F '=' '/^default_host_main[[:space:]]*=[[:space:]]*.*$/ { gsub(/^[[:space:]]*/,"",$2); print $2 }' "$HOME/.dput.cf"`
+	fi
+fi
+
+if [ -z "$DPUT_TARGET" ]; then
+	echo "No target for dput specified or configured in $HOME/.dput.cf" >&2
+	exit 1
+fi
+
+[ -z "$RELEASES" ] && RELEASES="$DEFAULT_RELEASES"
+
+PKGDIR=`readlink -f '.'`
+pushd "$PKGDIR" >/dev/null
+# Find base of package directory
+while [ ! -f debian/changelog ] && [ ! `pwd` = "/" ]; do cd ..; done
+
+if [ ! -f "debian/changelog" ]; then
+	popd >/dev/null 
+	echo "Cannot find debian directory in $PKGDIR or any of its parent directories." >&2
+	exit 1
+else
+	PKGDIR=`readlink -f '.'`
+fi
+echo "Found package root directory at $PKGDIR"
+
+echo "Publishing $PKG to dput target $DPUT_TARGET"
+
+changelog_original=`mktemp /tmp/ppa_publish.XXXXXX`
+backup_dir=`mktemp -d /tmp/ppa_publish.XXXXXX`
+cp -p "$PKGDIR/debian/changelog" "$changelog_original"
+echo "Backed up $PKGDIR/debian/changelog to $changelog_original"
+original_version_line=`head -n 1 "$changelog_original"`
+original_pkgname=`echo "$original_version_line" | awk '{ print $1; }'`
+original_version=`echo "$original_version_line" | awk '{ print substr($2, 2, length($2) - 2); }'`
+original_release=`echo "$original_version_line" | awk '{ print substr($3, 1, length($3) - 1); }'`
+original_flags=`echo "$original_version_line" | awk '{ print $4; }'`
+echo "Original version: $original_version"
+
+if [[ "$original_version" =~ .*~(hardy|intrepid|jaunty|lucid|karmic|maverick|natty|oneiric|precise|quantal|raring|saucy)[0-9]* ]]; then
+	original_version=`echo "$original_version" | sed -r 's/(.*)~[a-z0-9]+/\1/'`
+	echo "Original version without release: $original_version"
+fi
+
+RELEASE_COUNT=1
+for RELEASE in $RELEASES; do
+	
+	new_version="${original_version}~${RELEASE}${RELEASE_COUNT}"
+	new_version_line="${original_pkgname} (${new_version}) ${RELEASE}; ${original_flags}"
+	echo "Building for $RELEASE ($new_version)"
+	# prepare new changelog with a replaced first line
+	(echo "${new_version_line}"; cat "$changelog_original" | sed '1,1d') > "$PKGDIR/debian/changelog"
+
+	for f in "$PKGDIR/debian"/*; do
+		f_ext="${f##*.}"
+		if [ "$f_ext" == "$RELEASE" ]; then
+			filename=`basename "$f"`
+			f_name="${filename%.*}"
+			dest="$PKGDIR/debian/${f_name}"
+			echo "Copy $f to $dest"
+			[ -f "$dest" ] && mv -f "$dest" "$backup_dir/${f_name}"
+			cp -f "$f" "$backup_dir/$filename"
+			mv "$f" "$dest"
+		elif $(echo $VALID_RELEASE | grep -q $f_ext); then
+			filename=`basename "$f"`
+			dest="$PKGDIR/debian/$filename"
+			echo "Remove $f (which is not for $RELEASE)"
+			mv -f "$f" "$backup_dir/$filename"
+		fi
+	done
+
+	export BUILD_TEST=1
+
+	debuild_log=`mktemp /tmp/ppa_publish.XXXXXX`
+	if [ $noorig -eq 0 ]; then
+		debuild_opts='-sa'
+	else
+		debuild_opts='-sd'
+	fi
+	pushd "$PKGDIR"
+	debuild -i -I -S $debuild_opts 2>&1 | tee "$debuild_log"
+	if [ $noput -eq 0 ]; then
+		CHANGES=`readlink -f "$PKGDIR/../$(sed -n 's/^.*signfile \(.*\.changes\).*$/\1/p' "$debuild_log")"`
+		if [ -f "$CHANGES" ]; then
+			echo -e "\nPublishing to $DPUT_TARGET with $CHANGES"
+			dput "$DPUT_TARGET" "$CHANGES"
+			echo -e "\nRemove all generated files"
+			find "$PKGDIR/.." -maxdepth 1 -type f -name "$(basename $CHANGES _source.changes)*" -print -delete
+		else
+			echo "No changes file found, assume build failed."
+		fi
+	else
+		echo "Do not upload the package"
+	fi
+	rm -rf "$debuild_log"
+
+	for f in "$backup_dir"/*; do
+		if [ -f "$f" ]; then
+			filename=`basename "$f"`
+			dest="$PKGDIR/debian/$filename"
+			echo "Restore $f to $dest"
+			mv -f "$f" "$dest"
+		fi
+	done
+	
+#	cat "$PKGDIR/debian/changelog"
+done
+
+echo "Restore original control and changelog"
+cp -p  "$changelog_original" "$PKGDIR/debian/changelog"
+rm -f "$changelog_original"
+rm -rf "$backup_dir"
+popd >/dev/null

@@ -1,0 +1,5 @@
+#!/bin/sh
+interface=$1
+status=$2
+
+/usr/lib/arsoft-dhcp/dhclient-master-script exit interface "$interface" "$status"

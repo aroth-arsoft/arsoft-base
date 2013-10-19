@@ -1,0 +1,40 @@
+#!/bin/bash
+
+MAILNAME_FILE='/etc/mailname'
+POSTFIX_CONFIG_DIR='/etc/postfix'
+
+postfix_setup() {
+
+	if [ ! -z "$domain_name" ]; then
+		mailname="${host_name}.${domain_name}"
+		maildomain="${domain_name}"
+	else
+		mailname="${host_name}"
+		maildomain=""
+	fi
+
+	old_mailname=`cat "$MAILNAME_FILE"`
+	log_info "old_mailname=$old_mailname"
+	log_info "mailname=$mailname"
+	log_info "maildomain=$maildomain"
+
+	if [ "$old_mailname" != "$mailname" ]; then
+		echo "$mailname" > $MAILNAME_FILE
+		# maybe postfix is not installed
+		[ -x /usr/sbin/postconf ] && /usr/sbin/postconf -c "$POSTFIX_CONFIG_DIR" -e "myhostname=$mailname" "mydomain=$maildomain" && /usr/sbin/service postfix reload || true
+	fi
+}
+
+case $reason in
+	BOUND|RENEW|REBIND|REBOOT)
+		postfix_setup
+		;;
+	EXPIRE|FAIL|RELEASE|STOP)
+		;;
+	# events from network-manager
+	up|vpn-up)
+		postfix_setup
+		;;
+    down|vpn-down|hostname|dhcp4-change|dhcp6-change)
+		;;
+esac

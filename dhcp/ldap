@@ -1,0 +1,410 @@
+#!/bin/bash
+NSSLDAP_CONF='/etc/ldap.conf'
+NSSLDAP_CONF_ORG='/run/ldap.conf'
+OPENLDAP_LDAP_CONF='/etc/ldap/ldap.conf'
+POSTFIX_CONF_ORG_DIR='/run/postfix'
+DEFAULT_LDAP='/etc/default/ldap'
+AUTOFS_LDAP_AUTH_CONF='/etc/autofs_ldap_auth.conf'
+AUTOFS_LDAP_CONF='/etc/default/autofs'
+AUTOFS_LDAP_CONF_ORG='/run/autofs'
+NSLCD_CONF='/etc/nslcd.conf'
+STATE_FILE='/var/lib/dhcp/_ldap_interface'
+
+LDAP_USE_DNS_INFO=1
+LDAP_NSS_LDAP_LOOKUP=1
+[ -f "$DEFAULT_LDAP" ] && source "$DEFAULT_LDAP"
+
+nssldap_conf_update_base() {
+	cat "$NSSLDAP_CONF" | awk "/^ *($1)/ { print \$2 }" | sed -r -e "s@^(([a-zA-Z]+=[a-zA-Z0-9]+,)*)[a-zA-Z]+=[a-zA-Z0-9]+\$@\1$newldap_base@"
+}
+
+nssldap_conf_update() {
+	local newldapserver_uri="$1"
+	local newldap_base="$2"
+	local ldap_start_tls="$3"
+	local ldap_tls_reqcert="$4"
+	
+	# if the /etc/ldap.conf does not exist, a vital package is 
+	# not installed and it's pointless to continue
+	[ ! -f "$NSSLDAP_CONF" ] && return
+
+	if [ ! -z "$newldapserver_uri" ]; then
+		newbase=`nssldap_conf_update_base base`
+		newbinddn=`nssldap_conf_update_base binddn`
+		newrootbinddn=`nssldap_conf_update_base rootbinddn`
+		newnss_base_passwd=`nssldap_conf_update_base nss_base_passwd`
+		newnss_base_shadow=`nssldap_conf_update_base nss_base_shadow`
+		newnss_base_group=`nssldap_conf_update_base nss_base_group`
+		newnss_base_hosts=`nssldap_conf_update_base nss_base_hosts`
+		newnss_base_services=`nssldap_conf_update_base nss_base_services`
+		newnss_base_networks=`nssldap_conf_update_base nss_base_networks`
+		newnss_base_protocols=`nssldap_conf_update_base nss_base_protocols`
+		newnss_base_rpc=`nssldap_conf_update_base nss_base_rpc`
+		newnss_base_ethers=`nssldap_conf_update_base nss_base_ethers`
+		newnss_base_netmasks=`nssldap_conf_update_base nss_base_netmasks`
+		newnss_base_bootparams=`nssldap_conf_update_base nss_base_bootparams`
+		newnss_base_aliases=`nssldap_conf_update_base nss_base_aliases`
+		newnss_base_netgroup=`nssldap_conf_update_base nss_base_netgroup`
+		newsudoers_base=`nssldap_conf_update_base sudoers_base`
+		
+		cp -a "$NSSLDAP_CONF" "$NSSLDAP_CONF_ORG" || return
+		tmp=$(mktemp "$NSSLDAP_CONF.XXXXXX") || return
+		chmod --reference=$NSSLDAP_CONF $tmp
+		chown --reference=$NSSLDAP_CONF $tmp
+		(
+			sed -r -e "s@^ *(uri).*\$@uri $newldapserver_uri@" \
+					-e "s@^ *(base).*\$@base $newbase@" \
+					-e "s@^ *(binddn).*\$@binddn $newbinddn@" \
+					-e "s@^ *(ssl).*\$@ssl $ldap_start_tls@" \
+					-e "s@^ *(tls_checkpeer).*\$@tls_checkpeer $ldap_tls_reqcert@" \
+					-e "s@^ *(rootbinddn).*\$@rootbinddn $newrootbinddn@" \
+					-e "s@^ *(nss_base_passwd).*\$@nss_base_passwd $newnss_base_passwd@" \
+					-e "s@^ *(nss_base_shadow).*\$@nss_base_shadow $newnss_base_shadow@" \
+					-e "s@^ *(nss_base_group).*\$@nss_base_group $newnss_base_group@" \
+					-e "s@^ *(nss_base_hosts).*\$@nss_base_hosts $newnss_base_hosts@" \
+					-e "s@^ *(nss_base_services).*\$@nss_base_services $newnss_base_services@" \
+					-e "s@^ *(nss_base_networks).*\$@nss_base_networks $newnss_base_networks@" \
+					-e "s@^ *(nss_base_protocols).*\$@nss_base_protocols $newnss_base_protocols@" \
+					-e "s@^ *(nss_base_rpc).*\$@nss_base_rpc $newnss_base_rpc@" \
+					-e "s@^ *(nss_base_ethers).*\$@nss_base_ethers $newnss_base_ethers@" \
+					-e "s@^ *(nss_base_netmasks).*\$@nss_base_netmasks $newnss_base_netmasks@" \
+					-e "s@^ *(nss_base_bootparams).*\$@nss_base_bootparams $newnss_base_bootparams@" \
+					-e "s@^ *(nss_base_aliases).*\$@nss_base_aliases $newnss_base_aliases@" \
+					-e "s@^ *(nss_base_netgroup).*\$@nss_base_netgroup $newnss_base_netgroup@" \
+					-e "s@^ *(sudoers_base).*\$@sudoers_base $newsudoers_base@" \
+				"$NSSLDAP_CONF"
+		) >>$tmp
+		if [ $? -eq 0 ]; then
+			mv "$tmp" "$NSSLDAP_CONF"
+		fi
+		
+		if [ "$ldap_start_tls" == 'start_tls' -a "$ldap_tls_reqcert" == 'yes' ]; then
+			openldap_tls_reqcert='demand'
+		else
+			openldap_tls_reqcert='never'
+		fi
+		tmp=$(mktemp "$OPENLDAP_LDAP_CONF.XXXXXX") || return
+		chmod --reference=$OPENLDAP_LDAP_CONF $tmp
+		chown --reference=$OPENLDAP_LDAP_CONF $tmp
+		(
+			sed -r -e "s@^ *(URI).*\$@URI $newldapserver_uri@" \
+					-e "s@^ *(BASE).*\$@BASE $newldap_base@" \
+					-e "s@^ *(TLS_REQCERT).*\$@TLS_REQCERT $openldap_tls_reqcert@" \
+					-e "s@^ *(SUDOERS_BASE).*\$@SUDOERS_BASE $newsudoers_base@" \
+				"$OPENLDAP_LDAP_CONF"
+		) >>$tmp
+		if [ $? -eq 0 ]; then
+			mv "$tmp" "$OPENLDAP_LDAP_CONF"
+		fi
+
+		enable_nss_ldap=$LDAP_NSS_LDAP_LOOKUP
+	else
+		enable_nss_ldap=0
+	fi
+
+	# nsswitch-ldap automatically restarts the NSCD when
+	# any changes are necessary
+	if [ $enable_nss_ldap -ne 0 ]; then
+		/usr/sbin/nsswitch-ldap enable
+	else
+		/usr/sbin/nsswitch-ldap disable
+	fi
+}
+
+nslcd_conf_update() {
+	local newldapserver_uri="$1"
+	local newldap_base="$2"
+	local ldap_start_tls="$3"
+	local ldap_tls_reqcert="$4"
+	
+	# if the /etc/nslcd.conf does not exist, a vital package is 
+	# not installed and it's pointless to continue
+	[ ! -f "$NSLCD_CONF" ] && return
+
+	/usr/bin/ini-util \
+		--style=cmd \
+		--edit="base=$newldap_base" \
+		--edit="uri=$newldapserver_uri" \
+		--edit="timelimit=30" \
+		/etc/nslcd.conf
+		
+	if [ $? -eq 0 ]; then
+		enable_nss_ldap=$LDAP_NSS_LDAP_LOOKUP
+		# nslcd is required and to reload the configuration restart it.
+		/usr/sbin/service nslcd restart
+	else
+		enable_nss_ldap=0
+		# nslcd is not required, since LDAP lookup has been disabled
+		/usr/sbin/service nslcd stop
+	fi
+
+	# nsswitch-ldap automatically restarts the NSCD when
+	# any changes are necessary
+	if [ $enable_nss_ldap -ne 0 ]; then
+		/usr/sbin/nsswitch-ldap enable
+	else
+		/usr/sbin/nsswitch-ldap disable
+	fi
+}
+
+postfix_ldap_conf_update() {
+	local cf_file="$1"
+	local ldap_uri="$2"
+	local ldap_base="$3"
+	local ldap_start_tls="$4"
+	local ldap_tls_reqcert="$5"
+	
+	log_info "postfix_ldap_conf_update $cf_file $ldap_uri $ldap_base $ldap_start_tls $ldap_tls_reqcert"
+	newsearch_base=`awk -F '= ' "/^[[:space:]]*(search_base)[[:space:]]*=[[:space:]]*.*\$/ { print \\\$2 }" "$cf_file" | sed -r -e "s@^(([a-zA-Z]+=[a-zA-Z0-9]+,)*)[a-zA-Z]+=[a-zA-Z0-9]+\\\$@\\1$ldap_base@"`
+	
+	if [ ! -d "$POSTFIX_CONF_ORG_DIR" ]; then
+		mkdir -p "$POSTFIX_CONF_ORG_DIR" || return
+	fi
+	cp -a "$cf_file" "$POSTFIX_CONF_ORG_DIR" || return
+	tmp=$(mktemp "$cf_file.XXXXXX") || return
+	chmod --reference=$cf_file $tmp
+	chown --reference=$cf_file $tmp
+	(
+		sed -r -e "s@^\s*(server_host)\s*=\s*.*\$@server_host = $ldap_uri@" \
+				-e "s@^\s*(search_base)\s*=\s*.*\$@search_base = $newsearch_base@" \
+				-e "s@^\s*(start_tls)\s*=\s*.*\$@start_tls = $ldap_start_tls@" \
+				-e "s@^\s*(tls_require_cert)\s*=\s*.*\$@tls_require_cert = $ldap_tls_reqcert@" \
+			"$cf_file"
+	) >>$tmp
+	if [ $? -eq 0 ]; then
+		if ! /usr/bin/diff -q "$tmp" "$cf_file" > /dev/null; then
+			mv "$tmp" "$cf_file"
+			# tell the caller to reload postfix
+			false
+		else
+			# remove temp file because we no longer need it
+			rm "$tmp"
+			true
+		fi
+	else
+		true
+	fi
+}
+
+postfix_ldap_conf() {
+	local ldap_uri="$1"
+	local ldap_base="$2"
+	local ldap_start_tls="$3"
+	local ldap_tls_reqcert="$4"
+	local postfix_reload=0
+	
+	# bail out when postfix is not installed
+	[ ! -d /etc/postfix ] && return
+
+    # map start_tls value to yes so postfix does understand us.
+    [ "$ldap_start_tls" == 'start_tls' ] && ldap_start_tls='yes'
+
+	# update all /etc/postfix/ldap-*.cf files
+	for cf_file in /etc/postfix/ldap-*.cf; do
+		map_name=`basename "$cf_file" | sed -r -e 's@ldap-([a-z_]+)\.cf@\1@'`
+		if [ "$map_name" == 'aliases' ]; then
+			parameter='alias_maps'
+			map_file='hash:/etc/aliases'
+		else
+			parameter="${map_name}_maps"
+			map_file="hash:/etc/postfix/${map_name}"
+		fi
+		map_value=`/usr/sbin/postconf -h "$parameter"`
+		
+		if [ ! -z "$ldap_uri" ]; then
+			postfix_ldap_conf_update "$cf_file" "$ldap_uri" "$ldap_base" "$ldap_start_tls" "$ldap_tls_reqcert"
+			[ $? -ne 0 ] && postfix_reload=1
+			
+			new_map_value="${map_file},ldap:/etc/postfix/ldap-${map_name}.cf"
+		else
+			new_map_value="${map_file}"
+		fi
+		if [ "$map_value" != "$new_map_value" ]; then
+			verbose_exec /usr/sbin/postconf -e "$parameter=$new_map_value"
+			postfix_reload=1
+		fi
+	done
+
+	[ $postfix_reload -ne 0 ] && /usr/sbin/service postfix reload || true
+}
+
+autofs_conf_update_base() {
+	local key="$1"
+	local newbase="$2"
+	awk "/^ *($key)\=/ { split(\$1, a, \"\\\"\"); print a[2]; }" "$AUTOFS_LDAP_CONF" | sed -r -e "s@^(([a-zA-Z]+=[a-zA-Z0-9]+,)*)([a-zA-Z]+=[a-zA-Z0-9]+)?\$@\1$newbase@"
+}
+
+autofs_conf_update() {
+	local ldap_uri="$1"
+	local ldap_search_base="$2"
+	local ldap_start_tls="$3"
+	local ldap_tls_reqcert="$4"
+	
+	local autofs_usetls=''
+	local autofs_tlsrequired=''
+	local autofs_authrequired=''
+	local autofs_reload=0
+	
+	cp -a "$AUTOFS_LDAP_CONF" "$AUTOFS_LDAP_CONF_ORG" || return
+	tmp=$(mktemp "$AUTOFS_LDAP_CONF.XXXXXX") || return
+	chmod --reference=$AUTOFS_LDAP_CONF $tmp
+	chown --reference=$AUTOFS_LDAP_CONF $tmp
+	if [ ! -z "$ldap_uri" ]; then
+		(
+			sed -r -e "s@^[ #]*LDAP_URI=(.*)\$@LDAP_URI=\"$ldap_uri\"@" \
+				-e "s@^ *MASTER_MAP_NAME=.*\$@MASTER_MAP_NAME=\"auto.master\"@" \
+				-e "s@^ *SEARCH_BASE=.*\$@SEARCH_BASE=\"$ldap_search_base\"@" \
+				"$AUTOFS_LDAP_CONF"
+		) >>$tmp
+		RES=$?
+	else
+		(
+			sed -r -e "s@^[ #]*LDAP_URI=(.*)\$@#LDAP_URI=\1@" \
+				-e "s@^ *MASTER_MAP_NAME=.*\$@MASTER_MAP_NAME=\"/etc/auto.master\"@" \
+				"$AUTOFS_LDAP_CONF"
+		) >>$tmp
+		RES=$?
+	fi
+	if [ $RES -eq 0 ]; then
+		if ! /usr/bin/diff -q "$tmp" "$AUTOFS_LDAP_CONF" > /dev/null; then
+			mv "$tmp" "$AUTOFS_LDAP_CONF"
+			autofs_reload=1
+		else
+			rm -f "$tmp"
+		fi
+		# always reload the autofs when the interface becomes
+		# available
+		[ "$ldap_start_tls" == 'start_tls' ] && autofs_usetls='yes' || autofs_usetls='no'
+		[ "$ldap_start_tls" == 'start_tls' ] && autofs_tlsrequired='yes' || autofs_tlsrequired='no'
+		autofs_authrequired='no'
+
+		msg=`$scriptdir/autofs-ldap-auth --usetls "$autofs_usetls" --tlsrequired "$autofs_tlsrequired" --authrequired "$autofs_authrequired"`
+		echo "$msg"
+		RES=$?
+		if [ $RES -eq 0 ]; then
+			# no changes at all
+			true
+		elif [ $RES -eq 1 ]; then
+			# config has been changed; reload required
+			autofs_reload=1
+			true
+		else
+			# error occured
+			false
+		fi
+		autofs_reload=1
+	else
+		rm -f "$tmp"
+		log_warn "failed to modify $AUTOFS_LDAP_CONF"
+	fi
+
+#	date -R > /tmp/autofs
+#	/sbin/restart autofs >> /tmp/autofs
+	[ $autofs_reload -ne 0 ] && /usr/sbin/service autofs restart || true
+}
+
+ldap_update_conf() {
+	local newldap_host=''
+	local newldap_uri=''
+	local newldap_base=''
+	local newldap_start_tls=''
+	local newldap_tls_require_cert=''
+	local newautofs_search_base=''
+	if [ ! -z "$domain_name" ]; then
+		local srv_record=`LANG=C /usr/bin/host -t SRV "_ldap._tcp.$domain_name."`
+		if [ $? -eq 0 ]; then
+			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
+			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
+			newldap_host="${srv_name%\.}"
+			if [ "$srv_port" != "389" ]; then
+				newldap_uri="ldap://${newldap_host}:${srv_port}"
+			else
+				newldap_uri="ldap://${newldap_host}"
+			fi
+		fi
+
+		newldap_base=`get_dns_txt_record "_base._ldap._config.$domain_name."`
+		[ -z "$newldap_base" -a -r "$OPENLDAP_LDAP_CONF" ] && newldap_base=`awk '/^ *(BASE)/ { print $2 }' "$OPENLDAP_LDAP_CONF"`
+
+		[ -r "$NSSLDAP_CONF" ] && oldldap_tls_require_cert=`awk '/^ *(TLS_REQCERT)/ { print $2 }' "$NSSLDAP_CONF"` || oldldap_tls_require_cert=''
+		# set a sensable default
+		[ -z "$oldldap_tls_require_cert" ] && oldldap_tls_require_cert='no'
+		
+		[ -r "$NSSLDAP_CONF" ] && oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSSLDAP_CONF"` || oldldap_start_tls=''
+		# set a sensable default
+		[ -z "$oldldap_start_tls" ] && oldldap_start_tls='no'
+
+		newldap_start_tls=`get_dns_txt_record "_start_tls._ldap._config.$domain_name."`
+		[ -z "$newldap_start_tls" ] && newldap_start_tls="$oldldap_start_tls"
+
+		newldap_tls_require_cert=`get_dns_txt_record "_tls_reqcert._ldap._config.$domain_name."`
+		[ -z "$newldap_tls_require_cert" ] && newldap_tls_require_cert="$oldldap_tls_require_cert"
+
+		newautofs_search_base=`get_dns_txt_record "_search_base._autofs._config.$domain_name."`
+		[ -z "$newautofs_search_base" ] && newautofs_search_base="$newldap_base"
+		
+		log_info "newautofs_search_base=$newautofs_search_base"
+		newautofs_search_base=`autofs_conf_update_base SEARCH_BASE "$newautofs_search_base"`
+	fi
+	
+	if [ ! -z "$newldap_host" ]; then
+		if is_interface_for_host "$newldap_host"; then
+
+			log_info "newldap_uri=$newldap_uri"
+			log_info "newldap_base=$newldap_base"
+			log_info "newldap_start_tls=$newldap_start_tls"
+			log_info "newldap_tls_require_cert=$newldap_tls_require_cert"
+			log_info "newautofs_search_base=$newautofs_search_base"
+
+			cat > "$STATE_FILE" <<STATE_FILE_EOF
+interface=$interface
+ldap_uri=$newldap_uri
+ldap_base=$newldap_base
+ldap_start_tls=$newldap_start_tls
+ldap_tls_require_cert=$newldap_tls_require_cert
+autofs_search_base=$newautofs_search_base
+STATE_FILE_EOF
+
+			nssldap_conf_update "$newldap_uri" "$newldap_base" "$newldap_start_tls" "$newldap_tls_require_cert"
+			nslcd_conf_update "$newldap_uri" "$newldap_base" "$newldap_start_tls" "$newldap_tls_require_cert"
+			postfix_ldap_conf "$newldap_uri" "$newldap_base" "$newldap_start_tls" "$newldap_tls_require_cert"
+			autofs_conf_update "$newldap_uri" "$newautofs_search_base" "$newldap_start_tls" "$newldap_tls_require_cert"
+		fi
+	fi
+}
+
+ldap_release_conf() {
+
+	# if state file does not exist bail out
+	[ ! -r "$STATE_FILE" ] && return
+	
+	ldap_interface=`awk -F '=' '/interface/ { print $2 }' "$STATE_FILE"`
+	if [ "$interface" == "$ldap_interface" ]; then
+		# got release on the interface on which we got the LDAP information
+		# so disable the entire LDAP
+		nssldap_conf_update "" "" "no" "no"
+		nslcd_conf_update "" "" "no" "no"
+		postfix_ldap_conf "" "" "no" "no"
+		autofs_conf_update "" "" "no" "no"
+
+		rm "$STATE_FILE" || true
+	fi
+}
+
+case $reason in
+	BOUND|RENEW|REBIND|REBOOT)
+		[ $LDAP_USE_DNS_INFO -ne 0 ] && ldap_update_conf
+		;;
+	EXPIRE|FAIL|RELEASE|STOP)
+		ldap_release_conf
+		;;
+	# events from network-manager
+	up|vpn-up)
+		[ $LDAP_USE_DNS_INFO -ne 0 ] && ldap_update_conf
+		;;
+    down|vpn-down)
+		ldap_release_conf
+		;;
+    hostname|dhcp4-change|dhcp6-change)
+        ;;
+esac

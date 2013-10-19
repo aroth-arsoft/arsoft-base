@@ -1,0 +1,24 @@
+#!/bin/bash
+
+function usage() {
+	echo "usage: apt-purge-removed"
+	echo "Purges all remove packages from the system."
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	'-?'|'-h'|'--help') usage;; 
+	*)
+		echo "Unrecognized parameter $1"
+		exit 1
+	;;
+	esac
+	shift
+done
+
+pkgs=`dpkg -l | awk -F ' ' '/^rc/ { print $2 }'`
+if [ ! -z "$pkgs" ]; then
+	echo "$pkgs" | xargs dpkg --purge
+fi

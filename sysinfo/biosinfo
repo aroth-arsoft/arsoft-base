@@ -1,0 +1,23 @@
+#!/bin/sh
+dmiinfo=`LANG=C dmidecode 2>/dev/null`
+RES=$?
+if [ $RES -ne 0 ]; then
+	echo "Failed to retrieve DMI information (error $RES)."
+elif [ -z "$dmiinfo" ]; then
+	echo "No DMI information available."
+else
+	boardinfo=`echo "$dmiinfo" | awk ' /Base Board Information/ {flag=1;print $0; next} /^[A-Z]/{flag=0} flag { print }'`
+	biosinfo=`echo "$dmiinfo" | awk ' /BIOS Information/ {flag=1;print $0; next} /^[A-Z]/{flag=0} flag { print }'`
+
+	board_manufacturer=`echo "$boardinfo" | awk -F ':' '/[[:space:]]+Manufacturer/ { gsub(/^[[:space:]]*/,"",$2); print $2 }'`
+	board_productname=`echo "$boardinfo" | awk -F ':' '/[[:space:]]+Product Name/ { gsub(/^[[:space:]]*/,"",$2); print $2 }'`
+
+	bios_vendor=`echo "$biosinfo" | awk -F ':' '/[[:space:]]+Vendor/ { gsub(/^[[:space:]]*/,"",$2); print $2 }'`
+	bios_version=`echo "$biosinfo" | awk -F ':' '/[[:space:]]+Version/ { gsub(/^[[:space:]]*/,"",$2); print $2 }'`
+	bios_releasedate=`echo "$biosinfo" | awk -F ':' '/[[:space:]]+Release Date/ { gsub(/^[[:space:]]*/,"",$2); print $2 }'`
+
+	echo "Manufacturer: $board_manufacturer"
+	echo "Product name: $board_productname"
+	echo "BIOS vendor: $bios_vendor"
+	echo "BIOS version: $bios_version ($bios_releasedate)"
+fi

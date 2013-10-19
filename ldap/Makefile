@@ -1,0 +1,14 @@
+LDAP_SBIN_SCRIPTS := schema2ldif \
+		slapd-clean-db \
+		slapd-online-config \
+		slapd-backup \
+		slapd-debug
+
+.PHONY: all
+
+all:
+
+clean:
+
+install:
+	install -m 0755 -o root -g root ${LDAP_SBIN_SCRIPTS} $(DESTDIR)/usr/sbin

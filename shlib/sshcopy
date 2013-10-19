@@ -1,0 +1,29 @@
+#!/bin/bash
+
+REMOTEUSER='fast-srv01'
+REMOTEMACHINE='ossrv.arsoft.homeip.net'
+REMOTEDIR='/local/developer/fast-srv01'
+REMOTEID='/root/id_backup_at_fast-srv01_fastprotect_net'
+REMOTE_MAX_DAYS='+8'
+
+function putremote() {
+    FILE="$1"
+	TARGET="${REMOTEUSER}@${REMOTEMACHINE}:${REMOTEDIR}"
+    echo -n "Copy $FILE to $TARGET"
+
+    scp -q -i "$REMOTEID" "$FILE" "$TARGET"
+    RES=$?
+    if [ $RES -eq 0 ]; then
+        echo "[done]"
+    else
+        echo "[failed]"
+    fi
+    return $RES
+}
+
+function remove_oldest() {
+	PATTERN="$1"
+	REMOTECMDLINE="find \"$REMOTEDIR\" -name \"$PATTERN\" -type f -mtime $REMOTE_MAX_DAYS -exec rm {} \;"
+	ssh -i "$REMOTEID" "${REMOTEUSER}@${REMOTEMACHINE}" "$REMOTECMDLINE"
+}
+

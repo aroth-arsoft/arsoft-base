@@ -1,0 +1,625 @@
+#!/bin/bash
+verbose=0
+files=''
+outdir=''
+certificates=''
+force_notify=0
+override_mailnotify=''
+sendmail_active=0
+CONFIG_DIR='/etc/openvpn'
+
+function usage()
+{
+	echo "openvpn-zip-config [OPTIONS] <files>"
+	echo "    -h, --help        shows this help screen"
+	echo "    -v,--verbose      verbose output"
+	echo "    -o, --outdir      name of the output directory"
+	echo "    -b, --basedir     name of the base directory (default: outfiledir)"
+	echo "    --configdir       name of the openvpn config directory (default: $CONFIG_DIR)"
+	echo "    --notify <addr>   force to send mail notification to given recipient"
+	exit 0
+}
+
+function verbose_exec()
+{
+	[ $verbose -ne 0 ] && echo "$@"
+	"$@"
+}
+
+function get_config_name()
+{
+	local config_file="$1"
+	local config_dir="$2"
+	local fallback_name
+	
+	# check if a config_file is given; its empty when the server
+	# client zip configs should be prepared.
+	if [ -z "$config_file" ]; then
+		local more_than_one_config_file=0
+		if [ -d "$config_dir" ]; then
+			fallback_name=`basename "$config_dir"`
+			for f in "$config_dir"/*.conf "$config_dir"/*.ovpn; do
+				if [ -f "$f" ]; then
+					[ -z "$config_file" ] && config_file="$f" || more_than_one_config_file=1
+				fi
+			done
+			if [ $more_than_one_config_file -ne 0 ]; then
+				return 1
+			fi
+		else
+			fallback_name=`basename "${config_file%.*}"`
+		fi
+	else
+		fallback_name=`basename "${config_file%.*}"`
+	fi
+	local name=''
+	if [ -f "$config_file" ]; then
+		name=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$config_file"`
+		[ ! -z "$name" ] && name=`basename "${name%.*}"`
+	fi
+	[ -z "$name" ] && echo -n "$fallback_name" || echo -n "$name"
+	return 0
+}
+
+function get_config_ostype()
+{
+	local config_file="$1"
+	local config_dir="$2"
+	local fallback_ostype
+	
+	# check if a config_file is given; its empty when the server
+	# client zip configs should be prepared.
+	if [ -z "$config_file" ]; then
+		local more_than_one_config_file=0
+		for f in "$config_dir"/*.conf "$config_dir"/*.ovpn; do
+			if [ -f "$f" ]; then
+				[ -z "$config_file" ] && config_file="$f" || more_than_one_config_file=1
+			fi
+		done
+		if [ $more_than_one_config_file -eq 0 ]; then
+			config_file_ext="${config_file##*.}"
+			case "$config_file_ext" in
+				'conf') fallback_ostype='linux' ;;
+				'ovpn') fallback_ostype='win' ;;
+			esac
+		else
+			return 1
+		fi
+	else
+		local config_file_ext="${config_file##*.}"
+		case "$config_file_ext" in
+			'conf') fallback_ostype='linux' ;;
+			'ovpn') fallback_ostype='win' ;;
+		esac
+	fi
+	local ostype=`awk '/^#[ ]*(ostype)[ ]+.*$/ { print $3; }' "$config_file"`
+	
+	[ -z "$ostype" ] && ostype="$fallback_ostype"
+	echo -n "$ostype"
+	return 0
+}
+
+function zip_config()
+{
+	local config_type="$1"
+	local config_file="$2"
+	local config_dir="$3"
+	local outfile="$4"
+
+	local name=`get_config_name "$config_file" "$config_dir"`
+	local ostype=`get_config_ostype "$config_file" "$config_dir"`
+
+	[ $verbose -ne 0 ] && echo "compress $name ($ostype, $config_file, $config_dir/*) to $outfile"
+
+	local num_errors=0
+	local RES
+	local zipdir=`mktemp -d /tmp/openvpn_zip.XXXXXX`
+	case "$ostype" in
+		'linux')
+			verbose_exec cp -p "$config_file" "$zipdir/$name.conf"
+			verbose_exec mkdir "$zipdir/$name"
+			local pem_files=`ls -1 "$config_dir"/*.{crt,pem} 2>/dev/null`
+			for f in $pem_files; do
+				if [ -r "$f" ]; then
+					verbose_exec cp -p "$f" "$zipdir/$name"
+				else
+					echo "Cannot read $f"
+					(( num_errors++ ))
+				fi
+			done
+			;;
+		'win'|'android'|'windows')
+			verbose_exec cp -p "$config_file" "$zipdir/$name.ovpn"
+			local pem_files=`ls -1 "$config_dir"/*.{crt,pem} 2>/dev/null`
+			for f in $pem_files; do
+				if [ -r "$f" ]; then
+					verbose_exec cp -p "$f" "$zipdir"
+				else
+					echo "Cannot read $f" >&2
+					(( num_errors++ ))
+				fi
+			done
+			;;
+		'macosx')
+			verbose_exec cp -p "$config_file" "$zipdir/$name.conf"
+			local pem_files=`ls -1 "$config_dir"/*.{crt,pem} 2>/dev/null`
+			for f in $pem_files; do
+				if [ -r "$f" ]; then
+					verbose_exec cp -p "$f" "$zipdir"
+				else
+					echo "Cannot read $f" >&2
+					(( num_errors++ ))
+				fi
+			done
+			;;
+		*)
+			echo "unhandled ostype $ostype" >&2
+			;;
+	esac
+
+	case "$config_type" in
+		'client')
+			;;
+		'server')
+			[ -d "$config_dir/ccd" ] && mkdir "$zipdir/$name/ccd" && cp -p "$config_dir/ccd"/* "$zipdir/$name/ccd"
+			;;
+	esac
+
+	[ -f "$config_dir/auth_pass_file" ] && cp -p "$config_dir/auth_pass_file" "$zipdir/auth_pass_file"
+
+	[ $verbose -ne 0 ] && echo "use base directory $zipdir"
+	[ $verbose -ne 0 ] && ls -la "$zipdir"
+
+	# check if the target/output file already exists
+	if [ -f "$outfile" ]; then
+		# ... and compare with the new zip content for changes
+		local oldzipdir=`mktemp -d /tmp/openvpn_zip.XXXXXX`
+		local unzipmsg
+		unzipmsg=`/usr/bin/unzip -q "$outfile" -d "$oldzipdir" 2>&1`
+		RES=$?
+		if [ $RES -eq 0 ]; then
+			[ $verbose -ne 0 ] && echo "unzipped $outfile to $oldzipdir"
+			local diffmsg
+			diffmsg=`diff -urN "$oldzipdir" "$zipdir"`
+			RES=$?
+			#echo "RES=$RES $? diffmsg=$diffmsg"
+			[ $RES -eq 0 ] && zip_changed=0 || zip_changed=1
+			[ $verbose -ne 0 ] && echo "diff result $oldzipdir vs $zipdir $zip_changed"
+			rm -rf "$oldzipdir"
+		else
+			[ $verbose -ne 0 ] && echo "WARNING: Failed to unzip $outfile to $oldzipdir"
+			zip_changed=1
+		fi
+	else
+		zip_changed=1
+	fi
+
+	if [ $zip_changed -ne 0 ]; then
+		# goto the temp directory to create the relative path inside the zip
+		pushd "$zipdir" > /dev/null
+		[ $verbose -ne 0 ] && echo /usr/bin/zip -r "$outfile" . -i \*
+		# TODO: need to pass --encrypt
+		local msg
+		msg=`/usr/bin/zip -q -r "$outfile" . -i \* 2>&1`
+		RES=$?
+		popd > /dev/null
+
+		# secure the outfile
+		[ -e "$outfile" ] && chmod 0600 "$outfile"
+		if [ $RES -ne 0 ]; then
+			[ -e "$outfile" ] && rm "$outfile"
+			echo "Failed to ZIP from $zipdir into $outfile: $msg" >&2
+		fi
+	else
+		# no need to re-create the sme zip file again
+		true
+	fi
+
+	rm -rf "$zipdir"
+	return $num_errors
+}
+
+function generate_client_config()
+{
+	local name="$1"
+	local config_file="$2"
+	local config_dir="$3"
+	local outdir="$4"
+
+	local client_zip_basename="$outdir/$(basename "$config_dir")"
+
+	local puplic_address=`awk '/^#[ ]*(public-address)[ ]+.*$/ { print $3; }' "$config_file"`
+	local puplic_port=`awk '/^#[ ]*(public-port)[ ]+.*$/ { print $3; }' "$config_file"`
+	local proto=`awk '/^(proto)[ ]+.*$/ { print $2; }' "$config_file"`
+	local cipher=`awk '/^(cipher)[ ]+.*$/ { print $2; }' "$config_file"`
+	local keepalive_ping=`awk '/^(keepalive)[ ]+.*$/ { print $2; }' "$config_file"`
+	local keepalive_pingrestart=`awk '/^(keepalive)[ ]+.*$/ { print $3; }' "$config_file"`
+	local server_ca=`awk '/^(ca)[ ]+.*$/ { print $2; }' "$config_file"`
+	local server_dh=`awk '/^(dh)[ ]+.*$/ { print $2; }' "$config_file"`
+	local server_crl=`awk '/^(crl-verify)[ ]+.*$/ { print $2; }' "$config_file"`
+	local server_ccddir=`awk '/^(client-config-dir)[ ]+.*$/ { print $2; }' "$config_file"`
+	local server_plugins=`awk '/^(plugin)[ ]+.*$/ { print $2; }' "$config_file"`
+	
+	local server_userauth=0
+	for server_plugin in $server_plugins; do
+		server_plugin_name=`basename "$server_plugin"`
+		case "$server_plugin_name" in
+			'openvpn-auth-pam.so')
+				server_userauth=1
+				;;
+		esac
+	done
+
+	[ $verbose -ne 0 ] && echo "Server CA: $server_ca"
+	[ $verbose -ne 0 ] && echo "Server DH: $server_dh"
+	[ $verbose -ne 0 ] && echo "Server CRL: $server_crl"
+	[ $verbose -ne 0 ] && echo "Server CCD: $server_ccddir"
+
+	if [ ! -d "$server_ccddir" ]; then
+		echo "client config directory $server_ccddir does not exist" >&2
+		return 1
+	fi
+	
+	local ccdfile
+
+	for ccdfile in "$server_ccddir"/*; do
+		local clientcommonname=`basename "$ccdfile"`
+		local clientname=`awk '/^#[ ]*(name)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local clientostype=`awk '/^#[ ]*(ostype)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local clientcert=`awk '/^#[ ]*(certfile)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local clientkey=`awk '/^#[ ]*(keyfile)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		local mailnotify=`awk '/^#[ ]*(mailnotify)[ ]+.*$/ { print $3; }' "$ccdfile" | tr '\n' ';'`
+		local iroutes=`awk '/^(iroute)[ ]+.*$/ { print $2, $3; }' "$ccdfile"`
+		local client_auth_pass_file=`awk '/^#[ ]*(auth-user-pass-file)[ ]+.*$/ { print $3; }' "$ccdfile"`
+		
+		client_zipfile="${client_zip_basename}_${clientname}.zip"
+		echo "Server ${name}: Generate configuration for ${clientname} ($clientostype) to $client_zipfile"
+		[ $verbose -ne 0 ] && echo "client mailnotify=$mailnotify"
+		[ $verbose -ne 0 ] && echo "client iroutes=$iroutes"
+		case "$clientostype" in
+			'linux')
+				status_line="status /var/log/openvpn/${clientname}-status.log"
+				log_append_line="log-append /var/log/openvpn/${clientname}.log"
+				config_ext='conf'
+				client_file_dir="/etc/openvpn/${clientname}/"
+				;;
+			'win'|'windows')
+				status_line="# status ${clientname}-status.log"
+				log_append_line="# log-append ${clientname}.log"
+				config_ext='ovpn'
+				client_file_dir=''
+				;;
+			'android')
+				status_line="# status ${clientname}-status.log"
+				log_append_line="# log-append ${clientname}.log"
+				config_ext='ovpn'
+				client_file_dir=''
+				;;
+			'macosx')
+				status_line="# status ${clientname}-status.log"
+				log_append_line="# log-append ${clientname}.log"
+				config_ext='conf'
+				client_file_dir=''
+				;;
+			*)
+				status_line="# status ${clientname}-status.log"
+				log_append_line="# log-append ${clientname}.log"
+				config_ext='conf'
+				client_file_dir=''
+				;;
+		esac
+		
+		# prepare route lines
+		local routes
+		if [ ! -z "$iroutes" ]; then
+			routes=`echo "# begin of routes to the server"; echo "$iroutes" | sed 's@^@route @'; echo "# end of routes"; `
+		else
+			routes='# No routes defined'
+		fi
+
+		local client_configdir=`mktemp -d /tmp/openvpn_client.XXXXXX`
+		local client_ca_line=''
+		local client_dh_line=''
+		local client_crl_line=''
+		local client_cert_line=''
+		local client_key_line=''
+		local client_auth_user_pass_line=''
+		if [ ! -z "$server_ca" -a -f "$server_ca" ]; then
+			verbose_exec cp "$server_ca" "$client_configdir/ca.pem"
+			client_ca_line="ca ${client_file_dir}ca.pem"
+		fi
+		if [ ! -z "$server_dh" -a -f "$server_dh" ]; then
+			verbose_exec cp "$server_dh" "$client_configdir/dh.pem"
+			client_dh_line="dh ${client_file_dir}dh.pem"
+		fi
+		if [ ! -z "$server_crl" -a -f "$server_crl" ]; then
+			verbose_exec cp "$server_crl" "$client_configdir/crl.pem"
+			client_crl_line="crl-verify ${client_file_dir}crl.pem" 
+		fi
+		[ -f "$clientcert" ] && verbose_exec cp "$clientcert" "$client_configdir/cert.pem" && client_cert_line="cert ${client_file_dir}cert.pem"
+		[ -f "$clientkey" ] && verbose_exec cp "$clientkey" "$client_configdir/key.pem" && verbose_exec chmod 600 "$client_configdir/key.pem" && client_key_line="key ${client_file_dir}key.pem"
+		
+		if [ -z "$client_cert_line" ]; then
+			echo "Missing client certficate $clientcert" >&2
+			rm -rf "$client_configdir"
+			continue
+		fi
+		if [ -z "client_key_line" ]; then
+			echo "Missing client key $clientkey" >&2
+			rm -rf "$client_configdir"
+			continue
+		fi
+		if [ -z "client_ca_line" ]; then
+			echo "Missing server certficate $server_ca" >&2
+			rm -rf "$client_configdir"
+			continue
+		fi
+		
+		if [ $server_userauth -ne 0 ]; then
+			if [ ! -z "$client_auth_pass_file" -a -f "$client_auth_pass_file" ]; then
+				verbose_exec cp "$client_auth_pass_file" "$client_configdir/auth_pass_file"
+				client_auth_user_pass_line="auth-user-pass ${client_file_dir}auth_pass_file" 
+			else
+				client_auth_user_pass_line="auth-user-pass" 
+			fi
+		else
+			client_auth_user_pass_line=''
+		fi
+
+		cat > "$client_configdir/${clientname}.${config_ext}" <<CONFEOF
+#
+# THIS FILE IS AUTOMATICALLY GENERATED BY
+# openvpn-zip-config
+#
+# name $clientname
+# ostype $clientostype
+client
+remote $puplic_address $puplic_port
+ns-cert-type server
+nobind
+proto $proto
+dev tun
+cipher $cipher
+verb 1
+mute 20
+keepalive $keepalive_ping $keepalive_pingrestart
+resolv-retry infinite
+
+comp-lzo
+float
+persist-tun
+persist-key
+persist-local-ip
+persist-remote-ip
+push "persist-key"
+push "persist-tun"
+
+$client_cert_line
+$client_key_line
+$client_ca_line
+$client_dh_line
+$client_crl_line
+$client_auth_user_pass_line
+
+${status_line}
+${log_append_line}
+$routes
+#
+# EOF
+#
+CONFEOF
+		[ $verbose -gt 1 ] && cat "$client_configdir/${clientname}.${config_ext}"
+		[ $verbose -gt 1 ] && ls -l "$client_configdir"
+
+		# use the config directory of the server (for certs)
+		zip_changed=0
+		zip_config "client" "$client_configdir/${clientname}.${config_ext}" "$client_configdir" "$client_zipfile"
+		if [ $zip_changed -ne 0 -o $force_notify -ne 0 ]; then
+			mail_client_config "${clientname}" "$mailnotify" "$client_zipfile" "$clientostype"
+		fi
+		rm -rf "$client_configdir"
+	done
+	return 0
+}
+
+function mail_client_config()
+{
+	local name="$1"
+	local mailnotify="$2"
+	local zipfile="$3"
+	local ostype="$4"
+	
+	local mail_sender='root'
+	local mail_recipient=''
+	
+	if [ -z "$mailnotify" -o ! -z "$override_mailnotify" ]; then
+		mail_recipient="$override_mailnotify"
+	else
+		mail_recipient="$mailnotify"
+	fi
+	
+	if [ ! -z "$mail_recipient" ]; then
+		local mail_subject="OpenVPN configuration $name"
+		local mail_message_header=`cat <<MAILMSGEND_HEADER
+Your OpenVPN configuration has changed. The attached configuration has
+been automatically generated with the latest configuration.
+
+The latest OpenVPN manuals are avialable at:
+http://openvpn.net/index.php/open-source/documentation/manuals.html
+
+MAILMSGEND_HEADER`
+		local mail_message_os=''
+		local mail_message_footer=`cat <<MAILMSGEND_FOOTER
+
+Have a nice day,
+   your administrator
+MAILMSGEND_FOOTER`
+		case "$ostype" in
+			'linux')
+				mail_message_os=`cat <<MAILMSGEND_LINUX
+- extract the attached configuration to
+  /etc/openvpn
+- restart the OpenVPN service
+  service openvpn restart $name
+MAILMSGEND_LINUX`
+				;;
+			'win'|'windows')
+				mail_message_os=`cat <<MAILMSGEND_WINDOWS
+Make sure you have installed the latest version of OpenVPN (Community Version).
+http://openvpn.net/index.php/download/community-downloads.html
+
+- Quit the OpenVPN GUI (click the system tray icon)
+- Unzip the attached configuration to 
+  C:\Program Files\OpenVPN\config
+- Restart the OpenVPN GUI (with Administrator privileges)
+- Right click the system tray icon and click Connect to initiate
+  your VPN connection
+MAILMSGEND_WINDOWS`
+				;;
+			'macosx')
+				mail_message_os=`cat <<MAILMSGEND_MACOSX
+Make sure you have installed the latest version of Tunnelblick.
+http://code.google.com/p/tunnelblick/
+
+The wiki page 'Setting up Tunnelblick' provides the necessary
+instructions to install or update your Tunnelblick configuration.
+http://code.google.com/p/tunnelblick/wiki/cConfigT
+MAILMSGEND_MACOSX`
+				;;
+			'android')
+				mail_message_os=`cat <<MAILMSGEND_ANDROID
+Please install the OpenVPN Settings App from Google Play and unzip the
+attached configuration to 
+/sdcard/openvpn/
+
+OpenVPN Settings Website: http://code.google.com/p/android-openvpn-settings
+Android OpenVPN How to: http://vpnblog.info/android-openvpn-strongvpn.html
+MAILMSGEND_ANDROID`
+				;;
+			*)
+				mail_message_os=`cat <<MAILMSGEND_UNKNOWN_OS
+Your operating system $ostype is not handled (yet) on. 
+Please check the OpenVPN documentation and/or your system documentation for how 
+to use the provided configuration.
+MAILMSGEND_UNKNOWN_OS`
+				;;
+		esac
+
+		[ $verbose -ne 0 ] && echo "Sending $zipfile to $mail_recipient"
+		local mail_message=${mail_message_header}${mail_message_os}${mail_message_footer}
+		if [ $sendmail_active -ne 0 ]; then
+			verbose_exec /usr/bin/postfix-sendmail -f "$mail_sender" -t "$mail_recipient" -s "$mail_subject" -m "$mail_message" --attach "$zipfile"
+		else
+			echo "$0 would send the following mail to $mail_recipient"
+			echo "$mail_message"
+		fi
+	else
+		[ $verbose -ne 0 ] && echo "No mail recipient specified"
+	fi
+}
+
+function handle_config()
+{
+	local name="$1"
+	local config_file="$2"
+	local outdir="$3"
+	if [ -e "$config_file" ]; then
+		local config_dir="${config_file%%.conf}"
+		local config_zip="$outdir/$(basename "$config_dir").zip"
+		[ $verbose -ne 0 ] && echo "handle_config name=${name}"
+		[ $verbose -ne 0 ] && echo "handle_config config_file=${config_file}"
+		[ $verbose -ne 0 ] && echo "handle_config config_dir=${config_dir}"
+		[ $verbose -ne 0 ] && echo "handle_config config_zip=${config_zip}"
+		local type=`awk '/^(server[ ]+.*|client[ ]*)$/ { print $1; }' "$config_file"`
+		if [ "$type" == "client" ]; then
+			[ $verbose -ne 0 ] && echo "client config"
+			echo "Client ${name}: Write to $config_zip"
+			zip_config "client" "$config_file" "$config_dir" "$config_zip"
+		elif [ "$type" == "server" ]; then
+			[ $verbose -ne 0 ] && echo "server config"
+			echo "Server ${name}: Write to $config_zip"
+			zip_config "server" "$config_file" "$config_dir" "$config_zip"
+			generate_client_config "$name" "$config_file" "$config_dir" "$outdir"
+#			if [ -d "$config_dir/clients" ]; then
+#				for CLIENTCONFIG in "$config_dir/clients"/*; do
+#					if [ -d "$CLIENTCONFIG" ]; then
+#						zip_config "client" "" "$CLIENTCONFIG"
+#					fi
+#				done
+#			fi
+		else
+			echo "Unhandled config type in $config_file: $type" >&2
+		fi
+	else
+		echo "Cannot read $config_file" >&2
+	fi
+}
+
+function main()
+{
+	[ -z "$outdir" ] && outdir=`pwd`
+
+	if [ ! -d "$CONFIG_DIR" ]; then
+		echo "OpenVPN is not installed. Please install openvpn first." >&2
+		exit 1
+	fi
+
+	if [ ! -d "$outdir" ]; then
+		echo "Output directory $outdir does not exist." >&2
+		exit 1
+	else
+		outdir=`readlink -f "$outdir"`
+	fi
+	
+	if [ -z "$selected_configs" ]; then
+		for CONFIG in $CONFIG_DIR/*.conf; do
+			local tmp=`basename $CONFIG`
+			local name=${tmp%%.conf}
+			handle_config "$name" "$CONFIG" "$outdir"
+		done
+	else
+		for NAME in $selected_configs; do
+			handle_config "$NAME" "$CONFIG_DIR/$NAME.conf" "$outdir"
+		done
+	fi
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"-v"|"--verbose") verbose=$(( $verbose + 1 )); ;;
+		"-o"|"--outdir") outdir="$2"; shift ;;
+		"-b"|"--basedir") basedir="$2"; shift ;;
+		"-t"|"--topdir") topdir="$2"; shift ;;
+		"--configdir") configdir="$2"; shift ;;
+		"--certs") certificates="$2"; shift ;;
+		"--notify") 
+			force_notify=1
+			case "$2" in
+				-*)
+					;;
+				*)
+					override_mailnotify="$2"
+					shift
+					;;
+			esac
+			;;
+		-*)
+			echo "Unknown option $1." >&2
+			exit 1
+			;;
+		*)
+			if [ ! -z "$selected_configs" ]; then
+				selected_configs="$selected_configs $1"
+			else
+				selected_configs="$1"
+			fi
+		;;
+	esac
+	shift
+done
+
+main
+
+exit 0

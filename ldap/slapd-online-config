@@ -1,0 +1,75 @@
+#!/bin/bash
+
+verbose=0
+quiet=0
+configfile=''
+outdir=''
+force=0
+slapd_user='openldap'
+slapd_group='openldap'
+debuglevel=1
+
+function usage()
+{
+    echo "slapd-online-config [OPTIONS] <configfile> <outdir>"
+    echo "    -h, --help      shows this help screen"
+	echo "    -v, --verbose   enable verbose output"
+    exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"-q"|"--quiet") quiet=1; ;;
+		"-v"|"--verbose") verbose=1; ;;
+		"-f"|"--force") force=1; ;;
+		*)
+			if [ -z "$configfile" ]; then
+				configfile="$1"
+			elif [ -z "$outdir" ]; then
+				outdir="$1"
+			else
+				echo "config file $configfile and output directory $outdir already given. ignoring $1" 1>&2
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$configfile" ]; then
+	echo "No config file specified." 1>&2
+	exit 1
+fi
+
+if [ -z "$outdir" ]; then
+	echo "No output directory specified." 1>&2
+	exit 1
+fi
+
+if [ -d "$outdir" ]; then
+	outdir=`readlink -f "$outdir"`
+	if [ $force -eq 0 ]; then
+		echo "ERROR: output directory already exists. You can force to use this directory, but all files within will be deleted." 1>&2
+		exit 1
+	else
+		echo "WARNING: output directory already exists. Removing all files from the output directory." 1>&2
+		rm -rf "$outdir"/*
+	fi
+else
+	# create the output directory, because slaptest does not create it
+	mkdir -p "$outdir"
+	outdir=`readlink -f "$outdir"`
+fi
+
+[ $quiet -ne 0 ] && debuglevel=0
+
+/usr/sbin/slaptest -f "$configfile" -F "$outdir" -d "$debuglevel"
+RES=$?
+if [ $RES -eq 0 ]; then
+	chown "${slapd_user}.${slapd_group}" -R "$outdir"
+fi
+
+exit $RES

@@ -1,0 +1,40 @@
+#!/bin/bash
+
+wine="wine"
+
+function iterate_start_menu ()
+{
+	local menu_dir
+	local oldIFS
+	menu_dir="$1"
+	# don't use space as field-separator otherwise "paths with spaces" will fail to parse correctly
+	oldIFS=$IFS
+	IFS=?
+	echo "menu_dir=${menu_dir}"
+	# add a trailing slash to the directory name, then the glob wildcard
+	for entry in ${menu_dir}/*; do
+		if [ -f "$entry" ]; then
+			echo "Link: $entry";
+			"$wine" winemenubuilder "$entry" 2>/dev/null
+		elif [ -d "$entry" ]; then
+			echo "Directory: $entry";
+			iterate_start_menu "$entry"
+		else
+			echo "Empty: $entry";
+		fi
+	done
+
+	IFS=$oldIFS
+}
+
+# Delete current user-defined wine menus
+rm -f $HOME/.config/menus/applications-merged/wine*
+rm -rf $HOME/.local/share/applications/wine
+
+# Rebuild Start Menu for all prefixes starting with ".wine-" or ".wine" itself
+for prefix in "$HOME/".wine-* "$HOME/".wine; do
+	WINEPREFIX="$prefix"
+	export WINEPREFIX
+	# do not use a trailing / at the end of the directory name
+	iterate_start_menu "${WINEPREFIX}/drive_c/users/*/Start Menu"
+done

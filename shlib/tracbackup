@@ -1,0 +1,67 @@
+#!/bin/bash
+
+BACKUPDIR='/local/backup/trac'
+LATEST_BACKUP_DIR='/local/backup/latest'
+TRACS='/srv/www/trac'
+QUIET=0
+
+[ -f ./sshcopy ] && source ./sshcopy || echo "sshcopy scripts are not available"
+
+# parse command line arguments
+while [ $# -ne 0 ]; do        
+	case "$1" in          
+	"-?") usage;; 
+	"-h") usage;; 
+	"--help") usage;;
+	"-q"|"--quiet") QUIET=1 ;;
+	*)                         
+		TRACS=$1 
+	;;                                      
+	esac                                    
+	shift                                   
+done                                            
+ 
+function usage() {
+	echo "usage: tracbackup [-q|--quiet] [repo]"
+	exit 1
+}
+
+function tracdump() {
+    TRAC=$1
+    BAKFILE=$2
+
+	TMPDIR=`mktemp -d /tmp/tracXXXXXX`
+	BAKDIR=$TMPDIR/`basename $TRAC`
+    echo -n "Backup $TRAC to $BAKFILE (using $BAKDIR)"
+    msg=`trac-admin $TRAC hotcopy $BAKDIR && tar cfj $BAKFILE $BAKDIR 2>&1 && rm -rf $TMPDIR`
+    RES=$?
+    if [ $RES -eq 0 ]; then
+		echo "[done]"
+    else
+        echo "[failed]"
+    fi
+    return $RES
+}
+
+for r in $TRACS; do
+	if [ ! -d $r ]; then
+		echo "trac installation $r not available"
+		continue
+	fi
+
+    name=`basename $r`
+	BAKFILE=$BACKUPDIR/trac_${name}_`date +%Y%m%d`.bz2
+	dumpmsg=`tracdump $r $BAKFILE`
+	if [ $? -eq 0 ]; then
+		putmsg=`putremote $BAKFILE && remove_oldest "trac_${name}_*"`
+		if [ $? -ne 0 ]; then
+			echo "$dumpmsg"
+			echo "$putmsg"
+		fi
+	else
+		echo "$dumpmsg"
+	fi
+
+	cp "$BAKFILE" "$LATEST_BACKUP_DIR/fast-srv01_trac_${name}.tar.bz2"
+done
+

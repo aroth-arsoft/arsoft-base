@@ -1,0 +1,375 @@
+#!/bin/bash
+
+verbose=0
+repo_svn=''
+repo_git=''
+mail_domain=''
+authors_file=''
+update_authors_file=0
+update_lookup_table=0
+lookup_table_file=''
+rootistrunk='auto'
+nobranches=0
+notags=0
+nometadata=0
+rebase=0
+bare=0
+clone=0
+revision=''
+exclude=''
+trunk=''
+tags=''
+branches=''
+scriptfile=`readlink -f "$0"`
+scriptdir=`dirname "$scriptfile"`
+
+function usage()
+{
+    echo "svn2git <svnrepo> <gitrepo>"
+    echo "    -h, --help         shows this help screen"
+    echo "    -v, --verbose      enable verbose output"
+    echo "    --domain           specifies the domain for the users"
+    echo "    --authors <file>   specifies the a own file to map SVN user names to GIT users"
+    echo "    --update-authors   update the authors file"
+    echo "    --rootistrunk      given SVN repository has trunk as its root directory (no tags, branches)"
+    echo "    --lookuptable      generates a lookup table to map SVN revision numbers to GIT commits"
+    echo "    --no-metadata      do not include SVN metadata (revision numbers) in the commit messages."
+    echo "    --rebase           use existing GIT-SVN repository."
+    echo "    --bare             convert GIT-SVN repository into a bare one."
+    echo "    --clone            clone generated repo after conversion (does not work with rebase)."
+    echo "    --revision START_REV[:END_REV]"
+    echo "                       Start importing from SVN revision START_REV; optionally end at END_REV."
+    echo "    --exclude REGEX    Specify a Perl regular expression to filter paths when fetching; can be used multiple times."
+    echo "    --trunk TRUNK      name of a trunk directory"
+    echo "    --branches BRANCH  name of a branch directory; can be specified multiple times"
+    echo "    --tags TAG         name of a tag directory; can be specified multiple times"
+    exit 0
+}
+
+function verbose_exec()
+{
+    [ $verbose -ne 0 ] && echo "$@"
+    "$@"
+}
+
+function convert_using_ruby_svn2git() {
+
+    if [ $rebase -eq 0 ]; then
+        if [ -d "$repo_git" ]; then
+            repo_git=`readlink -f "$repo_git"`
+            if [ -d "$repo_git/.git" ]; then
+                echo "A GIT repository already exists in $repo_git. Refusing to do anything!" >&2
+                return 1
+            elif [ -f "$repo_git/config" -a -f "$repo_git/HEAD" ]; then
+                echo "A bare GIT repository already exists in $repo_git. Refusing to do anything!" >&2
+                return 1
+            else
+                if [ -w "$repo_git" ]; then
+                    echo "Warning: The directory $repo_git already exists and will be used as target GIT repository." >&2
+                else
+                    echo "The directory $repo_git already exists, but it's not writable." >&2
+                    return 1
+                fi
+            fi
+        else
+            if [ $clone -ne 0 ]; then
+                # target directory does not yet exist, so create it
+                if ! mkdir -p "$repo_git"; then
+                    echo "Failed to create directory $repo_git for GIT repository." >&2
+                    return 1
+                fi
+                repo_git=`readlink -f "$repo_git"`
+            fi
+        fi
+    else
+        if [ ! -d "$repo_git" ]; then
+            echo "Target GIT repository $repo_git does not exist." >&2
+            return 1
+        fi
+    fi
+
+    local RES=0
+    svn2git_opts=''
+    [ $verbose -ne 0 ] && svn2git_opts="$svn2git_opts --verbose"
+    [ $nometadata -eq 0 ] && svn2git_opts="$svn2git_opts --metadata"
+    [ $rebase -ne 0 ] && svn2git_opts="$svn2git_opts --rebase"
+    [ ! -z "$revision" ] && svn2git_opts="$svn2git_opts --revision $revision"
+    if [ "$rootistrunk" == 'auto' ]; then
+        tmp=`svn info "$repo_svn/trunk" 2> /dev/null`
+        if [ $? -eq 0 ]; then
+            rootistrunk=0
+        else
+            rootistrunk=1
+        fi
+        [ -z "$trunk" ] && trunk='trunk'
+    fi
+    if [ $rootistrunk -ne 0 ]; then
+        svn2git_opts="$svn2git_opts --rootistrunk"
+        echo "SVN repository only contains trunk (no tags and branches)."
+    else
+        local standard_layout=1
+        if [ $nobranches -ne 0 ]; then
+            svn2git_opts="$svn2git_opts --nobranches"
+            standard_layout=0
+        fi
+        if [ $notags -ne 0 ]; then
+            svn2git_opts="$svn2git_opts --notags"
+            standard_layout=0
+        fi
+        if [ $standard_layout -ne 0 ]; then
+            echo "SVN repository with standard layout (trunk, tags and branches)."
+        else
+            echo "SVN repository with custom layout."
+        fi
+    fi
+    if [ ! -z "$trunk" ]; then
+        svn2git_opts="$svn2git_opts --trunk $trunk"
+    fi
+    if [ ! -z "$tags" ]; then
+        IFS=$';'
+        for e in $tags; do
+            svn2git_opts="$svn2git_opts --tags $e"
+        done
+        unset IFS
+    fi
+    if [ ! -z "$branches" ]; then
+        IFS=$';'
+        for e in $branches; do
+            svn2git_opts="$svn2git_opts --branches $e"
+        done
+        unset IFS
+    fi
+    if [ ! -z "$exclude" ]; then
+        IFS=$';'
+        for e in $exclude; do
+            svn2git_opts="$svn2git_opts --exclude $e"
+        done
+        unset IFS
+    fi
+
+    if [ $rebase -eq 0 ]; then
+        [ ! -d "$repo_git" ] && mkdir -p "$repo_git"
+        pushd "$repo_git" > /dev/null
+
+        echo "Convert the SVN repository into GIT..."
+
+        [ $verbose -ne 0 ] && echo "ruby $scriptdir/svn2git.rb \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
+        ruby $scriptdir/svn2git.rb "$repo_svn" $svn2git_opts --authors "$authors_file"; RES=$?
+        if [ $RES -eq 0 ]; then
+            echo "SVN import successful."
+        else
+            echo "SVN import with errors." >&2
+        fi
+        popd > /dev/null
+    else
+        pushd "$repo_git" > /dev/null
+
+        echo "rebase for $repo_git"
+
+        [ $verbose -ne 0 ] && echo "ruby $scriptdir/svn2git.rb \"$repo_svn\" $svn2git_opts --authors \"$authors_file\""
+        ruby $scriptdir/svn2git.rb --rebase $svn2git_opts --authors "$authors_file"; RES=$?
+        if [ $RES -eq 0 ]; then
+            echo "SVN rebase successful."
+
+            #update_lookup_table
+        fi
+
+        popd > /dev/null
+    fi
+    return $RES
+}
+
+function update_lookup_table() {
+    local repo_git="$1"
+    local output_file="$2"
+	# This script creates a 'lookup table', matching SVN revision IDs with GIT revision IDs
+	# Run it inside a GIT repository that is imported from SVN with "git svn".
+	#
+	# Usage:
+	#	createLookupTable > lookupTable.txt
+	local lookup_table_file="$repo_git.svn2git_lookup"
+	
+	pushd "$repo_git" > /dev/null
+	echo "Creates a lookup table between SVN IDs and Git IDs..."
+	revlist_temp=`mktemp /tmp/svn2git.XXXXXX`
+	git rev-list --all --pretty=medium > "$revlist_temp"
+
+	svnlist_temp=`mktemp /tmp/svn2git.XXXXXX`
+	gitlist_temp=`mktemp /tmp/svn2git.XXXXXX`
+	
+	# Now extract the git hash and the svn ID. Then we join lines pair-wise and we have our table
+	grep git-svn-id "$revlist_temp" | sed -r -e 's/[[:space:]]+git-svn-id: [[:print:]]+@([[:digit:]]+) .*/\1/' > "$svnlist_temp"
+	awk '/^commit/ { print $2 }' "$revlist_temp" > "$gitlist_temp"
+	
+	#cp "$revlist_temp" "$repo_git/revlist"
+	#cp "$svnlist_temp" "$repo_git/svnlist"
+	#cp "$gitlist_temp" "$repo_git/commitlist"
+
+	# Join them and write the lookup table to standard output
+	paste "$svnlist_temp" "$gitlist_temp" | sort -n > "$output_file"
+
+	# Clean up
+	rm -f "$svnlist_temp" "$gitlist_temp" "$revlist_temp"
+	
+	echo "Completed: $output_file"
+
+	popd > /dev/null
+}
+
+echo "svn2git got cmdline: $@"
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
+        "--domain") mail_domain="$2"; shift; ;;
+        "--authors") authors_file="$2"; shift; ;;
+        '--revision') revision="$2"; shift; ;;
+        '--trunk') trunk="$2"; shift; ;;
+        '--branches') 
+            if [ -z "$branches" ]; then
+                branches="$2"
+            else
+                branches="${branches};${2}"
+            fi
+            shift; 
+            ;;
+        '--tags') 
+            if [ -z "$tags" ]; then
+                tags="$2"
+            else
+                tags="${tags};${2}"
+            fi
+            shift; 
+            ;;
+        '--exclude') 
+            if [ -z "$exclude" ]; then
+                exclude="$2"
+            else
+                exclude="${exclude};${2}"
+            fi
+            shift; 
+            ;;
+        "--update-authors") update_authors_file=1; ;;
+        '--rootistrunk') rootistrunk=1; ;;
+        '--nobranches') nobranches=1; ;;
+        '--notags') notags=1; ;;
+        '--rebase') rebase=1; ;;
+        '--bare') bare=1; ;;
+        '--clone') clone=1; ;;
+        '--lookuptable') 
+            update_lookup_table=1; lookup_table_file="$2"; shift; ;;
+        '--no-metadata') nometadata=1; ;;
+        *)
+			if [ $update_lookup_table -eq 0 ]; then
+				if [ -z "$repo_svn" ]; then
+					repo_svn="$1"
+				elif [ -z "$repo_git" ]; then
+					repo_git="$1"
+				else
+					echo "Both repositories has alreayd been specified: svn: $repo_svn, git: $repo_git." >&2
+					exit 1
+				fi
+			else
+				if [ -z "$repo_git" ]; then
+					repo_git="$1"
+				else
+					echo "GIT repository has alreayd been specified: $repo_git." >&2
+					exit 1
+				fi
+			fi
+            ;;
+    esac
+    shift
+done
+
+if [ ! -x "/usr/bin/git" ]; then
+	echo "GIT not installed. Please install using 'sudo apt-get install git-core'." >&2
+	exit 1
+fi
+
+if [ ! -x "/usr/lib/git-core/git-svn" ]; then
+	echo "GIT subversion support not installed. Please install using 'sudo apt-get install git-svn'." >&2
+	exit 1
+fi
+
+if [ ! -x "/usr/bin/svn" ]; then
+	echo "Subversion not installed. Please install using 'sudo apt-get install subversion'." >&2
+	exit 1
+fi
+
+if [ $update_lookup_table -eq 0 ]; then
+
+	if [ -z "$repo_svn" ]; then
+		echo "No SVN source repository specified." >&2
+		exit 1
+	elif [ -d "$repo_svn" ]; then
+		repo_svn="file://$repo_svn"
+		echo "Local SVN repository specified. Using URL $repo_svn" >&2
+    else
+        repo_name=`basename "$repo_svn"`
+        repo_schema=${repo_svn%*://*}
+        echo "repo_schema=\"$repo_schema\""
+        if [ "$repo_schema" == 'http' -o "$repo_schema" == 'https' ]; then
+            repo_name=${repo_svn##*://}
+            repo_name=${repo_name//./_}
+            repo_name=${repo_name//\//_}
+            echo "new name=$repo_name"
+        elif [ "$repo_name" == 'trunk' -o "$repo_name" == 'branches' -o "$repo_name" == 'tags' ]; then
+            d=`dirname "$repo_svn"`
+            if [ -d "$d" ]; then
+                repo_svn="file://$repo_svn"
+            fi
+        fi
+	fi
+
+	if [ -z "$repo_git" ]; then
+		echo "No GIT target repository specified." >&2
+		exit 1
+	fi
+
+    if [ "$repo_schema" == 'http' -o "$repo_schema" == 'https' ]; then
+        true
+    elif [ "$repo_name" == 'trunk' -o "$repo_name" == 'branches' -o "$repo_name" == 'tags' ]; then
+        d=`dirname "$repo_svn"`
+        repo_name=`basename "$d"`
+    fi
+	echo "Repository name: $repo_name"
+    echo "Repository URL: $repo_svn"
+
+	[ -z "$mail_domain" ] && mail_domain=`dnsdomainname`
+	if [ -z "$authors_file" ]; then
+        echo ${str// /_}
+		if [ -f "$HOME/.svn2git/authors_$repo_name" -a $update_authors_file -eq 0 ]; then
+			authors_file="$HOME/.svn2git/authors_$repo_name"
+		else
+            authors_file="$HOME/.svn2git/authors_$repo_name"
+			author_map_temp=`mktemp /tmp/svn2git.XXXXXX`
+			echo "Update authors from $repo_svn and put into $authors_file ..."
+			svn log "$repo_svn" |\
+				awk -F '|' "/r[0-9]+/ { sub(/^[ ]+/, \"\", \$2); sub(/[ ]+$/, \"\", \$2); org=\$2; sub(/@.*/, \"\", \$2); print org \" = \" \$2 \" <\" \$2 \"@$mail_domain>\"; }" |\
+				sort -u > "$author_map_temp"
+			cp "$author_map_temp" "$HOME/.svn2git/authors_$repo_name"
+			rm -f "$author_map_temp"
+		fi
+	fi
+	echo "Author map: $authors_file"
+
+	convert_using_ruby_svn2git; RES=$?
+    if [ $RES -eq 0 ]; then
+        echo "Conversion completed successfully."
+    else
+        echo "Conversion failed (error $RES)."
+    fi
+else
+	if [ -z "$repo_git" ]; then
+		echo "No GIT repository specified." >&2
+		exit 1
+	fi
+	repo_git=`readlink -f "$repo_git"`
+	update_lookup_table "$repo_git" "$lookup_table_file"; RES=$?
+    if [ $RES -eq 0 ]; then
+        git submodule foreach "$script_file" --lookuptable "$lookup_table_file" .
+    fi
+fi
+exit $RES

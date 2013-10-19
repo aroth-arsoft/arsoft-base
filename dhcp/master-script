@@ -1,0 +1,309 @@
+#!/bin/bash
+
+verbose=1
+debug=0
+dispatcher=''
+
+ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR='/usr/lib/arsoft-dhcp/dhclient-enter'
+ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-dhcp/dhclient-exit'
+DEFAULT_SCRIPT_LIST='apt cups heimdal postfix ldap puppet timezone'
+
+[ -f /etc/default/arsoft-dhcp-client ] && . /etc/default/arsoft-dhcp-client
+
+scriptdir='/usr/sbin'
+realscriptfile=`readlink -f "$0"`
+script_list="$DEFAULT_SCRIPT_LIST"
+current_id=`LANG=C id`
+
+function log_debug() {
+	[ $debug -ne 0 ] && echo "$@"
+	[ $debug -ne 0 ] && logger -i -t 'arsoft-dhcp' -p daemon.debug "$@"
+}
+
+function log_info() {
+	[ $verbose -ne 0 ] && echo "$@"
+	[ $verbose -ne 0 ] && logger -i -t 'arsoft-dhcp' -p daemon.info "$@"
+}
+
+function log_warn() {
+	echo "$@"
+	logger -i -t 'arsoft-dhcp' -p daemon.warn "$@"
+}
+
+function log_err() {
+	echo "$@" 1>&2
+	logger -i -t 'arsoft-dhcp' -p daemon.err "$@"
+}
+
+function verbose_exec() {
+	[ $verbose -ne 0 ] && echo "$@"
+	[ $verbose -ne 0 ] && logger -i -t 'arsoft-dhcp' -p daemon.info "$*"
+	"$@"
+}
+
+function wait_for_process() {
+	local PNAME="$1"
+	local PID=`/usr/bin/pgrep "$PNAME"`
+	while [ -z "$PID" ]; do
+		sleep 2;
+		PID=`/usr/bin/pgrep "$PNAME"`
+	done
+}
+
+function is_ipv4() {
+    local ip="$1"
+    [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]] && true || false
+}
+
+function valid_ip() {
+    local ip="$1"
+    local stat=1
+
+    if [[ $ip =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$ ]]; then
+        OIFS=$IFS
+        IFS='.'
+        ip=($ip)
+        IFS=$OIFS
+        [[ ${ip[0]} -le 255 && ${ip[1]} -le 255 \
+            && ${ip[2]} -le 255 && ${ip[3]} -le 255 ]]
+        stat=$?
+    fi
+    return $stat
+}
+
+function get_interface_for_host() {
+	local addr=''
+	if is_ipv4 "$1"; then
+		addr="$1"
+	else
+		addr=`LANG=C /usr/bin/host "$1" | awk '/has address/ { print $4 }'`
+	fi
+	if [ ! -z "$addr" ]; then
+		LANG=C /sbin/ip route get "$addr" 2>/dev/null | awk '{ if(match($0,"dev [a-zA-Z0-9]+")) { print substr($0, RSTART+4, RLENGTH-4); exit 0 } } END { exit 1 }' && true || false
+	else
+		false
+	fi
+}
+
+function is_interface_for_host() {
+	required_interface=`get_interface_for_host "$1"`
+	[ "$required_interface" == "$interface" ]
+}
+
+function get_dns_txt_record() {
+	local record_name="$1"
+	LANG=C /usr/bin/host -t TXT "$1" | awk -F '"' '/descriptive text/ { print $2; exit 0 } END { exit 1 }' && true || false
+}
+
+function run_hook() {
+	log_info "run_hook $@"
+    local script="$1"
+    local exit_status
+    shift	# discard the first argument, then the rest are the script's
+
+    if [ -f $script ]; then
+        . $script "$@"
+		exit_status=$?
+		if [ $exit_status -ne 0 ]; then
+			log_err "$script returned non-zero exit status $exit_status"
+		fi    
+	else
+		log_err "run_hook $script does not exist"
+		exit_status=1
+    fi
+
+    return $exit_status
+}
+
+function run_enter_scripts() {
+	local exit_status
+	local basescriptdir=''
+	[ $debug -ne 0 ] && basescriptdir=`dirname "$realscriptfile"`'/../'
+	for current_script in $script_list; do
+		[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
+		run_hook "$ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR/$current_script" "$@" || true
+		exit_status=$?
+	done
+
+    return $exit_status
+}
+
+function run_exit_scripts() {
+	local exit_status
+	local basescriptdir=''
+	[ $debug -ne 0 ] && basescriptdir=`dirname "$realscriptfile"`'/../'
+	for current_script in $script_list; do
+		[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
+		run_hook "$ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR/$current_script" "$@" || true
+		exit_status=$?
+	done
+
+    return $exit_status
+}
+
+function perform_action() {
+    log_info "dispatcher $dispatcher"
+	log_info "interface $interface"
+	log_info "phase $phase"
+	log_info "reason $reason"
+	log_info "current_id $current_id"
+
+	log_info "new_host_name $new_host_name"
+	log_info "new_domain_name $new_domain_name"
+	log_info "old_host_name $old_host_name"
+	log_info "old_domain_name $old_domain_name"
+
+	log_info "host_name $host_name"
+	log_info "domain_name $domain_name"
+	log_info "dns_servers $dns_servers"
+	log_info "dhcp_server_name $dhcp_server_name"
+	log_info "ntp_servers $ntp_servers"
+	log_info "routers $routers"
+	log_info "ip_address0 $ip_address0"
+	log_info "rfc4833_tz_name $rfc4833_tz_name"
+	log_info "rfc4833_tz_posix_string $rfc4833_tz_posix_string"
+
+	if [ "$phase" == 'enter' ]; then
+		run_enter_scripts "$@"
+	elif [ "$phase" == 'exit' ]; then
+		run_exit_scripts "$@"
+	else
+		log_err "unknown or unspecified phase $phase"
+	fi
+}
+
+function prepare_testing() {
+	[ -z "$interface" ] && interface='eth0'
+	new_domain_name=`dnsdomainname`
+	new_host_name=`hostname`
+	old_domain_name='old-'$new_domain_name
+	old_host_name='old-'$new_host_name
+	[ -z "$reason" ] && reason='RENEW'
+	[ -z "$phase" ] && phase='exit'
+	realscriptfile=`readlink -f "$0"`
+	scriptdir=`dirname "$realscriptfile"`
+	if [ -f "$scriptdir/../Makefile" ]; then
+		# if we run from the source directory, use the script
+		# directory as enter and exit script dir
+		ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR="$scriptdir"
+		ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR="$scriptdir"
+	fi
+}
+
+function usage() {
+	echo "$realscriptfile: [OPTIONS] <enter|exit> <interface IFNAME> <reason>"
+	echo "        exit          run the exit hook scripts"
+	echo "        enter         run the enter hook scripts"
+	echo "        if|interface|iface"
+	echo "                      specified the interface to run the scripts for."
+	echo ""
+	echo "OPTIONS:"
+	echo "        -h, --help    shows this help"
+	echo "        -v            enable verbose output"
+	echo "        -d [scripts]  enable debug output and selects the scripts to execute"
+	echo ""
+	echo "The following reason can be specified for dhclient dispatcher operation:"
+	echo "  MEDIUM, PREINIT, BOUND, RENEW, REBIND, REBOOT, EXPIRE, FAIL, STOP, RELEASE, NBI, TIMEOUT"
+	echo "The following reason can be specified for NetworkManager dispatcher operation:"
+	echo "  up, vpn-up, down, vpn-down, hostname, dhcp4-change, dhcp6-change"
+	echo ""
+	exit 0
+}
+
+function import_variables() {
+	case "$dispatcher" in
+		'dhclient')
+			host_name="$new_host_name"
+			domain_name="$new_domain_name"
+			dns_servers="$new_domain_name_servers"
+			dhcp_server_name="$new_dhcp_server"
+			ntp_servers="$new_ntp_servers"
+			ip_address0="$new_ip_address"
+			rfc4833_tz_name="$new_rfc4833_tz_name"
+			rfc4833_tz_posix_string="$new_rfc4833_tz_posix_string"
+			;;
+		'NetworkManager')
+			host_name="$DHCP4_HOST_NAME"
+			domain_name="$DHCP4_DOMAIN_NAME"
+			dns_servers="$DHCP4_DOMAIN_NAME_SERVERS"
+			dhcp_server_name="$DHCP4_SERVER_NAME"
+			ntp_servers="$DHCP4_NTP_SERVERS"
+			routers="$DHCP4_ROUTERS"
+			ip_address0="$IP4_ADDRESS_0"
+			rfc4833_tz_name="$DHCP4_RFC4833_TZ_NAME"
+			rfc4833_tz_posix_string="$DHCP4_RFC4833_TZ_POSIX_STRING"
+			;;
+		*)
+			log_err "Unrecognized dispatcher $dispatcher"
+			exit 1
+	esac
+	
+	# use the current hostname, because the hostname
+	# cannot become empty. 
+	[ -z "$host_name" ] && host_name=`hostname`
+	
+	# the domain name on the other hand can become empty 
+	# when dhcp server does not provide one.
+	# but currently all the script relay on a valid domain
+	# name for further lookup of configuration data,so
+	# use the current domain name if not was provided.
+	[ -z "$domain_name" ] && domain_name=`dnsdomainname`
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	'-?'|'-h'|'--help') usage;; 
+	'-v'|'--verbose') verbose=1; ;;
+	'-d'|'--debug') 
+		debug=1
+		script_list=''
+		while [ $# -ne 0 ]; do
+			case "$2" in
+				'apt'|'cups'|'heimdal'|'postfix'|'ldap'|'puppet')
+					script_list="$script_list $2"
+					shift
+					;;
+				*)
+					break
+					;;
+			esac
+		done
+		[ -z "$script_list" ] && script_list="$DEFAULT_SCRIPT_LIST"
+		;;
+	'enter'|'exit') phase="$1"; ;;
+	'MEDIUM'|'PREINIT'|'BOUND'|'RENEW'|'REBIND'|'REBOOT'|'EXPIRE'|'FAIL'|'STOP'|'RELEASE'|'NBI'|'TIMEOUT') dispatcher='dhclient'; reason="$1"; ;;
+	'up'|'vpn-up'|'down'|'vpn-down'|'hostname'|'dhcp4-change'|'dhcp6-change') dispatcher='NetworkManager'; reason="$1"; ;;
+	'if'|'interface'|'iface') interface="$2"; shift; ;;
+	*)
+		log_err "Unrecognized parameter $1"
+		exit 1
+	;;
+	esac
+	shift
+done
+
+if [ $debug -ne 0 ]; then
+	prepare_testing
+else
+	if [ -z "$phase" ]; then
+		log_err "$realscriptfile: no phase specified."
+		exit 1
+	fi
+
+	if [ -z "$interface" ]; then
+		log_err "$realscriptfile: no interface specified."
+		exit 1
+	fi
+
+	if [ -z "$reason" ]; then
+		log_err "$realscriptfile: no reason specified."
+		exit 1
+	fi
+fi
+
+# import all variables from either NetworkManager or dhclient
+import_variables
+
+# ready to do the action
+perform_action

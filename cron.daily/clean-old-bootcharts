@@ -1,0 +1,4 @@
+#!/bin/bash
+if [ -d /var/log/bootchart ]; then
+	find /var/log/bootchart -type f -mtime +14 -exec rm {} \;
+fi

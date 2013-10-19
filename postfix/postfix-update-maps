@@ -1,0 +1,47 @@
+#!/bin/bash
+
+verbose=0
+
+function usage()
+{
+	echo "postfix-update-maps [OPTIONS]"
+	echo "    -h, --help      shows this help screen"
+	echo "    -v,--verbose    verbose output"
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?"|"-h"|"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		*)
+			if [ ! -z "$message" ]; then
+				message="$message $1"
+			else
+				message="$1"
+			fi
+		;;
+	esac
+	shift
+done
+
+function runcmd()
+{
+	[ $verbose -ne 0 ] && echo $@
+	$@
+}
+
+#all_map_types=`/usr/sbin/postconf -m 2>/dev/null`
+all_map_files=`/usr/sbin/postconf | /usr/bin/awk -F '=' '/(hash|btree)\:/ { gsub(/[[:space:]]*/,"",$2); split($2, a, ","); for(x in a) { if (match(a[x],/(hash|btree)\:/)) { print a[x];} } }' | sort -u`
+for f in $all_map_files; do
+	maptype=`echo "$f" | /usr/bin/awk -F':' '{ print $1 }'`
+	mapfile=`echo "$f" | /usr/bin/awk -F':' '{ print $2 }'`
+	if [ -f "$mapfile" ]; then
+		if [ "$mapfile" == '/etc/aliases' ]; then
+			runcmd /usr/sbin/postalias -o "${maptype}:${mapfile}"
+		else
+			runcmd /usr/sbin/postmap -o "${maptype}:${mapfile}"
+		fi
+	fi
+done

@@ -1,0 +1,205 @@
+#!/bin/bash
+verbose=0
+slapd_dbdir='/var/lib/ldap'
+slapd_conf_file='/etc/ldap/slapd.conf'
+slapd_conf_dir='/etc/ldap/slapd.d'
+force=0
+dryrun=0
+action='backup'
+backupfile=''
+slapd_was_running=0
+slapd_is_running=0
+
+function usage()
+{
+    echo "slapd-backup [OPTIONS] <backup_file>"
+    echo "    -h, --help      shows this help screen"
+	echo "    -v, --verbose   enable verbose output"
+	echo "    --backup        backup the slapd data to the given file (default)"
+	echo "    --restore       restores the given backup"
+	echo ""
+	echo "  NOTE:You have to specify the --force flag or otherwise this script does nothing."
+    exit 0
+}
+
+function shutdown_slapd() {
+	status=`/usr/sbin/service slapd status > /dev/null`
+	if [ $? -eq 0 ]; then
+		slapd_was_running=1
+		echo "Stop service slapd"
+		status=`/usr/sbin/service slapd stop > /dev/null`
+	else
+		slapd_was_running=0
+		true
+	fi
+}
+
+function start_slapd() {
+	status=`/usr/sbin/service slapd status > /dev/null`
+	if [ $? -eq 0 ]; then
+		# slapd already running
+		slapd_is_running=1
+		true
+	else
+		if [ $dryrun -eq 0 ]; then
+			echo "Start service slapd"
+			status=`/usr/sbin/service slapd start > /dev/null`
+			[ $? -eq 0 ] && slapd_is_running=1 || slapd_is_running=0
+		else
+			slapd_is_running=0
+			false
+		fi
+	fi
+}
+
+function restart_slapd() {
+	[ $slapd_was_running -ne 0 ] && start_slapd
+}
+
+function clean_slapd()
+{
+	[ -d "$slapd_dbdir" ] && rm -rf "$slapd_dbdir"/*
+}
+
+function fix_dbdir_perms()
+{
+	find "$slapd_dbdir" -type f -exec chown openldap.openldap {} \;
+}
+
+function backup_file_helper() {
+	local source_file="$1"
+	local dest_dir="$2"
+	
+	if [ -d "$source_file" ]; then
+		source_dir="$source_file"
+		[ ! -d "${dest_dir}${source_dir}" ] && mkdir -p "${dest_dir}${source_dir}"
+		cp -rp "$source_file" "${dest_dir}${source_file}"
+	
+	elif [ -f "$source_file" ]; then
+		source_dir=`dirname "$source_file"`
+		[ ! -d "${dest_dir}${source_dir}" ] && mkdir -p "${dest_dir}${source_dir}"
+		cp -p "$source_file" "${dest_dir}${source_file}"
+	fi
+}
+
+function backup_ldap() {
+	local backup_file="$1"
+	
+	if shutdown_slapd; then
+		local backup_temp=`mktemp -d /tmp/slapd-backup.XXXXXX`
+		local ldiffile="$backup_temp/data.ldif"
+
+		backup_file_helper "$slapd_conf_file" "$backup_temp"
+		backup_file_helper "$slapd_conf_dir" "$backup_temp"
+
+		msg=`/usr/sbin/slapcat -v -l > "$ldiffile"`
+		if [ $? -ne 0 ]; then
+			echo "failed to backup OpenLDAP to $ldiffile" 1>&2
+		fi
+		restart_slapd
+		
+		msg=`tar cvfj "$backup_file" -C "$backup_temp"`
+		if [ $? -ne 0 ]; then
+			echo "failed to compress $backup_temp into $backup_file" 1>&2
+		fi
+		
+		rm -rf "$backup_temp"
+	else
+		echo "failed to shutdown OpenLDAP" 1>&2
+	fi
+}
+
+
+function restore_ldap() {
+	local backup_file="$1"
+	local backup_file_ext="${backup_file#*.}"
+
+	if shutdown_slapd; then
+		clean_slapd
+
+		local backup_temp=`mktemp -d /tmp/slapd-backup.XXXXXX`
+		local RES=0
+		local ldiffile=''
+		case "$backup_file_ext" in
+			'gz')
+				msg=`tar xvfz "$backup_file" -C "$backup_temp"`
+				if [ $? -ne 0 ]; then
+					echo "failed to decompress $backup_temp into $backup_file" 1>&2
+				else
+					ldiffile=`find "$backup_temp" -name '*.ldif' -print0`
+				fi
+				;;
+			'bz2')
+				msg=`tar xvfj "$backup_file" -C "$backup_temp"`
+				if [ $? -ne 0 ]; then
+					echo "failed to decompress $backup_temp into $backup_file" 1>&2
+				else
+					ldiffile=`find "$backup_temp" -name '*.ldif' -print0`
+				fi
+				;;
+			'ldif')
+				ldiffile="$backup_temp/all.ldif"
+				cp "$backup_file" "$ldiffile"
+				;;
+			*)
+				RES=1
+				;;
+		esac
+		
+		if [ $RES -eq 0 ]; then
+			if [ ! -z "$ldiffile" ]; then
+				if [ ! -f "$ldiffile" ]; then
+					echo "backup does not contain slapd data ($ldiffile)." 1>&2
+				else
+					msg=`/usr/sbin/slapadd -l "$ldiffile"`
+					if [ $? -ne 0 ]; then
+						echo "failed to restore OpenLDAP from $ldiffile" 1>&2
+					else
+						fix_dbdir_perms
+					fi
+				fi
+			else
+				echo "No LDIF file found in backup." 1>&2
+			fi
+		fi
+		restart_slapd
+		rm -rf "$backup_temp"
+	else
+		echo "failed to shutdown OpenLDAP" 1>&2
+	fi
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+		"-?") usage;;
+		"-h") usage;;
+		"--help") usage;;
+		"-v"|"--verbose") verbose=1; ;;
+		"-f"|"--force") force=1; ;;
+		"--backup") action='backup'; ;;
+		"--restore") action='restore'; ;;
+		*)
+			if [ -z "$backupfile" ]; then
+				backupfile="$1"
+			else
+				echo "backup file $backupfile already given." 1>&2
+				exit 1
+			fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$backupfile" ]; then
+	echo "no backup file given." 1>&2
+	exit 1
+fi
+
+if [ "$action" == 'backup' ]; then
+	backup_ldap "$backupfile"
+elif [ "$action" == 'restore' ]; then
+	restore_ldap "$backupfile"
+else
+	echo "invalid action $action"
+fi

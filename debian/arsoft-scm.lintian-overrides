@@ -1,0 +1,9 @@
+arsoft-scm: binary-without-manpage usr/bin/git-deep-clone
+arsoft-scm: binary-without-manpage usr/bin/git-info
+arsoft-scm: binary-without-manpage usr/bin/git-shrink
+arsoft-scm: binary-without-manpage usr/bin/git-subdir2submodule
+arsoft-scm: binary-without-manpage usr/bin/imagediff
+arsoft-scm: binary-without-manpage usr/bin/mimediff
+arsoft-scm: binary-without-manpage usr/bin/oodiff
+arsoft-scm: binary-without-manpage usr/bin/svn2git
+arsoft-scm: binary-without-manpage usr/bin/zipdiff

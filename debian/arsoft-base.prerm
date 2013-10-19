@@ -1,0 +1,13 @@
+#!/bin/sh -e
+PKG=arsoft-base
+
+if [ "$1" = remove ] ; then
+	[ -L /etc/bash.bashrc ] && rm /etc/bash.bashrc
+	dpkg-divert --remove --package ${PKG} --rename \
+				--divert /etc/bash.bashrc.distrib /etc/bash.bashrc
+	[ -L /etc/profile ] && rm /etc/profile
+	dpkg-divert --remove --package ${PKG} --rename \
+				--divert /etc/profile.distrib /etc/profile
+fi
+#DEBHELPER#
+exit 0

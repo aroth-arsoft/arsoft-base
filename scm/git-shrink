@@ -1,0 +1,304 @@
+#!/bin/bash
+
+verbose=0
+repo_git=''
+repo_schema=''
+object_remove_list=''
+remove_origin=0
+filelist=''
+
+function usage()
+{
+    echo "git-shrink <gitrepo>"
+    echo "    -h, --help         shows this help screen"
+    echo "    -v, --verbose      enable verbose output"
+    echo "    --remove-origin    remove origin from GIT repository (repository cannot be pushed afterwards)."
+    exit 0
+}
+
+function verbose_exec()
+{
+    [ $verbose -ne 0 ] && echo "$@"
+    "$@"
+}
+
+function cleanup_repo()
+{
+	true
+}
+
+function git_shrink()
+{
+	local repodir="$1"
+	local objects_to_remove="$2"
+	local remove_origin="$3"
+	
+	pushd "$repodir" > /dev/null
+    local start_time=`date +%s`
+    local end_time
+    local total_time
+    local RES=0
+
+    if [ $RES -eq 0 ]; then
+		if [ ! -z "$objects_to_remove" ]; then
+            [ $verbose -ne 0 ] && echo "Remove given objects and empty commits"
+			verbose_exec git filter-branch -f --tag-name-filter cat --index-filter "git rm -qrf --cached --ignore-unmatch $objects_to_remove" --prune-empty -- --all; RES=$?
+			if [ $RES -ne 0 ]; then
+				echo "Failed to prune empty commits from GIT repository $repodir" >&2
+			fi
+		fi
+    fi
+
+    if [ $RES -eq 0 ]; then
+		if [ -z "$objects_to_remove" ]; then
+            [ $verbose -ne 0 ] && echo "remove empty commits"
+			verbose_exec git filter-branch -f --prune-empty --tag-name-filter cat -- --all; RES=$?
+			if [ $RES -ne 0 ]; then
+				echo "Failed to prune empty commits from GIT repository $repodir" >&2
+			fi
+		fi
+    fi
+
+	if [ $RES -eq 0 ]; then
+		if [ $remove_origin -ne 0 ]; then
+			has_origin=`git remote -v | grep origin`
+			if [ $? -eq 0 ]; then
+                [ $verbose -ne 0 ] && echo "Remove origin"
+				verbose_exec git remote rm origin; RES=$?
+				if [ $RES -ne 0 ]; then
+					echo "Failed to remove origin from GIT repository $repodir" >&2
+				fi
+			else
+				echo "No remote named origin to remove."
+			fi
+		fi
+	fi
+
+	magicdir=`git_get_magic_dir "$repodir"`
+	if [ ! -z "$magicdir" ]; then
+		if [ -d "$magicdir/refs/original" ]; then
+            [ $verbose -ne 0 ] && echo "Remove refs/original directory"
+			rm -rf "$magicdir/refs/original"; RES=$?
+			if [ $RES -ne 0 ]; then
+				echo "Failed to remove ref original from GIT repository $repodir" >&2
+			fi
+		fi
+	else
+		RES=1
+		echo "Failed to determine magic directory for GIT repository $repodir" >&2
+	fi
+
+	if [ $RES -eq 0 ]; then
+        [ $verbose -ne 0 ] && echo "Expire reflog"
+		verbose_exec git reflog expire --expire=now --all; RES=$?
+		if [ $RES -ne 0 ]; then
+			echo "Failed to clean up reflog for the GIT repository $repodir" >&2
+		fi
+	fi
+	
+	if [ $RES -eq 0 ]; then
+        [ $verbose -ne 0 ] && echo "Perform garbage collection"
+		verbose_exec git gc --aggressive --prune=now; RES=$?
+		if [ $RES -ne 0 ]; then
+			echo "Garbage collection in GIT repository $repodir failed." >&2
+		fi
+	fi
+
+    end_time=`date +%s`
+    total_time=$(( $end_time - $start_time ))
+
+	if [ $RES -eq 0 ]; then
+		echo "GIT repository $repodir disk size reduced successfully ($total_time seconds)."
+	fi
+	popd > /dev/null
+
+	return $RES
+}
+
+function git_clone_deep() {
+	local repodir="$1"
+	local remote_url="$2"
+	local bare="$3"
+
+	pushd "$repodir" > /dev/null
+
+    local start_time=`date +%s`
+    local end_time
+    local total_time
+    local RES=0
+    local bare_opt
+    
+    [ $bare -ne 0 ] && bare_opt='--bare' || bare_opt=''
+
+    verbose_exec git clone $bare_opt "$remote_url" "$repodir"; RES=$?
+    if [ $RES -eq 0 ]; then
+        pushd "$repodir" > /dev/null
+        for branch in `git branch -a | grep remotes | egrep -v '(HEAD|master)'`; do
+            verbose_exec git branch --track ${branch##*/} $branch; RES=$?
+            [ $RES -ne 0 ] && break
+        done
+        popd > /dev/null
+	fi
+	popd > /dev/null
+
+	return $RES
+}
+
+function git_push_all() {
+	local repodir="$1"
+	
+	pushd "$repodir" > /dev/null
+
+    local start_time=`date +%s`
+    local end_time
+    local total_time
+    local RES=0
+
+    if [ $RES -eq 0 ]; then
+		verbose_exec git push origin --force --all; RES=$?
+		if [ $RES -ne 0 ]; then
+			echo "Failed to push everything to origin." >&2
+		fi
+	fi
+
+    if [ $RES -eq 0 ]; then
+		verbose_exec git push origin --force --tags; RES=$?
+		if [ $RES -ne 0 ]; then
+			echo "Failed to push tags to origin." >&2
+		fi
+	fi
+	popd > /dev/null
+
+	return $RES
+}
+
+function is_git_repo() {
+	local repodir="$1"
+	local repo_schema
+	if [[ "$repodir" == *://* ]]; then
+		repo_schema="${repodir%://*}"
+	else
+		repo_schema=''
+	fi
+	if [ -z "$repo_schema" ]; then
+		if [ -d "$repodir/.git" ]; then
+			true
+		elif [ -f "$repodir/packed-refs" ]; then
+			true
+		else
+			false
+		fi
+	else
+		# got a real remote URL to a GIT repo
+		true
+	fi
+}
+
+function git_get_magic_dir() {
+	local repo_dir="$1"
+	local RES=0
+	if [ -f "$repo_dir/packed-refs" ]; then
+		# repo without working directory (bare)
+		magicdir="$repo_dir"
+	elif [ -d "$repo_dir/.git" ]; then
+		# regular repo with working directory
+		magicdir="$repo_dir/.git"
+	elif [ -f "$repo_dir/.git" ]; then
+		# submodule within a working directory
+		magicdir=`cat "$repo_dir/.git"`
+		magicdir=${magicdir#gitdir: }
+	else
+		# invalid repo directory
+		magicdir=''
+		RES=1
+	fi
+	echo "$magicdir"
+	return $RES
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+		'-?'|'-h'|'--help') usage;;
+		'-v'|'--verbose') verbose=1; ;;
+		'--remove-origin') remove_origin=1; ;;
+		'--filelist') filelist="$2"; shift; ;;
+		-*)
+			echo "Invalid option $1 specified." >&2
+			exit 1
+			;;
+        *)
+			if is_git_repo "$1"; then
+				if [ -z "$repo_git" ]; then
+					repo_git="$1"
+				else
+					echo "Git repository $repo_git already given. invalid argument $1." >&2
+					exit 1
+				fi
+			else
+				object_remove_list="$object_remove_list $1"
+			fi
+            ;;
+    esac
+    shift
+done
+
+script_file=`readlink -f "$0"`
+script_dir=`dirname "$script_file"`
+script_name=`basename "$script_file"`
+
+if [ ! -x "/usr/bin/git" ]; then
+	echo "GIT not installed. Please install using 'sudo apt-get install git-core'." >&2
+	exit 1
+fi
+
+git_work_dir=`readlink -f '.'`
+
+if [ ! -z "$filelist" ]; then
+	declare -a fields
+	while IFS=$'\t ' read -r -a fields; do
+		[ ${#fields[*]} -eq 0 -o "${fields[0]:0:1}" == "#" ] && continue
+		object_to_remove="${fields[0]}"
+		object_remove_list="$object_remove_list $object_to_remove"
+	done < "$filelist"
+fi
+
+pushd "$git_work_dir" >/dev/null
+
+is_remote_repo=0
+if [ -z "$repo_git" -o "$repo_git" == '.' ]; then
+	# Find base of git directory
+	while [ ! -d .git ] && [ ! -f .git ] && [ ! -f packed-refs ] && [ ! `pwd` = "/" ]; do cd ..; done
+	real_repo_git=`readlink -f '.'`
+	RES=0
+elif [ -d "$repo_git" ]; then
+    real_repo_git=`readlink -f "$repo_git"`
+    RES=0
+else
+	# assume we got a remote url, so we first create a temp directory
+	real_repo_git=`mktemp -d "$git_work_dir/git-shrink.XXXXXX"`
+	# clone it (deep) to the temp dir
+	git_clone_deep "$real_repo_git" "$repo_git" 1; RES=$?
+    is_remote_repo=1
+fi
+[ $verbose -ne 0 ] && echo "Repository directory: $real_repo_git"
+if [ $verbose -ne 0 ]; then
+    [ ! -z "$object_remove_list" ] && echo "Object to remove: $object_remove_list"
+fi
+
+if [ $RES -eq 0 ]; then
+	# do the hard shrinking work
+	git_shrink "$real_repo_git" "$object_remove_list" "$remove_origin"; RES=$?
+fi
+
+if [ $is_remote_repo -ne 0 ]; then
+	if [ $RES -eq 0 ]; then
+		# push the modifications back to the original
+		git_push_all "$real_repo_git"
+	fi
+	# and remove the temp directory (in any case)
+	[ -d "$real_repo_git" ] && rm -rf "$real_repo_git"
+fi
+
+popd > /dev/null
+exit $RES

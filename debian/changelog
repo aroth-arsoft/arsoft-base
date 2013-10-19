@@ -1,0 +1,637 @@
+arsoft-base (2.90) saucy; urgency=low
+
+  * add trusty release 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 19 Oct 2013 16:39:10 +0200
+
+arsoft-base (2.89) raring; urgency=low
+
+  * modify ppa_publish to be able to exclude the original tarball from upload
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 16 Oct 2013 08:50:48 +0200
+
+arsoft-base (2.88) raring; urgency=low
+
+  * add mkhomedir for pam-auth-config
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 09 Oct 2013 18:07:21 +0200
+
+arsoft-base (2.87) raring; urgency=low
+
+  * add disk space check for system and user disks
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 08 Oct 2013 17:37:22 +0200
+
+arsoft-base (2.86) raring; urgency=low
+
+  * remove check_rkhunter again, because move it to arsoft-python 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 25 Sep 2013 20:10:34 +0200
+
+arsoft-base (2.85) raring; urgency=low
+
+  * add check_rkhunter nagios plugin
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 25 Sep 2013 08:22:38 +0200
+
+arsoft-base (2.84) raring; urgency=low
+
+  * new version of ppa_publish with distro-specific packaging files
+    capability
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 22 Sep 2013 11:40:55 +0200
+
+arsoft-base (2.83) raring; urgency=low
+
+  * return unknown for bad address in check_smb
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 09 Sep 2013 08:24:45 +0200
+
+arsoft-base (2.82) raring; urgency=low
+
+  * fixed check_openvz_ubc.pl to return UNKNOWN on read failure
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 03 Aug 2013 10:50:02 +0200
+
+arsoft-base (2.81) raring; urgency=low
+
+  * remove dns-update script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 25 Jul 2013 07:30:20 +0200
+
+arsoft-base (2.80) raring; urgency=low
+
+  * write cups-admin errors to syslog
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 18 Jul 2013 15:14:03 +0200
+
+arsoft-base (2.79) raring; urgency=low
+
+  * drop arsoft-openvpn package (replaced by arsoft-python-openvpn)
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 15 Jul 2013 15:02:39 +0200
+
+arsoft-base (2.78) raring; urgency=low
+
+  * prepare removal of openvpn-status script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 11 Jul 2013 08:10:27 +0200
+
+arsoft-base (2.77) raring; urgency=low
+
+  * cleanup dhcp scripts
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 02 Jul 2013 09:45:53 +0200
+
+arsoft-base (2.76) raring; urgency=low
+
+  * run scripts on system shutdown
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 29 Jun 2013 17:23:10 +0200
+
+arsoft-base (2.75) raring; urgency=low
+
+  * add check_openvz_ubc.pl script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 22 Jun 2013 16:57:32 +0200
+
+arsoft-base (2.74) raring; urgency=low
+
+  * fixed openvpn-zip-config script to get correct vpn names
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 20 Jun 2013 06:44:50 +0200
+
+arsoft-base (2.73) raring; urgency=low
+
+  * another round of cert mess cleanup
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 15 Jun 2013 18:59:10 +0200
+
+arsoft-base (2.72) raring; urgency=low
+
+  * add ssh-setups-keys script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 01 Jun 2013 16:39:15 +0200
+
+arsoft-base (2.71) raring; urgency=low
+
+  * drop ntfsprogs 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 20 May 2013 17:38:43 +0200
+
+arsoft-base (2.70) raring; urgency=low
+
+  * fixed check_ps pnp4nagios template
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 18 May 2013 10:11:15 +0200
+
+arsoft-base (2.69) raring; urgency=low
+
+  * nagios and pnp4nagios bug fixes
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 17 May 2013 20:04:42 +0200
+
+arsoft-base (2.68) raring; urgency=low
+
+  * improve git-subdir2submodule script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 12 May 2013 19:03:35 +0200
+
+arsoft-base (2.67) raring; urgency=low
+
+  * more git scripts
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 11 May 2013 18:45:36 +0200
+
+arsoft-base (2.66) raring; urgency=low
+
+  * fixed typo
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 09 May 2013 18:38:22 +0200
+
+arsoft-base (2.65) raring; urgency=low
+
+  * add check_ntp_configured_peer 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 09 May 2013 16:41:51 +0200
+
+arsoft-base (2.64) raring; urgency=low
+
+  * add check_ps to nagios plugins
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 08 May 2013 19:52:16 +0200
+
+arsoft-base (2.63) raring; urgency=low
+
+  * minor bug fixes and enhancements
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 07 May 2013 16:20:10 +0200
+
+arsoft-base (2.62) raring; urgency=low
+
+  * remove check_puppet_agent (moved to python)
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 28 Apr 2013 19:38:16 +0200
+
+arsoft-base (2.61) quantal; urgency=low
+
+  * fixed check_puppet_agent for nagios user
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 27 Apr 2013 15:48:20 +0200
+
+arsoft-base (2.60.1) quantal; urgency=low
+
+  * add missing command definition
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 25 Apr 2013 20:49:12 +0200
+
+arsoft-base (2.60) quantal; urgency=low
+
+  * check_puppetdb_memory outputs the memory in human readable numbers
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 25 Apr 2013 20:32:29 +0200
+
+arsoft-base (2.59) quantal; urgency=low
+
+  * check_puppet_agent can now check for agent not running as well
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 25 Apr 2013 20:01:14 +0200
+
+arsoft-base (2.58) quantal; urgency=low
+
+  * fixed icinga/nagios notifications
+  * find root directory of package in ppa_publish
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 21 Apr 2013 17:50:22 +0200
+
+arsoft-base (2.57) quantal; urgency=low
+
+  * add spamassassin plugin for nagios
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 21 Apr 2013 13:26:48 +0200
+
+arsoft-base (2.56) quantal; urgency=low
+
+  * add missing nma commands
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 20 Apr 2013 18:57:55 +0200
+
+arsoft-base (2.55) quantal; urgency=low
+
+  * added arsoft-pnp4nagios package
+  * include NotifyMyAndroid script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 20 Apr 2013 18:38:45 +0200
+
+arsoft-base (2.54) quantal; urgency=low
+
+  * more nagios plugins: puppet agent and puppetdb
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 20 Apr 2013 16:47:12 +0200
+
+arsoft-base (2.53.1) quantal; urgency=low
+
+  * minor ca certificate correction
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 09 Apr 2013 07:19:57 +0200
+
+arsoft-base (2.53) quantal; urgency=low
+
+  * fixed check_smb wrong usage of awk
+  * fixed nagios detection in check_nagiostats
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 08 Apr 2013 22:55:22 +0200
+
+arsoft-base (2.52.1) quantal; urgency=low
+
+  * fixed conflicting nagios commands
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 08 Apr 2013 08:20:21 +0200
+
+arsoft-base (2.52) quantal; urgency=low
+
+  * add samba plugins for nagios
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 08 Apr 2013 08:15:58 +0200
+
+arsoft-base (2.51) quantal; urgency=low
+
+  * add nagiostats
+  * add git scripts and helpers
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 06 Apr 2013 14:45:44 +0200
+
+arsoft-base (2.50) quantal; urgency=low
+
+  * add icinga html email notification script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 16 Mar 2013 19:36:17 +0100
+
+arsoft-base (2.49.2) quantal; urgency=low
+
+  * minor changes to fix incompatibility
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 13 Mar 2013 08:11:14 +0100
+
+arsoft-base (2.49.1) quantal; urgency=low
+
+  * remove lm_sensors check as well
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 04 Mar 2013 13:15:56 +0100
+
+arsoft-base (2.49~quantal1) quantal; urgency=low
+
+  * drop check_ssl_cert script because of conflict with nagios-plugins-contrib
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 04 Mar 2013 13:08:19 +0100
+
+arsoft-base (2.48) quantal; urgency=low
+
+  * install cron job to remove old bootchart files
+  * rename installed root certificates again to avoid the same basename
+    for different companies.
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 04 Mar 2013 07:56:26 +0100
+
+arsoft-base (2.47) quantal; urgency=low
+
+  * improvements to postfix-mailstat script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 02 Mar 2013 18:52:13 +0100
+
+arsoft-base (2.46) quantal; urgency=low
+
+  * fixed build issues
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 19 Feb 2013 08:05:44 +0100
+
+arsoft-base (2.45) quantal; urgency=low
+
+  * fixed trouble with start_tls parameter for postfix in dhcp scripts
+  * require lvm2 package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 19 Feb 2013 07:46:19 +0100
+
+arsoft-base (2.44) quantal; urgency=low
+
+  * remove arsoft-nagios-* packages and put them into meta-packages
+  * put nagios plugins into arsoft-nagios-plugins package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 10 Feb 2013 13:21:48 +0100
+
+arsoft-base (2.43) quantal; urgency=low
+
+  * fixed certificates
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 23 Jan 2013 16:21:02 +0100
+
+arsoft-base (2.42) quantal; urgency=low
+
+  * fixed nagios plugins for jenkins
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 22 Jan 2013 07:39:41 +0100
+
+arsoft-base (2.41) quantal; urgency=low
+
+  * added ncdu to base packages
+  * add nagios plugin for jenkins from https://github.com/Ericbla/check_jenkins
+  * removed python scripts and put them into arsoft-python
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 17 Jan 2013 18:57:38 +0100
+
+arsoft-base (2.40) quantal; urgency=low
+
+  * add root certificates to arsoft-base package
+  * clean up
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 02 Jan 2013 16:14:25 +0100
+
+arsoft-base (2.39) quantal; urgency=low
+
+  * drop arsoft-python requirement
+  * clean up
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 27 Dec 2012 11:50:11 +0100
+
+arsoft-base (2.38) quantal; urgency=low
+
+  * fixed missing file
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 26 Dec 2012 14:35:03 +0100
+
+arsoft-base (2.37) quantal; urgency=low
+
+  * remove system-info-check cron job
+  * minor tweaks for scripts
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 26 Dec 2012 13:37:08 +0100
+
+arsoft-base (2.36) quantal; urgency=low
+
+  * improve slapd scripts
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 24 Nov 2012 10:17:29 +0100
+
+arsoft-base (2.35) quantal; urgency=low
+
+  * added auth_pass_file for openvpn configs
+  * added nagios commands to test a remote dhcp server
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 13 Nov 2012 19:56:51 +0100
+
+arsoft-base (2.34) quantal; urgency=low
+
+  * fixed vizone script handling of zone serial > 8
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 09 Nov 2012 07:51:59 +0100
+
+arsoft-base (2.33) quantal; urgency=low
+
+  * fixed dhcp scripts for nslcd
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 04 Nov 2012 16:33:52 +0100
+
+arsoft-base (2.32) quantal; urgency=low
+
+  * improve mythtv-restart script to handle SIGHUP
+  * prepare dhcp scripts for nss-ldapd
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 04 Nov 2012 16:33:31 +0100
+
+arsoft-base (2.31) quantal; urgency=low
+
+  * nagios script to check for package updates
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 28 Oct 2012 08:52:55 +0100
+
+arsoft-base (2.30) precise; urgency=low
+
+  * fixed quantal dhcp errors
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 18 Oct 2012 23:09:03 +0200
+
+arsoft-base (2.29) precise; urgency=low
+
+  * minor enhancements
+  * add new ubuntu release raring to scripts
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 18 Oct 2012 19:57:38 +0200
+
+arsoft-base (2.28) precise; urgency=low
+
+  * fixed autofs ldap auth configuration
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 06 Oct 2012 18:18:03 +0200
+
+arsoft-base (2.27) precise; urgency=low
+
+  * fixed wrong alias file for postfix
+  * convert more trac tables
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 28 Sep 2012 09:08:47 +0200
+
+arsoft-base (2.26) precise; urgency=low
+
+  * remove accidentally added database file
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 24 Sep 2012 14:47:10 +0000
+
+arsoft-base (2.25) precise; urgency=low
+
+  * use provided timezone information from dhcp-server
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 24 Sep 2012 14:44:28 +0000
+
+arsoft-base (2.24) precise; urgency=low
+
+  * rename arsoft-scripts-svn to arsoft-scm
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 22 Sep 2012 08:30:15 +0000
+
+arsoft-base (2.23) precise; urgency=low
+
+  * move nsswitch-ldap to arsoft-python package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 14 Sep 2012 18:32:13 +0200
+
+arsoft-base (2.22) precise; urgency=low
+
+  * fixed cyrusimap clients depends issue
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 08 Sep 2012 14:20:14 +0200
+
+arsoft-base (2.21) precise; urgency=low
+
+  * fixed depends issues with arsoft-python packages
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 06 Sep 2012 07:55:15 +0200
+
+arsoft-base (2.20) precise; urgency=low
+
+  * remove check_fritzbox nagios plugin (moved to arsoft-python)
+  * add check_ssl_cert nagios plugin
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 05 Sep 2012 19:48:56 +0200
+
+arsoft-base (2.19) precise; urgency=low
+
+  * fixed nagios agent issues (missing quotes and missing dnsutils)
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 27 Aug 2012 19:13:57 +0200
+
+arsoft-base (2.18) precise; urgency=low
+
+  * minor nagios fixes
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 24 Aug 2012 20:07:28 +0200
+
+arsoft-base (2.17) precise; urgency=low
+
+  * add nagios packages
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 16 Aug 2012 08:16:00 +0200
+
+arsoft-base (2.16) precise; urgency=low
+
+  * stop messing around with dhclient-script
+  * restore the original dhclient-script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 15 Aug 2012 07:34:47 +0200
+
+arsoft-base (2.15) precise; urgency=low
+
+  * improve arsoft-dhcp-client to better work with NetworkManager
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 12 Aug 2012 17:59:16 +0200
+
+arsoft-base (2.14) precise; urgency=low
+
+  * replace dhclient-script with script working with network manager
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 10 Aug 2012 07:51:15 +0200
+
+arsoft-base (2.13) precise; urgency=low
+
+  * update puppet labs GPG key
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 26 Jul 2012 07:36:56 +0200
+
+arsoft-base (2.12) quantal; urgency=low
+
+  * improved mythtv-restart script to allow to start frontend, setup or xterm
+    as mythtv user
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 14 Jul 2012 16:15:49 +0200
+
+arsoft-base (2.11) quantal; urgency=low
+
+  * show certificate in openvpn-status
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 08 Jul 2012 10:12:03 +0200
+
+arsoft-base (2.10) quantal; urgency=low
+
+  * fixed missing file /etc/profile
+  * improved mythtv webradio script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 10 Jun 2012 17:20:10 +0200
+
+arsoft-base (2.9) quantal; urgency=low
+
+  * use dpkg-divert to handle /etc/bash.bashrc, /etc/profile and /etc/vim/vimrc
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 08 Jun 2012 14:15:07 +0200
+
+arsoft-base (2.8) quantal; urgency=low
+
+  * more conflicts fixed 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 03 Jun 2012 17:20:20 +0200
+
+arsoft-base (2.7) quantal; urgency=low
+
+  * improved slapd-backup script
+  * add missing files from /usr/share/*
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 31 May 2012 20:33:09 +0200
+
+arsoft-base (2.6) quantal; urgency=low
+
+  * more depends ethtool, wget, resolvconf
+  * fixed openvpn files
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 31 May 2012 18:09:05 +0200
+
+arsoft-base (2.5) quantal; urgency=low
+
+  * more scripts
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 30 May 2012 18:15:46 +0200
+
+arsoft-base (2.4) quantal; urgency=low
+
+  * fixed the dhcp script path
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 28 May 2012 19:24:15 +0200
+
+arsoft-base (2.3~lucid1) lucid; urgency=low
+
+  * move python scripts to arsoft-python
+  * added ppa_publish script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 26 May 2012 14:57:05 +0200
+
+arsoft-base (2.2~lucid2) lucid; urgency=low
+
+  * fix lucid depends
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 20 May 2012 15:09:03 +0200
+
+arsoft-base (2.2~oneiric1) oneiric; urgency=low
+
+  * once more for oneiric
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 19 May 2012 17:51:49 +0200
+
+arsoft-base (2.2~lucid1) lucid; urgency=low
+
+  * put version 2.2 into lucid
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 19 May 2012 17:50:01 +0200
+
+arsoft-base (2.1) precise; urgency=low
+
+  * switch to architecture independent packages
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 19 May 2012 16:05:13 +0200
+
+arsoft-base (2.0) precise; urgency=low
+
+  * bump version
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 17 May 2012 15:04:24 +0200
+
+arsoft-base (1.3) precise; urgency=low
+
+  * combine arsoft-scripts and arsoft-base packages
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 16 May 2012 19:49:05 +0200
+
+arsoft-base (1.2) precise; urgency=low
+
+  * fixed ppa-aroth gpg key
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 11 May 2012 20:20:41 +0200
+
+arsoft-base (1.1) precise; urgency=low
+
+  * add puppetlabs GPG key and apt source list
+  * add openvpn package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 09 May 2012 07:27:54 +0200
+
+arsoft-base (1.0) oneiric; urgency=low
+
+  * initial release
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 22 Apr 2012 15:07:28 +0200

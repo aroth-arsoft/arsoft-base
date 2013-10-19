@@ -1,0 +1,55 @@
+#!/bin/sh
+PUPPET_CONF='/etc/puppet/puppet.conf'
+
+puppet_update_conf() {
+
+	if [ ! -z "$domain_name" ]; then
+		srv_record=`LANG=C /usr/bin/host -t SRV "_puppet._tcp.$domain_name."`
+		if [ $? -eq 0 ]; then
+			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
+			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
+			#newserver="${srv_name%\.}:${srv_port}"
+			#puppet does not support to specify a different port yet
+			newserver="${srv_name%\.}"
+		else
+			newserver=''
+		fi
+		newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$domain_name."`
+		newpluginsync=`get_dns_txt_record "_pluginsync._puppet._config.$domain_name."`
+	fi
+	[ -r "$PUPPET_CONF" ] && oldserver=`ini-util "$PUPPET_CONF" --value --get "main/server"` || oldserver=''
+	[ -r "$PUPPET_CONF" ] && oldconfigtimeout=`ini-util "$PUPPET_CONF" --value --get "main/configtimeout"` || oldconfigtimeout=''
+	[ -r "$PUPPET_CONF" ] && oldpluginsync=`ini-util "$PUPPET_CONF" --value --get "main/pluginsync"` || oldpluginsync=''
+	[ -z "$oldconfigtimeout" ] && oldconfigtimeout='300'
+	[ -z "$oldpluginsync" ] && oldpluginsync='true'
+	[ -z "$newconfigtimeout" ] && newconfigtimeout="$oldconfigtimeout"
+	[ -z "$newpluginsync" ] && newpluginsync="$oldpluginsync"
+	
+	log_info "puppet server: $newserver"
+	log_info "puppet configtimeout: $newconfigtimeout"
+	if [ "$oldserver" != "$newserver" -o "$oldconfigtimeout" != "$newconfigtimeout" ]; then
+		ini-util "$PUPPET_CONF" --edit "main/server=$newserver" "main/configtimeout=$newconfigtimeout" "main/pluginsync=$newpluginsync"
+		RES=$?
+		if [ $RES -eq 0 ]; then
+			/usr/sbin/service puppet reload
+		else
+			false
+		fi
+	else
+		true
+	fi
+}
+
+case $reason in
+	BOUND|RENEW|REBIND|REBOOT)
+		puppet_update_conf
+		;;
+	EXPIRE|FAIL|RELEASE|STOP)
+		;;
+	# events from network-manager
+	up|vpn-up)
+		puppet_update_conf
+		;;
+    down|vpn-down|hostname|dhcp4-change|dhcp6-change)
+		;;
+esac

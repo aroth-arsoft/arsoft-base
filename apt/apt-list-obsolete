@@ -1,0 +1,26 @@
+#!/bin/bash
+
+function usage() {
+	echo "usage: apt-list-obsolete"
+	echo "Purges all remove packages from the system."
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	'-?'|'-h'|'--help') usage;; 
+	*)
+		echo "Unrecognized parameter $1"
+		exit 1
+	;;
+	esac
+	shift
+done
+
+if [ ! -x /usr/bin/apt-show-versions ]; then
+	echo "apt-show-versions not installed."
+	exit 1
+fi
+
+apt-show-versions -b | awk '/No available version in archive/ { print $1}'

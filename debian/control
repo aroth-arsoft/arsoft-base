@@ -1,0 +1,89 @@
+Source: arsoft-base
+Section: admin
+Priority: extra
+Maintainer: Andreas Roth <aroth@arsoft-online.com>
+Build-Depends: debhelper (>= 7.0.50~)
+Standards-Version: 3.9.4
+Homepage: http://www.arsoft-online.com
+
+Package: arsoft-base
+Architecture: all
+Depends: arsoft-ppa,
+ tzdata, mc, screen,
+ unzip, zip, iotop, htop,
+ ntfs-3g, xfsprogs, cryptsetup,
+ update-manager-core, update-notifier-common,
+ language-pack-en-base, lvm2,
+ console-data, console-setup, gawk,
+ strace, 
+ openssh-server, ethtool, wget, curl, resolvconf, ncdu,
+ ${misc:Depends}
+Replaces: arsoft-scripts
+Description: configure the system to use the AR Soft packages.
+ installs basic packages and configuration for operation on 
+ AR Soft managed systems.
+
+Package: arsoft-ppa
+Architecture: all
+Depends: ${misc:Depends}
+Description: installs the AR Soft package repository
+ Installs all files to access the AR Soft package repository.
+
+Package: arsoft-vim
+Architecture: all
+Depends: arsoft-base, vim, vim-doc, vim-scripts, ${misc:Depends}
+Description: VIM configuration for AR Soft machines
+ Configures VIM to be used as default editor.
+
+Package: arsoft-dhcp-client
+Architecture: all
+Replaces: arsoft-scripts-dhcp
+Depends: arsoft-base, arsoft-python, ${dhcpclient:Depends}, ${misc:Depends}
+Description: script for network configuration
+ installs dhcp client scripts to configure your workstations
+ according to data provided by DHCP, DNS and LDAP.
+
+Package: arsoft-scripts-mythtv
+Architecture: all
+Depends: arsoft-mythtv, ${misc:Depends}, ${python:Depends} 
+Description: some helper script to set up MythTV
+ installs helper scripts for MythTV to start the frontend
+ on tty6.
+
+Package: arsoft-scripts-cyrusimapd
+Architecture: all
+Depends: ${misc:Depends}
+Description: scripts for the Cyrus IMAP server
+ This package provides a backup script for the Cyrus IMAP server to
+ save and restore the configuration and data to a different location.
+
+Package: arsoft-scm
+Architecture: all
+Depends: arsoft-base, libimage-exiftool-perl, odt2txt, ${misc:Depends}, ${python:Depends} 
+Replaces: arsoft-scripts-svn
+Description: some helper scripts for various SCM systems
+ a collection of helper scripts for Subversion and GIT.
+
+Package: arsoft-nagios-plugins
+Architecture: all
+Depends: arsoft-python-nagios, libnagios-plugin-perl, libmail-sender-perl, libwww-mechanize-perl, libjson-perl, 
+ lm-sensors, hddtemp, dnsutils, ${perl:Depends}, ${misc:Depends}
+Description: additional Nagios plugins for AR Soft specific services
+ Installs all files and packages required to use the AR Soft Nagios
+ plugins to monitor the following services:
+  - APT upgrades
+  - Puppet agent
+  - PuppetDB
+  - Jenkins
+  - SMB
+  - Icinga HTML notification
+  - NotifyMyAndroid
+  - and more
+
+Package: arsoft-pnp4nagios
+Architecture: all
+Depends: pnp4nagios, ${misc:Depends}
+Description: additional templates and check_commands for PNP4Nagios
+ custom templates and check_commands for PNP4Nagios:
+  - PuppetDB
+
