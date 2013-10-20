@@ -56,17 +56,22 @@ while [ $# -ne 0 ]; do
 	'--target') DPUT_TARGET="$2"; shift; ;;
 	'--noput') noput=1; ;;
 	'--noorig') noorig=1; ;;
-	'hardy'|'intrepid'|'jaunty'|'lucid'|'karmic'|'maverick'|'natty'|'oneiric'|'precise'|'quantal'|'raring'|'saucy'|'trusty')
-		if [ -z "$RELEASES" ]; then
-			RELEASES="$1"
-		else
-			RELEASES="$RELEASES $1"
-		fi
+	-*)
+		echo "Unrecognized option $1" >&2
+		exit 1
 		;;
 	*)
-		echo "Unrecognized parameter $1" >&2
-		exit 1
-	;;
+		if [[ "$VALID_RELEASE"  == *"$1"* ]]; then
+			if [ -z "$RELEASES" ]; then
+				RELEASES="$1"
+			else
+				RELEASES="$RELEASES $1"
+			fi
+		else
+			echo "Unrecognized distribution codename $1" >&2
+			exit 1
+		fi
+		;;
 	esac
 	shift
 done
@@ -126,20 +131,30 @@ for RELEASE in $RELEASES; do
 	(echo "${new_version_line}"; cat "$changelog_original" | sed '1,1d') > "$PKGDIR/debian/changelog"
 
 	for f in "$PKGDIR/debian"/*; do
-		f_ext="${f##*.}"
+		f_base=`basename "$f"`
+		f_ext="${f_base##*.}"
+		[ "$f_ext" == "$f_base" ] && f_ext=''
+		#echo "Got ext >>$f_ext<<"
 		if [ "$f_ext" == "$RELEASE" ]; then
-			filename=`basename "$f"`
-			f_name="${filename%.*}"
+			f_name="${f_base%.*}"
 			dest="$PKGDIR/debian/${f_name}"
 			echo "Copy $f to $dest"
 			[ -f "$dest" ] && mv -f "$dest" "$backup_dir/${f_name}"
-			cp -f "$f" "$backup_dir/$filename"
+			cp -f "$f" "$backup_dir/$f_base"
 			mv "$f" "$dest"
-		elif $(echo $VALID_RELEASE | grep -q $f_ext); then
-			filename=`basename "$f"`
-			dest="$PKGDIR/debian/$filename"
-			echo "Remove $f (which is not for $RELEASE)"
-			mv -f "$f" "$backup_dir/$filename"
+		elif [ ! -z "$f_ext" ]; then
+		
+			file_is_for_different_release=0
+			for rel in $VALID_RELEASE; do
+				[ "$f_ext" == "$rel" ] && file_is_for_different_release=1
+			done
+			if [ $file_is_for_different_release -ne 0 ]; then
+				dest="$PKGDIR/debian/$f_base"
+				echo "Remove $f $f_ext (which is not for $RELEASE)"
+				mv -f "$f" "$backup_dir/$f_base"
+			else
+				echo "Keep $f (which is not for any known release)"
+			fi
 		fi
 	done
 
