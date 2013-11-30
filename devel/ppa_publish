@@ -26,6 +26,12 @@ if [ -f $HOME/.arsoft/ppa_publish.conf ]; then
 	source $HOME/.arsoft/ppa_publish.conf
 fi
 
+if [ -z "$DPUT_TARGET" ]; then
+	if [ -f "$HOME/.dput.cf" ]; then
+		DPUT_TARGET=`awk -F '=' '/^default_host_main[[:space:]]*=[[:space:]]*.*$/ { gsub(/^[[:space:]]*/,"",$2); print $2 }' "$HOME/.dput.cf"`
+	fi
+fi
+
 function usage() {
 	echo "Usage: $SCRIPTNAME [OPTIONS] [RELEASE]"
 	echo "  Edits the changelog before calling debuild and dput to publish"
@@ -34,17 +40,29 @@ function usage() {
 	echo "OPTIONS:"
 	echo "    -h, --help            shows this help"
 	echo "    -v, --verbose         enable verbose output"
+	echo "    --ppa name            specifies the target PPA (alias for --target ppa:name)"
 	echo "    --target name         specifies the target for dput"
 	echo "    --noput               do not upload the package"
 	echo "    --noorig              do not upload the original tarball"
 	echo "RELEASE:"
 	for rel in $VALID_RELEASE; do
 		if $(echo $DEFAULT_RELEASES} | grep -q $rel); then
-			echo "        $rel (default)"
+			echo "    $rel (default)"
 		else
-			echo "        $rel"
+			echo "    $rel"
 		fi
 	done
+	if [ -z "$DPUT_TARGET" ]; then
+		echo "Default target: (none)"
+	else
+		echo "Default target: $DPUT_TARGET"
+	fi
+	
+	if [ -f $HOME/.arsoft/ppa_publish.conf ]; then
+		echo "Configuration file: $HOME/.arsoft/ppa_publish.conf"
+	else
+		echo "Configuration file: $HOME/.arsoft/ppa_publish.conf (does not exist)"
+	fi
 	exit 0
 }
 
@@ -54,6 +72,7 @@ while [ $# -ne 0 ]; do
 	'-?'|'-h'|'--help') usage;; 
 	'-v'|'--verbose') verbose=1; ;;
 	'--target') DPUT_TARGET="$2"; shift; ;;
+	'--ppa') DPUT_TARGET="ppa:$2"; shift; ;;
 	'--noput') noput=1; ;;
 	'--noorig') noorig=1; ;;
 	-*)
@@ -75,12 +94,6 @@ while [ $# -ne 0 ]; do
 	esac
 	shift
 done
-
-if [ -z "$DPUT_TARGET" ]; then
-	if [ -f "$HOME/.dput.cf" ]; then
-		DPUT_TARGET=`awk -F '=' '/^default_host_main[[:space:]]*=[[:space:]]*.*$/ { gsub(/^[[:space:]]*/,"",$2); print $2 }' "$HOME/.dput.cf"`
-	fi
-fi
 
 if [ -z "$DPUT_TARGET" ]; then
 	echo "No target for dput specified or configured in $HOME/.dput.cf" >&2
