@@ -116,7 +116,7 @@ original_release=`echo "$original_version_line" | awk '{ print substr($3, 1, len
 original_flags=`echo "$original_version_line" | awk '{ print $4; }'`
 echo "Original version: $original_version"
 
-if [[ "$original_version" =~ .*~(hardy|intrepid|jaunty|lucid|karmic|maverick|natty|oneiric|precise|quantal|raring|saucy)[0-9]* ]]; then
+if [[ "$original_version" =~ .*~(hardy|intrepid|jaunty|lucid|karmic|maverick|natty|oneiric|precise|quantal|raring|saucy|trusty)[0-9]* ]]; then
 	original_version=`echo "$original_version" | sed -r 's/(.*)~[a-z0-9]+/\1/'`
 	echo "Original version without release: $original_version"
 fi
