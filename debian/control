@@ -10,7 +10,7 @@ Package: arsoft-base
 Architecture: all
 Depends: arsoft-ppa,
  tzdata, mc, screen,
- unzip, zip, iotop, htop,
+ unzip, zip, unrar, iotop, htop,
  ntfs-3g, xfsprogs, cryptsetup,
  update-manager-core, update-notifier-common,
  language-pack-en-base, lvm2,
