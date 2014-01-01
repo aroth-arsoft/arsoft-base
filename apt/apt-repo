@@ -1,0 +1,253 @@
+#!/bin/bash
+
+verbose=0
+action=''
+package_files=''
+repo_dir=''
+distribution=''
+update_filelist=''
+
+function usage() {
+    echo "usage: apt-repo <action> [params]"
+    echo "action must be one of the following:"
+    echo "  add <debfile>        add a new package file"
+    echo "  init                 initialize the repository"
+    echo "  status               status of the repository"
+    exit 0
+}
+
+function repoInit() {
+	[ ! -d "$repo_dir/conf" ] && mkdir -p "$repo_dir/conf"
+	[ ! -d "$repo_dir/.gnupg" ] && mkdir -p "$repo_dir/.gnupg" && chmod 700 "$repo_dir/.gnupg"
+	echo "basedir ." > "$repo_dir/conf/options"
+	
+	hostname=`hostname -f`
+	codename=`lsb_release -cs`
+	
+	local gpg_homedir="$repo_dir/.gnupg"
+	
+	gpg2 --homedir "$gpg_homedir" --batch --gen-key <<EOF
+Key-Type: default
+Subkey-Type: default
+Name-Real: APT Repository at $hostname
+Name-Comment: APT Repository at $hostname
+Name-Email: apt-repo@$hostname
+Expire-Date: 0
+%no-ask-passphrase
+%pubring $repo_dir/.gnupg/pubring.gpg
+%secring $repo_dir/.gnupg/secring.gpg
+%commit
+EOF
+	gpg2 --homedir "$gpg_homedir" --export --armor "apt-repo@$hostname" > $repo_dir/pubkey.asc
+	generated_keyid=`gpg2 --homedir "$gpg_homedir" --list-secret-keys | awk  '/^sec/ { split($2,a,"/"); print a[2];}'`
+
+	cat  > "$repo_dir/conf/distributions" <<DISTRIBUTIONS_LINES
+Origin: $hostname
+Label: APT Repository for $codename
+Codename: $codename
+Architectures: i386 amd64 source
+Components: main
+Description: Private Repository
+SignWith: $generated_keyid
+DISTRIBUTIONS_LINES
+}
+
+function callReprepro() {
+	local action="$1"
+	shift
+	echo "REPREPRO_BASE_DIR=$repo_dir /usr/bin/reprepro $action $@"
+	REPREPRO_BASE_DIR=$repo_dir /usr/bin/reprepro "$action" $@
+	local RES=$?
+	return $RES
+}
+
+function repoStatus() {
+	if callReprepro check; then
+		echo "Repository $repo_dir OK"
+	else
+		echo "Repository $repo_dir corrupt"
+	fi
+}
+
+function repoAdd() {
+	if callReprepro includedeb "$distribution" $@; then
+		echo "Packages $@ added successfully."
+	else
+		echo "Failed to add packages $@."
+	fi
+}
+
+function repoList() {
+	local package_files="$@"
+	if ! callReprepro ls "$package_files"; then
+		echo "Failed to find any matches for $package_files"
+	fi
+}
+
+
+function repoDumpRefs() {
+	if ! callReprepro dumpreferences; then
+		echo "Failed to get complete package list"
+	fi
+}
+
+function updateFile() {
+	local source_url="$1"
+	local source_base=`basename "$1"`
+	local dest_dir="$repo_dir/tmp"
+	local dest_file="$dest_dir/$source_base"
+	local old_mtime=0
+	[ ! -d "$dest_dir" ] && mkdir -p "$dest_dir"
+	[ -f "$dest_file" ] && old_mtime=`stat -c %Y "$dest_file"`
+	pushd "$dest_dir" > /dev/null
+	wget --quiet --timestamping "$source_url" -nd
+	local RES=$?
+	popd > /dev/null
+	if [ $RES -eq 0 ]; then
+		new_mtime=`stat -c %Y "$dest_file"`
+		if [ $new_mtime -gt $old_mtime ]; then
+			echo "Download $source_url to $dest_file (old $old_mtime, new $new_mtime)"
+			repoAdd "$dest_file"
+		else
+			[ $verbose -ne 0 ] && echo "No newer version of $source_url as $dest_file (old $old_mtime, new $new_mtime)"
+		fi
+	else
+		echo "Failed to download $source_url to $dest_file"
+	fi
+}
+
+function updateFromFilelist() {
+	local filelist="$1"
+	echo "updateFromFilelist $filelist"
+	while read -r line
+	do
+		echo "Got line $line"
+		updateFile "$line"
+	done < "$filelist"
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	'-?'|'-h'|'--help') usage;;
+	'-v'|'--verbose') verbose=1; ;;
+	'-d'|'--distro'|'--distribution') distribution=$2; shift; ;;
+	'init')
+		action='init'
+		case "$2" in
+			-*)
+				;;
+			*)
+				if [ -z "$repo_dir" ]; then
+					repo_dir=`readlink -f "$2"`
+					shift
+				fi
+				;;
+		esac
+		;;
+	'add') 
+		action='add';
+		while [ $# -gt 1 ]; do
+			case "$2" in
+				-*)
+					;;
+				*)
+					package_files="$package_files $2"
+					shift;
+					;;
+			esac
+		done
+		;;
+	'list'|'ls') 
+		action='list'
+		while [ $# -gt 1 ]; do
+			case "$2" in
+				-*)
+					;;
+				*)
+					package_files="$package_files $2"
+					shift;
+					;;
+			esac
+		done
+		;;
+	'cron-update')
+		action='cron-update'
+		while [ $# -gt 1 ]; do
+			case "$2" in
+				-*)
+					;;
+				*)
+					if [ "$2" ]; then
+						update_filelist=`readlink -f "$2"`
+					else
+						echo "Invalid parameter $2"
+					fi
+					shift;
+					;;
+			esac
+		done
+		;;
+	-*)
+		echo "Unrecognized parameter $1"
+		exit 1
+		;;
+	*)
+		if [ -d "$1" ]; then
+			if [ -z "$repo_dir" ]; then
+				repo_dir=`readlink -f "$1"`
+			else
+				echo "Repository directory ($repo_dir) already specified. Ignore $1"
+			fi
+		else
+			echo "Unrecognized parameter $1"
+			exit 1
+		fi
+		;;
+	esac
+	shift
+done
+
+if [ ! -x /usr/bin/reprepro ]; then
+	echo "reprepro is not installed. Please install reprepro"
+	exit 1
+fi
+
+[ -z "$repo_dir" ] && repo_dir=`pwd`
+[ -z $action ] && action='status'
+[ -z $distribution ] && distribution=`lsb_release -cs`
+
+if [ $verbose -ne 0 ]; then
+	echo "Action $action"
+	echo "Repository directory: $repo_dir"
+	if [ ! -z "$package_files" ]; then
+		echo "Package files: $package_files"
+	fi
+fi
+
+case "$action" in
+	'init')
+		repoInit
+		;;
+	'info'|'status')
+		repoStatus
+		;;
+	'add')
+		repoAdd $package_files
+		;;
+	'list')
+		if [ -z "$package_files" ]; then
+			repoDumpRefs
+		else
+			repoList $package_files
+		fi
+		;;
+	'cron-update')
+		updateFromFilelist "$update_filelist"
+		;;
+	*)
+		echo "Action $action not implemented."
+		;;
+esac
+
+#reprepro -Vb . includedeb pcpool /var/cache/apt/archives/libc6_2.2.5-11.8_i386.deb 

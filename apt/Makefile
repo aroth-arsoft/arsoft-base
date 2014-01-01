@@ -1,7 +1,8 @@
 APT_SBIN_SCRIPTS := apt-cleanup \
 		apt-key-import \
 		apt-purge-removed \
-		apt-proxy
+		apt-proxy \
+		apt-repo
 
 APT_BIN_SCRIPTS := dpkg-info
 

@@ -64,9 +64,9 @@ function enableProxy() {
 }
 
 # parse command line arguments
-while [ $# -ne 0 ]; do        
-	case "$1" in          
-	"-?"|"-h"|"--help") usage;; 
+while [ $# -ne 0 ]; do
+	case "$1" in
+	"-?"|"-h"|"--help") usage;;
 	'info') action='info'; ;;
 	'enable') action='enable'; ;;
 	'disable') action='disable'; ;;
@@ -79,12 +79,12 @@ while [ $# -ne 0 ]; do
 			*) set_proxy_use=1; ;;
 		esac
 		;;
-	*)                          
+	*)
 		echo "Unrecognized parameter $1"
 		exit 1
-	;;                                      
-	esac                                    
-	shift                                   
+	;;
+	esac
+	shift
 done
 
 [ -z "$action" ] && action='info'

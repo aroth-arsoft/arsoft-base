@@ -1,3 +1,9 @@
+arsoft-base (2.94) saucy; urgency=low
+
+  * add first version of apt-repo
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 01 Jan 2014 18:23:40 +0100
+
 arsoft-base (2.93) saucy; urgency=low
 
   * rebuild
