@@ -284,8 +284,9 @@ autofs_conf_update() {
 		if [ $RES -eq 0 ]; then
 			# no changes at all
 			true
-		elif [ $RES -eq 1 ]; then
+		elif [ $RES -eq 2 ]; then
 			# config has been changed; reload required
+			log_info "autofs_conf_update $AUTOFS_LDAP_CONF has been changed; reload required"
 			autofs_reload=1
 			true
 		else
@@ -300,7 +301,12 @@ autofs_conf_update() {
 
 #	date -R > /tmp/autofs
 #	/sbin/restart autofs >> /tmp/autofs
-	[ $autofs_reload -ne 0 ] && /usr/sbin/service autofs restart || true
+	if [ $autofs_reload -ne 0 ]; then
+		log_info "autofs_conf_update reload autofs"
+		/usr/sbin/service autofs restart || true
+	else
+		true
+	fi
 }
 
 ldap_update_conf() {

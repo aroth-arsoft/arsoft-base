@@ -1,3 +1,10 @@
+arsoft-base (2.96) saucy; urgency=low
+
+  * more logging for puppet dhcp script
+  * fixed wrong handling of autofs config changes
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 27 Jan 2014 07:03:34 +0100
+
 arsoft-base (2.95) saucy; urgency=low
 
   * proper handling of multiple distros per package file

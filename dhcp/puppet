@@ -31,12 +31,14 @@ puppet_update_conf() {
 		ini-util "$PUPPET_CONF" --edit "main/server=$newserver" "main/configtimeout=$newconfigtimeout" "main/pluginsync=$newpluginsync"
 		RES=$?
 		if [ $RES -eq 0 ]; then
+			log_info "puppet reload service to take over changed settings"
 			/usr/sbin/service puppet reload
 		else
 			false
 		fi
 	else
-		true
+		log_info "puppet reload service to take over changed network settings"
+		/usr/sbin/service puppet reload
 	fi
 }
 

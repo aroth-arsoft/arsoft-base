@@ -55,7 +55,6 @@ DISTRIBUTIONS_LINES
 function callReprepro() {
 	local action="$1"
 	shift
-	echo "REPREPRO_BASE_DIR=$repo_dir /usr/bin/reprepro $action $@"
 	REPREPRO_BASE_DIR=$repo_dir GNUPGHOME=$repo_dir/.gnupg /usr/bin/reprepro "$action" $@
 	local RES=$?
 	return $RES
@@ -63,7 +62,7 @@ function callReprepro() {
 
 function repoStatus() {
 	if callReprepro check; then
-		echo "Repository $repo_dir OK"
+		[ $verbose -ne 0 ] && echo "Repository $repo_dir OK"
 	else
 		echo "Repository $repo_dir corrupt"
 	fi
@@ -71,7 +70,7 @@ function repoStatus() {
 
 function repoAdd() {
 	if callReprepro includedeb "$distribution" $@; then
-		echo "Packages $@ added successfully."
+		[ $verbose -ne 0 ] && echo "Packages $@ added successfully."
 	else
 		echo "Failed to add packages $@."
 	fi
@@ -107,17 +106,18 @@ function updateFile() {
 	if [ $RES -eq 0 ]; then
 		new_mtime=`stat -c %Y "$dest_file"`
 		if [ $new_mtime -gt $old_mtime ]; then
-			echo "Download $source_url to $dest_file (old $old_mtime, new $new_mtime)"
+			[ $verbose -ne 0 ] && echo "Download $source_url to $dest_file (old $old_mtime, new $new_mtime)"
 
 			for distro in $distributions; do
 				if callReprepro includedeb "$distro" "$dest_file"; then
-					echo "Packages $dest_file added for $distro successfully."
+					[ $verbose -ne 0 ] && echo "Packages $dest_file added for $distro successfully."
 				else
 					echo "Failed to add packages $dest_file for $distro."
 				fi
 			done
 		else
 			[ $verbose -ne 0 ] && echo "No newer version of $source_url as $dest_file (old $old_mtime, new $new_mtime)"
+			true
 		fi
 	else
 		echo "Failed to download $source_url to $dest_file"
@@ -126,7 +126,6 @@ function updateFile() {
 
 function updateFromFilelist() {
 	local filelist="$1"
-	echo "updateFromFilelist $filelist"
 	declare -a fields
 	while IFS=$'\t ' read -r -a fields; do
 		[ ${#fields[*]} -eq 0 -o "${fields[0]:0:1}" == "#" ] && continue
@@ -134,7 +133,6 @@ function updateFromFilelist() {
 		source_url="${fields[0]}"
 		distributions="${fields[1]}"
 
-		echo "Got line $source_url for $distributions"
 		updateFile "$source_url" "$distributions"
 	done < "$filelist"
 }
@@ -262,5 +260,3 @@ case "$action" in
 		echo "Action $action not implemented."
 		;;
 esac
-
-#reprepro -Vb . includedeb pcpool /var/cache/apt/archives/libc6_2.2.5-11.8_i386.deb 
