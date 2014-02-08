@@ -6,13 +6,23 @@ package_files=''
 repo_dir=''
 distribution=''
 update_filelist=''
+force=0
 
 function usage() {
-    echo "usage: apt-repo <action> [params]"
+    echo "usage: apt-repo [options] <action> [params]"
+    echo "available options:"
+	echo "  -?,-h,--help           show this help message"
+	echo "  -v,--verbose           enable verbose output of this script"
+	echo "  -d,--distro <distro>   set the distribution name for the package"
+	echo "  -f,--force             force the action. Be careful."
     echo "action must be one of the following:"
-    echo "  add <debfile>        add a new package file"
-    echo "  init                 initialize the repository"
-    echo "  status               status of the repository"
+    echo "  add <debfile>          add a new package file"
+    echo "  add <changesfile>      add a new packages from the changes file"
+    echo "  init                   initialize/create a new repository"
+    echo "  info                   status of the repository (default)"
+    echo "  status                 same as info"
+    echo "  cron-update [pkglist]  update the packages from the given list or use "
+    echo "                           <repo_dir>/conf/packages.filelist if not given"
     exit 0
 }
 
@@ -60,33 +70,87 @@ function callReprepro() {
 	return $RES
 }
 
+function repoIsValid() {
+	if [ ! -d "$repo_dir" ]; then
+		echo "Directory $repo_dir does not exists." 1>&2
+		return 1
+	fi
+	if [ ! -d "$repo_dir/dists" -o ! -d "$repo_dir/pool" ]; then
+		echo "Directory $repo_dir does not hold a valid Debian repository." 1>&2
+		return 1
+	fi
+	return 0
+}
+
 function repoStatus() {
 	if callReprepro check; then
 		[ $verbose -ne 0 ] && echo "Repository $repo_dir OK"
 	else
-		echo "Repository $repo_dir corrupt"
+		echo "Repository $repo_dir corrupt" 1>&2
 	fi
 }
 
 function repoAdd() {
-	if callReprepro includedeb "$distribution" $@; then
-		[ $verbose -ne 0 ] && echo "Packages $@ added successfully."
-	else
-		echo "Failed to add packages $@."
+	local RES=1
+	declare -a deb_files
+	declare -a changes_files
+	for f in $@; do
+		if [ -f "$f" ]; then
+			extension="${f##*.}"
+			if [ "$extension" == "deb" ]; then
+				deb_files+=($f)
+			elif [ "$extension" == "changes" ]; then
+				changes_files+=($f)
+			fi
+		fi
+	done
+	if [ ${#deb_files[@]} -ne 0 ]; then
+		if callReprepro includedeb "$distribution" ${deb_files[*]}; then
+			RES=0
+			[ $verbose -ne 0 ] && echo "Packages ${deb_files[*]} added successfully."
+		else
+			echo "Failed to add packages ${deb_files[*]}." 1>&2
+		fi
 	fi
+	if [ ${#changes_files[@]} -ne 0 ]; then
+		if callReprepro includedeb "$distribution" ${changes_files[*]}; then
+			RES=0
+			[ $verbose -ne 0 ] && echo "Change files ${changes_files[*]} added successfully."
+		else
+			echo "Failed to add change files ${changes_files[*]}." 1>&2
+		fi
+	fi
+	return $RES
+}
+
+function repoRemove() {
+	local RES=1
+	declare -a packages
+	for f in $@; do
+		packages+=($f)
+	done
+	if [ ${#packages[@]} -ne 0 ]; then
+		if callReprepro remove "$distribution" ${packages[*]}; then
+			RES=0
+			[ $verbose -ne 0 ] && echo "Packages ${packages[*]} successfully removed."
+		else
+			echo "Failed to remove packages ${packages[*]}." 1>&2
+		fi
+	fi
+	return $RES
 }
 
 function repoList() {
 	local package_files="$@"
 	if ! callReprepro ls "$package_files"; then
-		echo "Failed to find any matches for $package_files"
+		echo "Failed to find any matches for $package_files" 1>&2
 	fi
 }
 
 
 function repoDumpRefs() {
 	if ! callReprepro dumpreferences; then
-		echo "Failed to get complete package list"
+		echo "Failed to get complete package list" 1>&2
 	fi
 }
 
@@ -105,7 +169,7 @@ function updateFile() {
 	popd > /dev/null
 	if [ $RES -eq 0 ]; then
 		new_mtime=`stat -c %Y "$dest_file"`
-		if [ $new_mtime -gt $old_mtime ]; then
+		if [ $force -ne 0 -o $new_mtime -gt $old_mtime ]; then
 			[ $verbose -ne 0 ] && echo "Download $source_url to $dest_file (old $old_mtime, new $new_mtime)"
 
 			for distro in $distributions; do
@@ -120,21 +184,32 @@ function updateFile() {
 			true
 		fi
 	else
-		echo "Failed to download $source_url to $dest_file"
+		echo "Failed to download $source_url to $dest_file" 1>&2
 	fi
 }
 
 function updateFromFilelist() {
 	local filelist="$1"
-	declare -a fields
-	while IFS=$'\t ' read -r -a fields; do
-		[ ${#fields[*]} -eq 0 -o "${fields[0]:0:1}" == "#" ] && continue
+	local RES=1
+	[ -z "$filelist" ] && filelist="$repo_dir/conf/packages.filelist"
+	if [ ! -f "$filelist" ]; then
+		echo "Given $filelist does not exists." 1>&2
+	elif [ ! -r "$filelist" ]; then
+		echo "Unable to read $filelist" 1>&2
+	else
+		[ $verbose -ne 0 ] && echo "Use package list $filelist"
+		declare -a fields
+		while IFS=$'\t ' read -r -a fields; do
+			[ ${#fields[*]} -eq 0 -o "${fields[0]:0:1}" == "#" ] && continue
 
-		source_url="${fields[0]}"
-		distributions="${fields[1]}"
+			source_url="${fields[0]}"
+			distributions="${fields[1]}"
 
-		updateFile "$source_url" "$distributions"
-	done < "$filelist"
+			updateFile "$source_url" "$distributions"
+		done < "$filelist"
+		RES=0
+	fi
+	return $RES
 }
 
 # parse command line arguments
@@ -143,6 +218,7 @@ while [ $# -ne 0 ]; do
 	'-?'|'-h'|'--help') usage;;
 	'-v'|'--verbose') verbose=1; ;;
 	'-d'|'--distro'|'--distribution') distribution=$2; shift; ;;
+	'-f'|'--force') force=1; ;;
 	'init')
 		action='init'
 		case "$2" in
@@ -169,7 +245,20 @@ while [ $# -ne 0 ]; do
 			esac
 		done
 		;;
-	'list'|'ls') 
+	'remove')
+		action='remove';
+		while [ $# -gt 1 ]; do
+			case "$2" in
+				-*)
+					;;
+				*)
+					package_files="$package_files $2"
+					shift;
+					;;
+			esac
+		done
+		;;
+	'list'|'ls')
 		action='list'
 		while [ $# -gt 1 ]; do
 			case "$2" in
@@ -228,6 +317,7 @@ fi
 [ -z $action ] && action='status'
 [ -z $distribution ] && distribution=`lsb_release -cs`
 
+
 if [ $verbose -ne 0 ]; then
 	echo "Action $action"
 	echo "Repository directory: $repo_dir"
@@ -241,10 +331,13 @@ case "$action" in
 		repoInit
 		;;
 	'info'|'status')
-		repoStatus
+		repoIsValid && repoStatus
 		;;
 	'add')
 		repoAdd $package_files
+		;;
+	'remove')
+		repoRemove $package_files
 		;;
 	'list')
 		if [ -z "$package_files" ]; then

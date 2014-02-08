@@ -23,12 +23,23 @@ function usage() {
 }
 
 function download_key() {
-	keyid="$1"
-	keysource="$2"
+	local keyid="$1"
+	local keysource="$2"
+	local schema="${keysource%://*}"
 	
-	is_hkp_protocol=`echo "$keysource" | awk '/^hkp:\/\//'`
-	
-	if [ -z "$is_hkp_protocol" ]; then
+	if [ "$schema" == 'file' -o -z "$schema" ]; then
+		[ -z "$schema" ] && keysourcefile="$keysource" || keysourcefile="${keysource##*://}"
+
+		# direct filename
+		gpgmsg=`/usr/bin/apt-key add "$keysourcefile" 2>&1`
+		if [ $? -eq 0 ]; then
+			[ $verbose -ne 0 ] && echo "Added key $keyid from $keysourcefile successfully."
+			RET=0
+		else
+			echo "Failed to add key $keyid from $keysourcefile error $gpgmsg" 1>&2
+			RET=1
+		fi
+	elif [ "$schema" == 'http' ]; then
 		[ $verbose -ne 0 ] && echo "Download key from $keysource"
 		gpgkey=`/usr/bin/wget -q -O - "$keysource"`
 		if [ $? -eq 0 ]; then
@@ -45,7 +56,7 @@ function download_key() {
 			echo "Failed to download key $keyid from $keysource error $gpgkey" 1>&2
 			RET=1
 		fi
-	else
+	elif [ "$schema" == 'hkp' ]; then
 		if [ ! -z "$SUDO_UID" ]; then
 			HOME='/root'
 		fi
@@ -72,6 +83,9 @@ function download_key() {
 			echo "Failed to retrieve $keyid from $keysource: error $gpgmsg" 1>&2
 			RET=1
 		fi
+	else
+		echo "Failed to retrieve $keyid from $keysource: unknown schema $schema" 1>&2
+		RET=1
 	fi
 	return $RET
 }

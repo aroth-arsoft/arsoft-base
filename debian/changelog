@@ -1,3 +1,10 @@
+arsoft-base (2.97) saucy; urgency=low
+
+  * support loading keys for apt from file
+  * minor improvements to apt-repo script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 08 Feb 2014 18:23:26 +0100
+
 arsoft-base (2.96) saucy; urgency=low
 
   * more logging for puppet dhcp script
