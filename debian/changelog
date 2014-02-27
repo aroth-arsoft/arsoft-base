@@ -1,3 +1,9 @@
+arsoft-base (2.98) saucy; urgency=low
+
+  * support https and ftp for key download
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 27 Feb 2014 07:01:52 +0100
+
 arsoft-base (2.97) saucy; urgency=low
 
   * support loading keys for apt from file
