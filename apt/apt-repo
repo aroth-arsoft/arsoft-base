@@ -154,6 +154,12 @@ function repoDumpRefs() {
 	fi
 }
 
+function repoUpdate() {
+	if ! callReprepro update; then
+		echo "Failed to update repository $repo_dir" 1>&2
+	fi
+}
+
 function updateFile() {
 	local source_url="$1"
 	local distributions="${2//,/ }"
@@ -161,10 +167,16 @@ function updateFile() {
 	local dest_dir="$repo_dir/tmp"
 	local dest_file="$dest_dir/$source_base"
 	local old_mtime=0
+	local source_query="${source_base##*\?}"
+	source_query="${source_query//\//%2F}"
+
+	echo "source_query: $source_query"
+
 	[ ! -d "$dest_dir" ] && mkdir -p "$dest_dir"
 	[ -f "$dest_file" ] && old_mtime=`stat -c %Y "$dest_file"`
 	pushd "$dest_dir" > /dev/null
-	wget --quiet --timestamping "$source_url" -nd
+	#wget --quiet --timestamping "$source_url" -nd
+	wget --verbose --timestamping "$source_url" -nd
 	local RES=$?
 	popd > /dev/null
 	if [ $RES -eq 0 ]; then
@@ -348,6 +360,7 @@ case "$action" in
 		;;
 	'cron-update')
 		updateFromFilelist "$update_filelist"
+		repoUpdate
 		;;
 	*)
 		echo "Action $action not implemented."
