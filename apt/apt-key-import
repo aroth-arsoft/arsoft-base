@@ -39,7 +39,7 @@ function download_key() {
 			echo "Failed to add key $keyid from $keysourcefile error $gpgmsg" 1>&2
 			RET=1
 		fi
-	elif [ "$schema" == 'http' ]; then
+	elif [ "$schema" == 'http' -o "$schema" == 'https' -o "$schema" == 'ftp' ]; then
 		[ $verbose -ne 0 ] && echo "Download key from $keysource"
 		gpgkey=`/usr/bin/wget -q -O - "$keysource"`
 		if [ $? -eq 0 ]; then
