@@ -170,13 +170,16 @@ function updateFile() {
 	local source_query="${source_base##*\?}"
 	source_query="${source_query//\//%2F}"
 
-	echo "source_query: $source_query"
+	#echo "source_query: $source_query"
 
 	[ ! -d "$dest_dir" ] && mkdir -p "$dest_dir"
 	[ -f "$dest_file" ] && old_mtime=`stat -c %Y "$dest_file"`
 	pushd "$dest_dir" > /dev/null
-	#wget --quiet --timestamping "$source_url" -nd
-	wget --verbose --timestamping "$source_url" -nd
+	if [ $verbose -eq 0 ]; then
+		wget --quiet --timestamping "$source_url" -nd
+	else
+		wget --verbose --timestamping "$source_url" -nd
+	fi
 	local RES=$?
 	popd > /dev/null
 	if [ $RES -eq 0 ]; then
