@@ -3,12 +3,13 @@
 apt_update_conf() {
 	if [ ! -z "$domain_name" ]; then
 		srv_record=`LANG=C /usr/bin/host -t SRV "_apt-proxy._tcp.$domain_name."`
+		newproxy=''
 		if [ $? -eq 0 ]; then
 			srv_port=`echo "$srv_record" | awk '{ print $7 '}`
 			srv_name=`echo "$srv_record" | awk '{ print $8 '}`
-			newproxy="http://${srv_name%\.}:${srv_port}"
-		else
-			newproxy=''
+			if [ ! -z "$srv_name" ]; then
+				newproxy="http://${srv_name%\.}:${srv_port}"
+			fi
 		fi
 	fi
 	log_info "apt-proxy=$newproxy"
@@ -16,7 +17,7 @@ apt_update_conf() {
 }
 
 case $reason in
-	BOUND|RENEW|REBIND|REBOOT)                                                                                                                                                                           
+	BOUND|RENEW|REBIND|REBOOT)
 		apt_update_conf
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
