@@ -38,3 +38,4 @@ arsoft-base: binary-without-manpage usr/sbin/alsa-info
 arsoft-base: binary-without-manpage usr/bin/nss-import-cert
 arsoft-base: binary-without-manpage usr/sbin/slapd-debug
 arsoft-base: binary-without-manpage usr/bin/ssh-setup-keys
+arsoft-base: binary-without-manpage usr/sbin/apt-repo
