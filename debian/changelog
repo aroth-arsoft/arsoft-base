@@ -1,3 +1,10 @@
+arsoft-base (2.100) saucy; urgency=low
+
+  * fixed ntp config with network manager
+  * fixed failed reload of puppet agent
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 21 Mar 2014 19:45:24 +0100
+
 arsoft-base (2.99) saucy; urgency=low
 
   * avoid verbose output
