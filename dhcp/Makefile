@@ -5,6 +5,7 @@ DHCP_EXIT_HOOKS := apt \
 		postfix \
 		puppet \
 		network \
+		ntp \
 		timezone
 
 DHCP_ENTER_HOOKS := 
