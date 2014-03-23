@@ -1,3 +1,9 @@
+arsoft-base (2.102) saucy; urgency=low
+
+  * fixed wrong hostname in network dhcp script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 23 Mar 2014 14:18:28 +0100
+
 arsoft-base (2.101) saucy; urgency=low
 
   * dhcp: bring ntp and network back to live

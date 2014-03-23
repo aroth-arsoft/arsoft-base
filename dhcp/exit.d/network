@@ -2,27 +2,14 @@
 
 HOSTS_FILE='/etc/hosts'
 
-#		host {
-#			'localhost':
-#				ip => '127.0.0.1',
-#				host_aliases => [$fqdn, $hostname, 'localhost.localdomain', 'localhost'];
-#			'localhost6':
-#				ip => '::1',
-#				host_aliases => [$fqdn, $hostname, 'localhost.localdomain6', 'localhost6'];
-#		}
-
 network_update_conf() {
 
 	if [ ! -z "$domain_name" ]; then
-#		"$MANAGEHOSTS_BIN" -f "$HOSTS_FILE" update "127.0.0.1" localhost.localdomain localhost
-#		"$MANAGEHOSTS_BIN" -f "$HOSTS_FILE" update "127.0.1.1" "${hostname}.${domain_name}" "$hostname"
-		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "127.0.0.1" "${hostname}.${domain_name}" "$hostname" localhost.localdomain localhost
-		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "::1" "${hostname}.${domain_name}" "$hostname" localhost.localdomain6 localhost6
+		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "127.0.0.1" "${host_name}.${domain_name}" "$host_name" localhost.localdomain localhost
+		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "::1" "${host_name}.${domain_name}" "$host_name" localhost.localdomain6 localhost6
 	else
-#		"$MANAGEHOSTS_BIN" -f "$HOSTS_FILE" update "127.0.0.1" localhost.localdomain localhost
-#		"$MANAGEHOSTS_BIN" -f "$HOSTS_FILE" update "127.0.1.1" "$hostname"
-		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "127.0.0.1" "$hostname" localhost.localdomain localhost
-		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "::1" "$hostname" localhost.localdomain6 localhost6
+		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "127.0.0.1" "$host_name" localhost.localdomain localhost
+		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "::1" "$host_name" localhost.localdomain6 localhost6
 	fi
 }
 
