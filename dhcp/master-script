@@ -3,16 +3,15 @@
 verbose=1
 debug=0
 dispatcher=''
+script_list=''
 
 ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR='/usr/lib/arsoft-dhcp/dhclient-enter'
 ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-dhcp/dhclient-exit'
-DEFAULT_SCRIPT_LIST='apt cups heimdal postfix ldap puppet timezone'
 
 [ -f /etc/default/arsoft-dhcp-client ] && . /etc/default/arsoft-dhcp-client
 
 scriptdir='/usr/sbin'
 realscriptfile=`readlink -f "$0"`
-script_list="$DEFAULT_SCRIPT_LIST"
 current_id=`LANG=C id`
 
 function log_debug() {
@@ -106,7 +105,7 @@ function run_hook() {
 		exit_status=$?
 		if [ $exit_status -ne 0 ]; then
 			log_err "$script returned non-zero exit status $exit_status"
-		fi    
+		fi
 	else
 		log_err "run_hook $script does not exist"
 		exit_status=1
@@ -115,30 +114,39 @@ function run_hook() {
     return $exit_status
 }
 
-function run_enter_scripts() {
-	local exit_status
-	local basescriptdir=''
-	[ $debug -ne 0 ] && basescriptdir=`dirname "$realscriptfile"`'/../'
-	for current_script in $script_list; do
-		[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
-		run_hook "$ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR/$current_script" "$@" || true
-		exit_status=$?
-	done
-
-    return $exit_status
+function get_script_file_list() {
+	local base_dir="$1"
+	if [ -z "$script_list" ]; then
+		for f in $base_dir/*; do
+			script_file_list="$script_file_list $(readlink -f "$f")"
+		done
+	else
+		for s in $script_list; do
+			script_file_list="$script_file_list $base_dir/$s"
+		done
+	fi
+	echo "$script_file_list"
+	return 0
 }
 
-function run_exit_scripts() {
-	local exit_status
-	local basescriptdir=''
-	[ $debug -ne 0 ] && basescriptdir=`dirname "$realscriptfile"`'/../'
-	for current_script in $script_list; do
-		[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
-		run_hook "$ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR/$current_script" "$@" || true
-		exit_status=$?
+function run_hook_dir() {
+	local exit_status=0
+	local base_dir="$1"
+	shift
+	local script_file_list=`get_script_file_list "$base_dir"`
+	for current_script in $script_file_list; do
+		if [ -x "$current_script" ]; then
+			[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
+			echo "$current_script" "$@" || true
+			#run_hook "$current_script" "$@" || true
+			exit_status=$?
+		else
+			log_warn "skipped $current_script because script is not executable."
+		fi
 	done
 
     return $exit_status
+
 }
 
 function perform_action() {
@@ -164,9 +172,9 @@ function perform_action() {
 	log_info "rfc4833_tz_posix_string $rfc4833_tz_posix_string"
 
 	if [ "$phase" == 'enter' ]; then
-		run_enter_scripts "$@"
+		run_hook_dir "$ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR" "$@"
 	elif [ "$phase" == 'exit' ]; then
-		run_exit_scripts "$@"
+		run_hook_dir "$ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR" "$@"
 	else
 		log_err "unknown or unspecified phase $phase"
 	fi
@@ -234,7 +242,11 @@ function import_variables() {
 			rfc4833_tz_posix_string="$DHCP4_RFC4833_TZ_POSIX_STRING"
 			;;
 		*)
-			log_err "Unrecognized dispatcher $dispatcher"
+			if [ -z "$dispatcher" ]; then
+				log_err "Dispatcher cannot be determined; only native dhclient or NetworkManager are supported"
+			else
+				log_err "Unrecognized dispatcher $dispatcher; only native dhclient or NetworkManager are supported"
+			fi
 			exit 1
 	esac
 	
@@ -257,19 +269,17 @@ while [ $# -ne 0 ]; do
 	'-v'|'--verbose') verbose=1; ;;
 	'-d'|'--debug') 
 		debug=1
-		script_list=''
 		while [ $# -ne 0 ]; do
 			case "$2" in
-				'apt'|'cups'|'heimdal'|'postfix'|'ldap'|'puppet')
+				-*|'enter'|'exit')
+					break
+					;;
+				*)
 					script_list="$script_list $2"
 					shift
 					;;
-				*)
-					break
-					;;
 			esac
 		done
-		[ -z "$script_list" ] && script_list="$DEFAULT_SCRIPT_LIST"
 		;;
 	'enter'|'exit') phase="$1"; ;;
 	'MEDIUM'|'PREINIT'|'BOUND'|'RENEW'|'REBIND'|'REBOOT'|'EXPIRE'|'FAIL'|'STOP'|'RELEASE'|'NBI'|'TIMEOUT') dispatcher='dhclient'; reason="$1"; ;;
