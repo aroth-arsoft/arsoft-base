@@ -1,14 +1,5 @@
-DHCP_EXIT_HOOKS := apt \
-		cups \
-		heimdal \
-		ldap \
-		postfix \
-		puppet \
-		network \
-		ntp \
-		timezone
-
-DHCP_ENTER_HOOKS := 
+DHCP_EXIT_HOOKS := exit.d/*
+DHCP_ENTER_HOOKS := enter.d/*
 
 .PHONY: all
 

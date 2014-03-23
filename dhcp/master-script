@@ -118,11 +118,15 @@ function get_script_file_list() {
 	local base_dir="$1"
 	if [ -z "$script_list" ]; then
 		for f in $base_dir/*; do
-			script_file_list="$script_file_list $(readlink -f "$f")"
+			if [ -f "$f" ]; then
+				script_file_list="$script_file_list $(readlink -f "$f")"
+			fi
 		done
 	else
 		for s in $script_list; do
-			script_file_list="$script_file_list $base_dir/$s"
+			if [ -f "$base_dir/$s" ]; then
+				script_file_list="$script_file_list $base_dir/$s"
+			fi
 		done
 	fi
 	echo "$script_file_list"
@@ -137,8 +141,7 @@ function run_hook_dir() {
 	for current_script in $script_file_list; do
 		if [ -x "$current_script" ]; then
 			[ $debug -ne 0 ] && scriptdir=`readlink -f "$basescriptdir/$current_script"`
-			echo "$current_script" "$@" || true
-			#run_hook "$current_script" "$@" || true
+			run_hook "$current_script" "$@" || true
 			exit_status=$?
 		else
 			log_warn "skipped $current_script because script is not executable."
@@ -193,8 +196,8 @@ function prepare_testing() {
 	if [ -f "$scriptdir/../Makefile" ]; then
 		# if we run from the source directory, use the script
 		# directory as enter and exit script dir
-		ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR="$scriptdir"
-		ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR="$scriptdir"
+		ARSOFT_SCRIPTS_DHCLIENT_ENTER_DIR="$scriptdir/enter.d"
+		ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR="$scriptdir/exit.d"
 	fi
 }
 
