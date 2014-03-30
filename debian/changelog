@@ -1,3 +1,9 @@
+arsoft-base (2.103) saucy; urgency=low
+
+  * fixed ipv6 lookback names
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 30 Mar 2014 09:57:34 +0200
+
 arsoft-base (2.102) saucy; urgency=low
 
   * fixed wrong hostname in network dhcp script

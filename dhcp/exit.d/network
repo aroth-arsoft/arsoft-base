@@ -6,10 +6,10 @@ network_update_conf() {
 
 	if [ ! -z "$domain_name" ]; then
 		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "127.0.0.1" "${host_name}.${domain_name}" "$host_name" localhost.localdomain localhost
-		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "::1" "${host_name}.${domain_name}" "$host_name" localhost.localdomain6 localhost6
+		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "::1" "${host_name}.${domain_name}" "$host_name" ip6-localhost ip6-loopback
 	else
 		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "127.0.0.1" "$host_name" localhost.localdomain localhost
-		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "::1" "$host_name" localhost.localdomain6 localhost6
+		verbose_exec "$scriptdir/managehosts" -f "$HOSTS_FILE" update "::1" "$host_name" ip6-localhost ip6-loopback
 	fi
 }
 
