@@ -1,3 +1,9 @@
+arsoft-base (2.104) saucy; urgency=low
+
+  * use dns-query tool for cups
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 08 Apr 2014 09:33:40 +0200
+
 arsoft-base (2.103) saucy; urgency=low
 
   * fixed ipv6 lookback names

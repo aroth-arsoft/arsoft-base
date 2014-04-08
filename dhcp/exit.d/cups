@@ -14,18 +14,18 @@ if [ "$CUPS_USE_DNS_INFO" == 'auto' ]; then
 fi
 
 cups_update_conf() {
+	local cups_server
+	local cups_encryption
 	if [ ! -z "$domain_name" ]; then
-		srv_record=`LANG=C /usr/bin/host -t SRV "_ipp._tcp.$domain_name."`
-		if [ $? -eq 0 ]; then
-			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
-			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
-			cups_server="${srv_name%\.}:${srv_port}"
-		else
-			cups_server=''
+		local current_cups_server=''
+		local current_cups_encryption=''
+		if [ -r "$CUPS_CLIENT_CONF" ]; then
+			current_cups_encryption=`awk '/^ *(Encryption)/ { print $2 }' "$CUPS_CLIENT_CONF"`
+			current_cups_server=`awk '/^ *(ServerName)/ { print $2 }' "$CUPS_CLIENT_CONF"`
 		fi
-		
-		cups_encryption=`get_dns_txt_record "_encryption._ipp._config.$domain_name."`
-		[ -z "$cups_encryption" -a -r "$CUPS_CLIENT_CONF" ] && cups_encryption=`awk '/^ *(Encryption)/ { print $2 }' "$CUPS_CLIENT_CONF"`
+		cups_server=`/usr/bin/dns-query --batch --first SRV "_ipp._tcp.$domain_name." --prefered-value="$current_cups_server"`
+		cups_encryption=`/usr/bin/dns-query --batch --first TXT "_encryption._ipp._config.$domain_name." --prefered-value="$current_cups_encryption"`
+
 		[ -z "$cups_encryption" ] && cups_encryption='IfRequested'
 	else
 		cups_encryption=''
@@ -38,12 +38,12 @@ cups_update_conf() {
 		if [ ! -z "$cups_server" ]; then
 			log_info "add remote printers from $cups_server"
 			# using local CUPS server and import all remote printers
-			msg=`/usr/sbin/cups-admin --server localhost --add-remote "$cups_server" 2>&1`
+			msg=`/usr/sbin/cups-admin --server localhost:631 --add-remote "$cups_server" 2>&1`
 			RES=$?
 			if [ $RES -eq 0 ]; then
 				# We have added printer from the remote server to the local one
 				# so now we should use it.
-				cups_server='localhost'
+				cups_server='localhost:631'
 			else
 				log_err "cups-admin error $RES: $msg"
 				# something went wrong, so no further actions
