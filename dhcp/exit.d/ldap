@@ -126,7 +126,7 @@ nslcd_conf_update() {
 		--edit="base=$newldap_base" \
 		--edit="uri=$newldapserver_uri" \
 		--edit="timelimit=30" \
-		/etc/nslcd.conf
+		"$NSLCD_CONF"
 		
 	if [ $? -eq 0 ]; then
 		enable_nss_ldap=$LDAP_NSS_LDAP_LOOKUP
