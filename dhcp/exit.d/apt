@@ -23,9 +23,9 @@ case $reason in
 	EXPIRE|FAIL|RELEASE|STOP)
 		;;
 	# events from network-manager
-	up|vpn-up)
+	up|vpn-up|dhcp4-change|dhcp6-change)
 		apt_update_conf
 		;;
-    down|vpn-down|hostname|dhcp4-change|dhcp6-change)
+    down|vpn-down|hostname)
         ;;
 esac

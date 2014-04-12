@@ -405,12 +405,12 @@ case $reason in
 		ldap_release_conf
 		;;
 	# events from network-manager
-	up|vpn-up)
+	up|vpn-up|dhcp4-change|dhcp6-change)
 		[ $LDAP_USE_DNS_INFO -ne 0 ] && ldap_update_conf
 		;;
     down|vpn-down)
 		ldap_release_conf
 		;;
-    hostname|dhcp4-change|dhcp6-change)
+    hostname)
         ;;
 esac

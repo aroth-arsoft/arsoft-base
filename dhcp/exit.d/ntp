@@ -54,10 +54,12 @@ case $reason in
 		# the rest.
 		;;
 	# events from network-manager
-	up|vpn-up|hostname)
+	up|vpn-up|dhcp4-change|dhcp6-change)
 		ntp_servers_setup_add
 		;;
     down|vpn-down|dhcp4-change|dhcp6-change)
 		ntp_servers_setup_remove
         ;;
+    hostname)
+		;;
 esac

@@ -1,3 +1,9 @@
+arsoft-base (2.105) saucy; urgency=low
+
+  * fixed dhcp script when dhcp4-change or dhcp6-change arrives
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 12 Apr 2014 18:29:27 +0200
+
 arsoft-base (2.104) saucy; urgency=low
 
   * use dns-query tool for cups
