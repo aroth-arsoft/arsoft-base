@@ -29,12 +29,6 @@ Depends: ${misc:Depends}
 Description: installs the AR Soft package repository
  Installs all files to access the AR Soft package repository.
 
-Package: arsoft-vim
-Architecture: all
-Depends: arsoft-base, vim, vim-doc, vim-scripts, ${misc:Depends}
-Description: VIM configuration for AR Soft machines
- Configures VIM to be used as default editor.
-
 Package: arsoft-dhcp-client
 Architecture: all
 Replaces: arsoft-scripts-dhcp
