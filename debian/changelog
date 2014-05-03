@@ -1,3 +1,9 @@
+arsoft-base (2.108) trusty; urgency=medium
+
+  * create and add new script to extract diff from a git branch
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 03 May 2014 08:59:04 +0200
+
 arsoft-base (2.107) saucy; urgency=low
 
   * using 127.0.0.1 for localhost and 127.0.1.1 for hostname

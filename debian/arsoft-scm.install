@@ -7,3 +7,4 @@ usr/bin/git-deep-clone
 usr/bin/git-info
 usr/bin/git-shrink
 usr/bin/git-subdir2submodule
+usr/bin/git-branch-diff

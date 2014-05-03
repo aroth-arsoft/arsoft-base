@@ -1,0 +1,75 @@
+#!/bin/bash
+SCRIPTFILE=`readlink -f "$0"`
+SCRIPTNAME=`basename "$SCRIPTFILE"`
+SCRIPTDIR=`dirname "$SCRIPTFILE"`
+verbose=0
+base_revision=''
+dest_revision=''
+base_ref=''
+dest_ref=''
+output_file=''
+
+function usage() {
+	echo "Usage: $SCRIPTNAME [OPTIONS] <branch>"
+	echo "OPTIONS:"
+	echo "    -h, --help            shows this help"
+	echo "    -v, --verbose         enable verbose output"
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	'-?'|'-h'|'--help') usage;;
+	'-v'|'--verbose') verbose=1; ;;
+	'-o') output_file="$2"; shift; ;;
+	-*)
+		echo "Unrecognized option $1" >&2
+		exit 1
+		;;
+	*)
+		if [ -z "$base_ref" ]; then
+			base_ref="$1"
+		elif [ -z "$dest_ref" ]; then
+			dest_ref="$1"
+		else
+			echo "Unrecognized parameter $1" >&2
+			exit 1
+		fi
+		;;
+	esac
+	shift
+done
+
+function git_show_ref_hash() {
+	local ref="$1"
+	local first_deref=`git show-ref -d -s --abbrev "$ref" 2>/dev/null | awk '/\^\{\}/ { print $1}'`
+	[ -z "$first_deref" ] && first_deref=`git show-ref -s --abbrev "$ref" 2>/dev/null | awk 'NR<2{ print $1}'`
+	echo "$first_deref"
+}
+
+[ -z "$base_ref" ] && base_ref='refs/heads/master'
+[ -z "$dest_ref" ] && dest_ref='refs/remotes/origin/master'
+
+[ -z "$base_revision" ] && base_revision=`git_show_ref_hash "$base_ref"`
+[ -z "$dest_revision" ] && dest_revision=`git_show_ref_hash "$dest_ref"`
+
+if [ -z "$output_file" ]; then
+	output_base=`basename "$dest_ref"`
+	output_file="${output_base}+git${dest_revision}.diff"
+fi
+
+if [ $verbose -ne 0 ]; then
+	echo "base_ref: $base_ref"
+	echo "dest_ref $dest_ref"
+	echo "base_revision $base_revision"
+	echo "dest_revision $dest_revision"
+	echo "output_file $output_file"
+fi
+
+if [ "$base_revision" != "$dest_revision" ]; then
+	git diff "$base_revision" "$dest_revision" > "$output_file"
+else
+	echo "base and destination revisions ($base_revision) are identical."
+fi
+

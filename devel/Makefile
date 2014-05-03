@@ -1,4 +1,4 @@
-DEVEL_BIN_SCRIPTS := ppa_publish
+DEVEL_BIN_SCRIPTS := ppa_publish git-branch-diff
 
 .PHONY: all
 
