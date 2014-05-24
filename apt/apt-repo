@@ -147,6 +147,44 @@ function repoList() {
 	fi
 }
 
+function debFileVersion() {
+	local debfile="$1"
+
+}
+
+function repoIsPackageUpToDate() {
+	local distro="$1"
+	local package_file_path="$2"
+	local package_file_package=`dpkg-deb -f "$package_file_path" Package`
+	local package_file_version=`dpkg-deb -f "$package_file_path" Version`
+	local package_file_arch=`dpkg-deb -f "$package_file_path" Architecture`
+	local RES=1
+
+	#echo "got $package_file_path -> $package_file_package, $package_file_version, $package_file_arch"
+
+	declare -a fields
+	local tmpfile=`mktemp`
+	if callReprepro list "$distro" "$package_file_package" 2>/dev/null 1>"$tmpfile"; then
+		while IFS=$'| :' read -r -a fields; do
+
+			[ ${#fields[*]} -eq 0 ] && continue
+			#echo "field=${fields[@]}"
+			local repo_distro="${fields[0]}"
+			local repo_component="${fields[1]}"
+			local repo_arch="${fields[2]}"
+			local repo_package="${fields[3]}"
+			local repo_version="${fields[4]}"
+
+			if [ "$repo_package" == "$package_file_package" -a "$repo_version" == "$package_file_version" -a "$repo_arch" == "$package_file_arch" ]; then
+				[ $verbose -ne 0 ] && echo "Found package match $repo_package Version $repo_version ($repo_arch) for $repo_distro"
+				RES=0
+				break
+			fi
+		done < "$tmpfile"
+	fi
+	rm -rf "$tmpfile"
+	return $RES
+}
 
 function repoDumpRefs() {
 	if ! callReprepro dumpreferences; then
@@ -155,8 +193,16 @@ function repoDumpRefs() {
 }
 
 function repoUpdate() {
-	if ! callReprepro update; then
-		echo "Failed to update repository $repo_dir" 1>&2
+	if grep -E '^Update:' "$repo_dir/conf/distributions" 2>&1 1>/dev/null; then
+		if ! callReprepro update; then
+			echo "Failed to update repository $repo_dir" 1>&2
+		fi
+	fi
+}
+
+function repoCleanup() {
+	if ! callReprepro clearvanished; then
+		echo "Failed to clean up repository $repo_dir" 1>&2
 	fi
 }
 
@@ -196,6 +242,15 @@ function updateFile() {
 			done
 		else
 			[ $verbose -ne 0 ] && echo "No newer version of $source_url as $dest_file (old $old_mtime, new $new_mtime)"
+			for distro in $distributions; do
+				if ! repoIsPackageUpToDate "$distro" "$dest_file"; then
+					if callReprepro includedeb "$distro" "$dest_file"; then
+						[ $verbose -ne 0 ] && echo "Packages $dest_file added for $distro successfully."
+					else
+						echo "Failed to add packages $dest_file for $distro."
+					fi
+				fi
+			done
 			true
 		fi
 	else
@@ -248,7 +303,13 @@ while [ $# -ne 0 ]; do
 				;;
 		esac
 		;;
-	'add') 
+	'info'|'status')
+		action='status'
+		;;
+	'cleanup')
+		action='cleanup'
+		;;
+	'add')
 		action='add';
 		while [ $# -gt 1 ]; do
 			case "$2" in
@@ -353,6 +414,9 @@ case "$action" in
 	'info'|'status')
 		repoIsValid && repoStatus
 		;;
+	'cleanup')
+		repoCleanup
+		;;
 	'add')
 		repoAdd $package_files
 		;;
@@ -367,6 +431,7 @@ case "$action" in
 		fi
 		;;
 	'cron-update')
+		repoCleanup
 		updateFromFilelist "$update_filelist"
 		repoUpdate
 		;;
