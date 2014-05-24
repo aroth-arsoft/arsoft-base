@@ -1,3 +1,10 @@
+arsoft-base (2.110) trusty; urgency=medium
+
+  * improve apt-repo script to make sure the included packages
+    are up to date
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 24 May 2014 18:50:16 +0200
+
 arsoft-base (2.109) trusty; urgency=medium
 
   * use suite version number instead of name
