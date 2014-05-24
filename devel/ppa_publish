@@ -17,7 +17,22 @@ DPUT_TARGET=''
 RELEASES=''
 PKG=''
 DEFAULT_RELEASES=`lsb_release -cs`
-VALID_RELEASE='hardy intrepid jaunty lucid karmic maverick natty oneiric precise quantal raring saucy trusty utopic'
+declare -A VALID_RELEASE=(
+["hardy"]="8.04"
+["intrepid"]="8.10"
+["jaunty"]="9.04"
+["lucid"]="9.10"
+["karmic"]="10.04"
+["maverick"]="10.10"
+["natty"]="11.04"
+["oneiric"]="11.10"
+["precise"]="12.04"
+["quantal"]="12.10"
+["raring"]="13.04"
+["saucy"]="13.10"
+["trusty"]="14.04"
+["utopic"]="14.10"
+)
 noput=0
 noorig=0
 verbose=0
@@ -45,7 +60,7 @@ function usage() {
 	echo "    --noput               do not upload the package"
 	echo "    --noorig              do not upload the original tarball"
 	echo "RELEASE:"
-	for rel in $VALID_RELEASE; do
+	for rel in ${!VALID_RELEASE[@]}; do
 		if $(echo $DEFAULT_RELEASES} | grep -q $rel); then
 			echo "    $rel (default)"
 		else
@@ -69,7 +84,7 @@ function usage() {
 # parse command line arguments
 while [ $# -ne 0 ]; do
 	case "$1" in
-	'-?'|'-h'|'--help') usage;; 
+	'-?'|'-h'|'--help') usage;;
 	'-v'|'--verbose') verbose=1; ;;
 	'--target') DPUT_TARGET="$2"; shift; ;;
 	'--ppa') DPUT_TARGET="ppa:$2"; shift; ;;
@@ -80,7 +95,8 @@ while [ $# -ne 0 ]; do
 		exit 1
 		;;
 	*)
-		if [[ "$VALID_RELEASE"  == *"$1"* ]]; then
+		release_num="${VALID_RELEASE[$1]}"
+		if [ ! -z "$release_num" ]; then
 			if [ -z "$RELEASES" ]; then
 				RELEASES="$1"
 			else
@@ -108,7 +124,7 @@ pushd "$PKGDIR" >/dev/null
 while [ ! -f debian/changelog ] && [ ! `pwd` = "/" ]; do cd ..; done
 
 if [ ! -f "debian/changelog" ]; then
-	popd >/dev/null 
+	popd >/dev/null
 	echo "Cannot find debian directory in $PKGDIR or any of its parent directories." >&2
 	exit 1
 else
@@ -129,7 +145,10 @@ original_release=`echo "$original_version_line" | awk '{ print substr($3, 1, len
 original_flags=`echo "$original_version_line" | awk '{ print $4; }'`
 echo "Original version: $original_version"
 
-if [[ "$original_version" =~ .*~(hardy|intrepid|jaunty|lucid|karmic|maverick|natty|oneiric|precise|quantal|raring|saucy|trusty)[0-9]* ]]; then
+if [[ "$original_version" =~ .*~([0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2})[0-9]* ]]; then
+	original_version=`echo "$original_version" | sed -r 's/(.*)~[0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2}/\1/'`
+	echo "Original version without release: $original_version"
+elif [[ "$original_version" =~ .*~(hardy|intrepid|jaunty|lucid|karmic|maverick|natty|oneiric|precise|quantal|raring|saucy|trusty|utopic|[0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2})[0-9]* ]]; then
 	original_version=`echo "$original_version" | sed -r 's/(.*)~[a-z0-9]+/\1/'`
 	echo "Original version without release: $original_version"
 fi
@@ -137,7 +156,8 @@ fi
 RELEASE_COUNT=1
 for RELEASE in $RELEASES; do
 	
-	new_version="${original_version}~${RELEASE}${RELEASE_COUNT}"
+	release_num="${VALID_RELEASE[$RELEASE]}"
+	new_version="${original_version}~${release_num}.${RELEASE_COUNT}"
 	new_version_line="${original_pkgname} (${new_version}) ${RELEASE}; ${original_flags}"
 	echo "Building for $RELEASE ($new_version)"
 	# prepare new changelog with a replaced first line
