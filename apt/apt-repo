@@ -21,6 +21,7 @@ function usage() {
     echo "  init                   initialize/create a new repository"
     echo "  info                   status of the repository (default)"
     echo "  status                 same as info"
+    echo "  update                 manually update the repository"
     echo "  cron-update [pkglist]  update the packages from the given list or use "
     echo "                           <repo_dir>/conf/packages.filelist if not given"
     exit 0
@@ -430,7 +431,7 @@ case "$action" in
 			repoList $package_files
 		fi
 		;;
-	'cron-update')
+	'cron-update'|'update')
 		repoCleanup
 		updateFromFilelist "$update_filelist"
 		repoUpdate
