@@ -201,6 +201,16 @@ function repoUpdate() {
 	fi
 }
 
+function repoProcessIncoming() {
+	local ruleset="$1"
+	[ -z "$ruleset" ] && rulseset='default'
+	if [ -f "$repo_dir/conf/incoming" ]; then
+		if ! callReprepro processincoming "$ruleset"; then
+			echo "Failed to process incoming packages" 1>&2
+		fi
+	fi
+}
+
 function repoCleanup() {
 	if ! callReprepro clearvanished; then
 		echo "Failed to clean up repository $repo_dir" 1>&2
@@ -279,6 +289,20 @@ function updateFromFilelist() {
 			updateFile "$source_url" "$distributions"
 		done < "$filelist"
 		RES=0
+	fi
+	return $RES
+}
+
+function updateFromFilelistDir() {
+	local filelist_dir="$1"
+	local RES=0
+	local LAST_RES=0
+	[ -z "$filelist_dir" ] && filelist_dir="$repo_dir/conf/packages.filelist.d"
+	if [ -d "$filelist_dir" ]; then
+		for filelist_file in "$filelist_dir"/*; do
+			updateFromFilelist "$filelist_file"; LAST_RES=$?
+			[ $LAST_RES -ne 0 ] && RES=$LAST_RES
+		done
 	fi
 	return $RES
 }
@@ -433,7 +457,8 @@ case "$action" in
 		;;
 	'cron-update'|'update')
 		repoCleanup
-		updateFromFilelist "$update_filelist"
+		updateFromFilelistDir "$update_filelist"
+		repoProcessIncoming
 		repoUpdate
 		;;
 	*)
