@@ -203,7 +203,7 @@ function repoUpdate() {
 
 function repoProcessIncoming() {
 	local ruleset="$1"
-	[ -z "$ruleset" ] && rulseset='default'
+	[ -z "$ruleset" ] && ruleset='default'
 	if [ -f "$repo_dir/conf/incoming" ]; then
 		if ! callReprepro processincoming "$ruleset"; then
 			echo "Failed to process incoming packages" 1>&2
