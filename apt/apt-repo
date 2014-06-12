@@ -3,6 +3,8 @@
 verbose=0
 action=''
 package_files=''
+copy_source=''
+copy_dest=''
 repo_dir=''
 distribution=''
 update_filelist=''
@@ -29,6 +31,7 @@ function usage() {
     echo "  cron-update [pkglist]  update the packages from the given list file or directory."
     echo "                         If no package list is specified all configured package lists are"
     echo "                         used."
+    echo "  copy <from> <to> <pkg> copy package from one distrubution into another."
     exit 0
 }
 
@@ -155,6 +158,18 @@ function repoList() {
 	if ! callReprepro ls "$package_files"; then
 		echo "Failed to find any matches for $package_files" 1>&2
 	fi
+}
+
+function repoCopy() {
+    local source="$1"
+    local dest="$2"
+    shift;
+    shift;
+    local package_files="$@"
+    echo "s=$source" "d=$dest" "p=$package_files"
+    if ! callReprepro -VVV copy "$dest" "$source" "$package_files"; then
+        echo "Failed to copy packages $package_files from $source to $dest" 1>&2
+    fi
 }
 
 function debFileVersion() {
@@ -412,8 +427,33 @@ while [ $# -ne 0 ]; do
 			esac
 		done
 		;;
+    'copy')
+        action='copy'
+        while [ $# -gt 1 ]; do
+            case "$2" in
+                -*)
+                    break;
+                    ;;
+                *)
+                    if [ -z "$copy_source" ]; then
+                        copy_source="$2"
+                    elif [ -z "$copy_dest" ]; then
+                        copy_dest="$2"
+                    else
+                        package_files="$package_files $2"
+                    fi
+                    shift;
+                    ;;
+            esac
+        done
+        if [ -z "$copy_source" ]; then
+            echo "No source distrubution specified for copy operation." 1>&2
+        elif [ -z "$copy_dest" ]; then
+            echo "No destination distrubution specified for copy operation." 1>&2
+        fi
+        ;;
 	-*)
-		echo "Unrecognized parameter $1"
+		echo "Unrecognized parameter $1" 1>&2
 		exit 1
 		;;
 	*)
@@ -421,10 +461,10 @@ while [ $# -ne 0 ]; do
 			if [ -z "$repo_dir" ]; then
 				repo_dir=`readlink -f "$1"`
 			else
-				echo "Repository directory ($repo_dir) already specified. Ignore $1"
+				echo "Repository directory ($repo_dir) already specified. Ignore $1" 1>&2
 			fi
 		else
-			echo "Unrecognized parameter $1"
+			echo "Unrecognized parameter $1" 1>&2
 			exit 1
 		fi
 		;;
@@ -433,7 +473,7 @@ while [ $# -ne 0 ]; do
 done
 
 if [ ! -x /usr/bin/reprepro ]; then
-	echo "reprepro is not installed. Please install reprepro"
+	echo "reprepro is not installed. Please install reprepro" 1>&2
 	exit 1
 fi
 
@@ -469,6 +509,9 @@ case "$action" in
 	'remove')
 		repoRemove $package_files
 		;;
+    'copy')
+        repoCopy "$copy_source" "$copy_dest" $package_files
+        ;;
 	'list')
 		if [ -z "$package_files" ]; then
 			repoDumpRefs
