@@ -1,0 +1,103 @@
+#!/bin/bash
+
+processname=''
+processid=''
+interval=1
+raw_data=0
+graphfile='mem-graph.png'
+width=800
+height=600
+
+function usage() {
+    echo "usage: pmem [OPTIONS] <processname|pid>"
+    echo "  -h, -?, --help          shows this usage information."
+    echo "  -v, --verbose           enables the verbose output."
+    exit 0
+}
+
+function cleanup() {
+    [ -f "$mem_usage_log" ] && rm -f "$mem_usage_log"
+    [ -f "$graph_scipt" ] && rm -f "$graph_scipt"
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+    '-?'|'-h'|'--help') usage;; 
+    '-v'|'--verbose') verbose=1; ;;
+    '-r') raw_data=1; ;;
+    '-i'|'--interval') interval="$2"; shift; ;;
+    *)
+        if [ -z "$processname" -a -z "$processid" ]; then
+            if [ "$1" -eq "$1" ]; then
+                # given parameter is an integer
+                processid="$1"
+            else
+                processname="$1"
+            fi
+        else
+            if [ ! -z "$processname" ]; then
+                echo "Name of process $processname already given." 1>&2
+                exit 1
+            elif [ ! -z "$processid" ]; then
+                echo "PID $processid already given." 1>&2
+                exit 1
+            fi
+        fi
+    ;;
+    esac
+    shift
+done
+
+if [ -z "$processname" -a -z "$processid" ]; then
+    echo "No process name or PID specified." 1>&2
+    exit 1
+fi
+
+gnuplot_bin=`which gnuplot`
+if [ -z "$gnuplot_bin" ]; then
+    echo "GNU plot not installed." 1>&2
+    exit 1
+fi
+
+mem_usage_log=`mktemp`
+graph_scipt=`mktemp`
+
+trap cleanup SIGINT SIGTERM
+
+cat << EOF > "$graph_scipt"
+set term png small size $width,$height
+set output "$graphfile"
+
+set xlabel "time in $interval seconds"
+set ylabel "size in KB"
+set y2label "percent"
+
+set ytics nomirror
+set y2tics nomirror in
+
+set yrange [0:*]
+set y2range [0:*]
+
+plot "$mem_usage_log" using 3 with lines axes x1y1 title "VSZ", \
+     "$mem_usage_log" using 4 with lines axes x1y1 title "RSS", \
+     "$mem_usage_log" using 5 with lines axes x1y2 title "%CPU", \
+     "$mem_usage_log" using 2 with lines axes x1y2 title "%MEM"
+EOF
+
+while test -f "$graph_scipt"; do
+    if [ -z "$processname" ]; then
+        current_data=`ps -p "$processid" -opid=,%mem=,vsz=,rss=,%cpu=`
+    else
+        current_data=`ps -C "$processname" -opid=,%mem=,vsz=,rss=,%cpu=`
+    fi
+    if [ $raw_data -eq 0 ]; then
+        echo "$current_data" >> "$mem_usage_log"
+        "$gnuplot_bin" "$graph_scipt"
+    else
+        echo "$current_data"
+    fi
+    sleep "$interval"
+done
+
+cleanup
