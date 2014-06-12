@@ -18,12 +18,17 @@ function usage() {
     echo "action must be one of the following:"
     echo "  add <debfile>          add a new package file"
     echo "  add <changesfile>      add a new packages from the changes file"
+    echo "  remove <debfile>       removes the package file"
+    echo "  remove <changesfile>   removes the packages from the changes file"
     echo "  init                   initialize/create a new repository"
     echo "  info                   status of the repository (default)"
     echo "  status                 same as info"
+    echo "  cleanup                clean up the repository and delete unreferenced files"
+    echo "  export                 re-export all pooled packages"
     echo "  update                 manually update the repository"
-    echo "  cron-update [pkglist]  update the packages from the given list or use "
-    echo "                           <repo_dir>/conf/packages.filelist if not given"
+    echo "  cron-update [pkglist]  update the packages from the given list file or directory."
+    echo "                         If no package list is specified all configured package lists are"
+    echo "                         used."
     exit 0
 }
 
@@ -37,6 +42,7 @@ function repoInit() {
 	
 	local gpg_homedir="$repo_dir/.gnupg"
 	
+    [ $verbose -ne 0 ] && echo "Generate GPG keys in $gpg_homedir"
 	gpg2 --homedir "$gpg_homedir" --batch --gen-key <<EOF
 Key-Type: default
 Subkey-Type: default
@@ -49,8 +55,11 @@ Expire-Date: 0
 %secring $repo_dir/.gnupg/secring.gpg
 %commit
 EOF
-	gpg2 --homedir "$gpg_homedir" --export --armor "apt-repo@$hostname" > $repo_dir/pubkey.asc
+    [ $verbose -ne 0 ] && echo "Export GPG public key to $repo_dir/pubkey.asc"
+	gpg2 --homedir "$gpg_homedir" --export --armor "apt-repo@$hostname" > "$repo_dir/pubkey.asc"
+    [ $verbose -ne 0 ] && echo "Get key id of public key"
 	generated_keyid=`gpg2 --homedir "$gpg_homedir" --list-secret-keys | awk  '/^sec/ { split($2,a,"/"); print a[2];}'`
+    [ $verbose -ne 0 ] && echo "Key id of public key: $generated_keyid"
 
 	cat  > "$repo_dir/conf/distributions" <<DISTRIBUTIONS_LINES
 Origin: $hostname
@@ -211,6 +220,12 @@ function repoProcessIncoming() {
 	fi
 }
 
+function repoExport() {
+    if ! callReprepro export; then
+        echo "Failed to export package lists for repository" 1>&2
+    fi
+}
+
 function repoCleanup() {
 	if ! callReprepro clearvanished; then
 		echo "Failed to clean up repository $repo_dir" 1>&2
@@ -334,6 +349,9 @@ while [ $# -ne 0 ]; do
 	'cleanup')
 		action='cleanup'
 		;;
+    'export')
+        action='export'
+        ;;
 	'add')
 		action='add';
 		while [ $# -gt 1 ]; do
@@ -442,6 +460,9 @@ case "$action" in
 	'cleanup')
 		repoCleanup
 		;;
+    'export')
+        repoExport
+        ;;
 	'add')
 		repoAdd $package_files
 		;;
