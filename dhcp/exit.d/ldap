@@ -303,7 +303,12 @@ autofs_conf_update() {
 #	/sbin/restart autofs >> /tmp/autofs
 	if [ $autofs_reload -ne 0 ]; then
 		log_info "autofs_conf_update reload autofs"
-		/usr/sbin/service autofs restart || true
+		# use upstart if available
+		if [ -f /etc/init/autofs.conf ]; then
+			/sbin/restart autofs || true
+		else
+			/usr/sbin/service autofs restart || true
+		fi
 	else
 		true
 	fi
