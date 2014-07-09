@@ -1,3 +1,9 @@
+arsoft-base (2.115) trusty; urgency=medium
+
+  * use _x-puppet._tcp instead of _puppet._tcp SRV record
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 09 Jul 2014 08:26:39 +0200
+
 arsoft-base (2.114) trusty; urgency=medium
 
   * minor changes to icinga_mail.pl 
