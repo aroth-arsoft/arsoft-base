@@ -5,20 +5,22 @@ PUPPET_AGENT_DEFAULTS='/etc/default/puppet'
 puppet_agent_restart() {
 	local puppet_agent_start=`ini-util "$PUPPET_AGENT_DEFAULTS" --value --get "START"`
 	if [ "$puppet_agent_start" == 'yes' ]; then
-		invoke-rc.d puppet restart
+		invoke-rc.d puppet restart || true
+	else
+		true
 	fi
 }
 
 puppet_update_conf() {
 
 	if [ ! -z "$domain_name" ]; then
-		srv_record=`LANG=C /usr/bin/host -t SRV "_x-puppet._tcp.$domain_name."`
-		if [ $? -eq 0 ]; then
-			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
-			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
+		local srv_record=`get_dns_srv_record 'x-puppet' 'tcp'`
+		if [ ! -z "$srv_record" ]; then
+			local srv_name="${srv_record% *}"
+			local srv_port="${srv_record##* }"
 			#newserver="${srv_name%\.}:${srv_port}"
 			#puppet does not support to specify a different port yet
-			newserver="${srv_name%\.}"
+			newserver="${srv_name}"
 		else
 			newserver=''
 		fi
@@ -35,6 +37,7 @@ puppet_update_conf() {
 	
 	log_info "puppet server: $newserver"
 	log_info "puppet configtimeout: $newconfigtimeout"
+	log_info "puppet client hostname: $(hostname -f)"
 	if [ "$oldserver" != "$newserver" -o "$oldconfigtimeout" != "$newconfigtimeout" ]; then
 		ini-util "$PUPPET_CONF" --edit "main/server=$newserver" "main/configtimeout=$newconfigtimeout" "main/pluginsync=$newpluginsync"
 		RES=$?
