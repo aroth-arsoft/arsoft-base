@@ -1,0 +1,2 @@
+arsoft-dhcp-client: script-not-executable etc/dhcp/dhclient-enter-hooks.d/arsoft-dhcp-client-enter
+arsoft-dhcp-client: script-not-executable etc/dhcp/dhclient-exit-hooks.d/arsoft-dhcp-client-exit
