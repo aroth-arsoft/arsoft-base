@@ -4,22 +4,6 @@ KRB5_CONF='/etc/krb5.conf'
 
 heimdal_check_server() {
 	if [ ! -z "$domain_name" ]; then
-#		srv_record=`LANG=C /usr/bin/host -t SRV "_kerberos._tcp.$domain_name."`
-#		if [ $? -eq 0 ]; then
-#			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
-#			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
-#			newkerberosserver="${srv_name%\.}"
-#		else
-#			newkerberosserver=''
-#		fi
-#		srv_record=`LANG=C /usr/bin/host -t SRV "_kerberos-adm._tcp.$domain_name."`
-#		if [ $? -eq 0 ]; then
-#			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
-#			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
-#			newkerberosadmserver="${srv_name%\.}"
-#		else
-#			newkerberosadmserver=''
-#		fi
 		newrealm=`get_dns_txt_record "_kerberos.$domain_name."`
 	fi
 

@@ -121,18 +121,19 @@ nslcd_conf_update() {
 	# not installed and it's pointless to continue
 	[ ! -f "$NSLCD_CONF" ] && return
 
-	/usr/bin/ini-util \
+	msg=`/usr/bin/ini-util \
 		--style=cmd \
 		--edit="base=$newldap_base" \
 		--edit="uri=$newldapserver_uri" \
 		--edit="timelimit=30" \
-		"$NSLCD_CONF"
-		
+		"$NSLCD_CONF" 2>&1`
 	if [ $? -eq 0 ]; then
+		log_info "nslcd_conf_update config $msg; restart nslcd"
 		enable_nss_ldap=$LDAP_NSS_LDAP_LOOKUP
 		# nslcd is required and to reload the configuration restart it.
 		/usr/sbin/service nslcd restart
 	else
+		log_warn "nslcd_conf_update failed to update config: $msg"
 		enable_nss_ldap=0
 		# nslcd is not required, since LDAP lookup has been disabled
 		/usr/sbin/service nslcd stop
@@ -272,14 +273,17 @@ autofs_conf_update() {
 		else
 			rm -f "$tmp"
 		fi
-		# always reload the autofs when the interface becomes
-		# available
-		[ "$ldap_start_tls" == 'start_tls' ] && autofs_usetls='yes' || autofs_usetls='no'
-		[ "$ldap_start_tls" == 'start_tls' ] && autofs_tlsrequired='yes' || autofs_tlsrequired='no'
+		if [ "$ldap_start_tls" == 'start_tls' ]; then
+			autofs_usetls='yes'
+			autofs_tlsrequired='yes'
+		else
+			autofs_usetls='no'
+			autofs_tlsrequired='no'
+		fi
 		autofs_authrequired='no'
 
 		msg=`$scriptdir/autofs-ldap-auth --usetls "$autofs_usetls" --tlsrequired "$autofs_tlsrequired" --authrequired "$autofs_authrequired"`
-		echo "$msg"
+		log_info "autofs_conf_update autofs-ldap-auth: $msg"
 		RES=$?
 		if [ $RES -eq 0 ]; then
 			# no changes at all
@@ -293,21 +297,21 @@ autofs_conf_update() {
 			# error occured
 			false
 		fi
+		# always reload the autofs when the interface becomes
+		# available
 		autofs_reload=1
 	else
 		rm -f "$tmp"
 		log_warn "failed to modify $AUTOFS_LDAP_CONF"
 	fi
 
-#	date -R > /tmp/autofs
-#	/sbin/restart autofs >> /tmp/autofs
 	if [ $autofs_reload -ne 0 ]; then
 		log_info "autofs_conf_update reload autofs"
 		# use upstart if available
 		if [ -f /etc/init/autofs.conf ]; then
-			/sbin/restart autofs || true
+			/sbin/reload autofs || true
 		else
-			/usr/sbin/service autofs restart || true
+			/usr/sbin/service autofs reload || true
 		fi
 	else
 		true
@@ -322,11 +326,11 @@ ldap_update_conf() {
 	local newldap_tls_require_cert=''
 	local newautofs_search_base=''
 	if [ ! -z "$domain_name" ]; then
-		local srv_record=`LANG=C /usr/bin/host -t SRV "_ldap._tcp.$domain_name."`
-		if [ $? -eq 0 ]; then
-			srv_port=`echo "$srv_record" | awk '{ print $7 }'`
-			srv_name=`echo "$srv_record" | awk '{ print $8 }'`
-			newldap_host="${srv_name%\.}"
+		local srv_record=`get_dns_srv_record 'ldap' 'tcp'`
+		if [ ! -z "$srv_record" ]; then
+			local srv_name="${srv_record% *}"
+			local srv_port="${srv_record##* }"
+			newldap_host="$srv_name"
 			if [ "$srv_port" != "389" ]; then
 				newldap_uri="ldap://${newldap_host}:${srv_port}"
 			else
@@ -380,6 +384,9 @@ STATE_FILE_EOF
 			nslcd_conf_update "$newldap_uri" "$newldap_base" "$newldap_start_tls" "$newldap_tls_require_cert"
 			postfix_ldap_conf "$newldap_uri" "$newldap_base" "$newldap_start_tls" "$newldap_tls_require_cert"
 			autofs_conf_update "$newldap_uri" "$newautofs_search_base" "$newldap_start_tls" "$newldap_tls_require_cert"
+		else
+			ldap_iface=`get_interface_for_host "$1"`
+			log_info "ldap host $newldap_host is not accessed through $interface must be $ldap_iface"
 		fi
 	fi
 }

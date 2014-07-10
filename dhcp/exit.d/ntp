@@ -3,7 +3,6 @@
 NTP_CONF=/etc/ntp.conf
 NTP_DHCP_CONF=/var/lib/ntp/ntp.conf.dhcp
 
-
 ntp_server_restart() {
 	invoke-rc.d ntp try-restart
 }

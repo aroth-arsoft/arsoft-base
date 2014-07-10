@@ -85,13 +85,18 @@ function get_interface_for_host() {
 }
 
 function is_interface_for_host() {
-	required_interface=`get_interface_for_host "$1"`
+	local required_interface=`get_interface_for_host "$1"`
 	[ "$required_interface" == "$interface" ]
 }
 
 function get_dns_txt_record() {
-	local record_name="$1"
 	LANG=C /usr/bin/host -t TXT "$1" 2>/dev/null | awk -F '"' '/descriptive text/ { print $2; exit 0 } END { exit 1 }' && true || false
+}
+
+function get_dns_srv_record() {
+	# expected result from host:
+	# _ldap._tcp.domain has SRV record 0 100 389 ldapmaster.domain.
+	LANG=C /usr/bin/host -t SRV "_${1}._${2}.$domain_name." 2>/dev/null | awk 'BEGIN { o=0 } /SRV record/ { if ($6 > o) { s=substr($8, 0, length($8)-1); p=$7; o=$6; } } END { print s, p }' && true || false
 }
 
 function run_hook() {
@@ -181,6 +186,7 @@ function perform_action() {
 	else
 		log_err "unknown or unspecified phase $phase"
 	fi
+    log_info "completed action for $dispatcher, $interface ($phase, $reason)"
 }
 
 function prepare_testing() {
