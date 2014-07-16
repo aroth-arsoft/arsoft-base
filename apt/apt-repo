@@ -275,7 +275,7 @@ function updateFile() {
 			[ $verbose -ne 0 ] && echo "Download $source_url to $dest_file (old $old_mtime, new $new_mtime)"
 
 			for distro in $distributions; do
-				if callReprepro includedeb "$distro" "$dest_file"; then
+				if callReprepro --ignore=extension includedeb "$distro" "$dest_file"; then
 					[ $verbose -ne 0 ] && echo "Packages $dest_file added for $distro successfully."
 				else
 					echo "Failed to add packages $dest_file for $distro."
@@ -285,7 +285,7 @@ function updateFile() {
 			[ $verbose -ne 0 ] && echo "No newer version of $source_url as $dest_file (old $old_mtime, new $new_mtime)"
 			for distro in $distributions; do
 				if ! repoIsPackageUpToDate "$distro" "$dest_file"; then
-					if callReprepro includedeb "$distro" "$dest_file"; then
+					if callReprepro --ignore=extension includedeb "$distro" "$dest_file"; then
 						[ $verbose -ne 0 ] && echo "Packages $dest_file added for $distro successfully."
 					else
 						echo "Failed to add packages $dest_file for $distro."

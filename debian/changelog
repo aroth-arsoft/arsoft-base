@@ -1,3 +1,9 @@
+arsoft-base (2.118) trusty; urgency=medium
+
+  * apt-repo: ignore file extension for downloaded files
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 16 Jul 2014 06:44:44 +0200
+
 arsoft-base (2.117) trusty; urgency=medium
 
   * fixed trouble when search for SRV record returns more than one result
