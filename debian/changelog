@@ -1,3 +1,9 @@
+arsoft-base (2.119) trusty; urgency=medium
+
+  * apt-repo: correctly handle arch all
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 16 Jul 2014 07:27:23 +0200
+
 arsoft-base (2.118) trusty; urgency=medium
 
   * apt-repo: ignore file extension for downloaded files
