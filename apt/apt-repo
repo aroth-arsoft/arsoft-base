@@ -200,10 +200,12 @@ function repoIsPackageUpToDate() {
 			local repo_package="${fields[3]}"
 			local repo_version="${fields[4]}"
 
-			if [ "$repo_package" == "$package_file_package" -a "$repo_version" == "$package_file_version" -a "$repo_arch" == "$package_file_arch" ]; then
-				[ $verbose -ne 0 ] && echo "Found package match $repo_package Version $repo_version ($repo_arch) for $repo_distro"
-				RES=0
-				break
+			if [ "$repo_package" == "$package_file_package" -a "$repo_version" == "$package_file_version" ]; then
+				if [ "$repo_arch" == "$package_file_arch" -o "$package_file_arch" == "all" ]; then
+					[ $verbose -ne 0 ] && echo "Found package match $repo_package Version $repo_version ($repo_arch) for $repo_distro"
+					RES=0
+					break
+				fi
 			fi
 		done < "$tmpfile"
 	fi
