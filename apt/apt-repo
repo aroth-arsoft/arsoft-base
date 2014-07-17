@@ -138,18 +138,29 @@ function repoAdd() {
 
 function repoRemove() {
 	local RES=1
-	declare -a packages
-	for f in $@; do
-		packages+=($f)
-	done
-	if [ ${#packages[@]} -ne 0 ]; then
-		if callReprepro remove "$distribution" ${packages[*]}; then
-			RES=0
-			[ $verbose -ne 0 ] && echo "Packages ${packages[*]} successfully removed."
-		else
-			echo "Failed to remove packages ${packages[*]}." 1>&2
+	for pkg in $@; do
+		local tmpfile=`mktemp`
+		declare -a fields
+		if callReprepro ls "$pkg" 2>/dev/null 1>"$tmpfile"; then
+			while IFS=$'| :' read -r -a fields; do
+				[ ${#fields[*]} -eq 0 ] && continue
+
+				local pkg_name="${fields[0]}"
+				local pkg_version="${fields[1]}"
+				local pkg_distro="${fields[2]}"
+				local pkg_arch="${fields[3]}"
+
+				#echo "callReprepro remove $pkg_distro $pkg_name"
+				if callReprepro remove "$pkg_distro" "$pkg_name"; then
+					RES=0
+					[ $verbose -ne 0 ] && echo "Package $pkg_name successfully from $pkg_distro removed."
+				else
+					echo "Failed to remove package $pkg_namefrom $pkg_distro" 1>&2
+				fi
+			done < "$tmpfile"
 		fi
-	fi
+		rm -rf "$tmpfile"
+	done
 	return $RES
 }
 
