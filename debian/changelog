@@ -1,3 +1,9 @@
+arsoft-base (2.120) trusty; urgency=medium
+
+  * apt-repo: implement removal of a package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 17 Jul 2014 19:46:36 +0200
+
 arsoft-base (2.119) trusty; urgency=medium
 
   * apt-repo: correctly handle arch all
