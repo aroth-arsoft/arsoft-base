@@ -1,3 +1,9 @@
+arsoft-base (2.121) trusty; urgency=medium
+
+  * use old puppet server if none found via DNS
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 22 Aug 2014 09:49:59 +0200
+
 arsoft-base (2.120) trusty; urgency=medium
 
   * apt-repo: implement removal of a package

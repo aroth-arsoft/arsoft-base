@@ -32,6 +32,7 @@ puppet_update_conf() {
 	[ -r "$PUPPET_CONF" ] && oldpluginsync=`ini-util "$PUPPET_CONF" --value --get "main/pluginsync"` || oldpluginsync=''
 	[ -z "$oldconfigtimeout" ] && oldconfigtimeout='300'
 	[ -z "$oldpluginsync" ] && oldpluginsync='true'
+    [ -z "$newserver" ] && newserver="$oldserver"
 	[ -z "$newconfigtimeout" ] && newconfigtimeout="$oldconfigtimeout"
 	[ -z "$newpluginsync" ] && newpluginsync="$oldpluginsync"
 	
