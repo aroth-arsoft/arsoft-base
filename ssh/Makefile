@@ -1,4 +1,4 @@
-SSH_BIN_SCRIPTS := ssh-nogss ssh-setup-keys
+SSH_BIN_SCRIPTS := ssh-nogss ssh-nopubkey ssh-setup-keys sshsudo
 
 .PHONY: all
 
