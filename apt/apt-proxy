@@ -80,7 +80,7 @@ while [ $# -ne 0 ]; do
 		esac
 		;;
 	*)
-		echo "Unrecognized parameter $1"
+		echo "Unrecognized parameter $1" 1>&2
 		exit 1
 	;;
 	esac

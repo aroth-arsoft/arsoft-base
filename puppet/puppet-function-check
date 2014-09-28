@@ -28,7 +28,7 @@ while [ $# -ne 0 ]; do
 			if [ -z "$funcfile" ]; then
 				funcfile="$1"
 			else
-				echo "Too many arguments: $1"
+				echo "Too many arguments: $1" 1>&2
 				exit 1
 			fi
 		;;
@@ -40,7 +40,7 @@ if [ ! -z "$funcfile" ]; then
 	funcfile=$(readlink -f "$funcfile")
 	funcname=`basename "$funcfile" .rb`
 else
-	echo "No function file specified."
+	echo "No function file specified." 1>&2
 	exit 1
 fi
 
