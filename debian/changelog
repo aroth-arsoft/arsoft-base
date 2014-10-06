@@ -1,3 +1,9 @@
+arsoft-base (2.122) trusty; urgency=medium
+
+  * use old values from nslcd.conf
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 06 Oct 2014 18:35:07 +0200
+
 arsoft-base (2.121) trusty; urgency=medium
 
   * use old puppet server if none found via DNS
