@@ -125,6 +125,8 @@ nslcd_conf_update() {
 		--style=cmd \
 		--edit="base=$newldap_base" \
 		--edit="uri=$newldapserver_uri" \
+        --edit="ssl=$ldap_start_tls" \
+        --edit="tls_reqcert=$ldap_tls_reqcert" \
 		--edit="timelimit=30" \
 		"$NSLCD_CONF" 2>&1`
 	if [ $? -eq 0 ]; then
@@ -341,11 +343,22 @@ ldap_update_conf() {
 		newldap_base=`get_dns_txt_record "_base._ldap._config.$domain_name."`
 		[ -z "$newldap_base" -a -r "$OPENLDAP_LDAP_CONF" ] && newldap_base=`awk '/^ *(BASE)/ { print $2 }' "$OPENLDAP_LDAP_CONF"`
 
-		[ -r "$NSSLDAP_CONF" ] && oldldap_tls_require_cert=`awk '/^ *(TLS_REQCERT)/ { print $2 }' "$NSSLDAP_CONF"` || oldldap_tls_require_cert=''
+        local oldldap_tls_require_cert=''
+		if [ -r "$NSLCD_CONF" ]; then
+            oldldap_tls_require_cert=`awk '/^ *(tls_reqcert)/ { print $2 }' "$NSLCD_CONF"`
+        elif [ -r "$NSSLDAP_CONF" ]; then
+            oldldap_tls_require_cert=`awk '/^ *(TLS_REQCERT)/ { print $2 }' "$NSSLDAP_CONF"`
+        fi
+
 		# set a sensable default
 		[ -z "$oldldap_tls_require_cert" ] && oldldap_tls_require_cert='no'
 		
-		[ -r "$NSSLDAP_CONF" ] && oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSSLDAP_CONF"` || oldldap_start_tls=''
+        local oldldap_start_tls=''
+        if [ -r "$NSLCD_CONF" ]; then
+            oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSLCD_CONF"`
+        elif [ -r "$NSSLDAP_CONF" ]; then
+            oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSSLDAP_CONF"`
+        fi
 		# set a sensable default
 		[ -z "$oldldap_start_tls" ] && oldldap_start_tls='no'
 
