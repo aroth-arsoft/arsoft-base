@@ -1,0 +1,140 @@
+#!/bin/bash
+
+script_file=`readlink -f "$0"`
+
+DEFAULT_RELEASES=`lsb_release -cs`
+declare -A VALID_RELEASE=(
+["hardy"]="8.04"
+["intrepid"]="8.10"
+["jaunty"]="9.04"
+["lucid"]="9.10"
+["karmic"]="10.04"
+["maverick"]="10.10"
+["natty"]="11.04"
+["oneiric"]="11.10"
+["precise"]="12.04"
+["quantal"]="12.10"
+["raring"]="13.04"
+["saucy"]="13.10"
+["trusty"]="14.04"
+["utopic"]="14.10"
+)
+source_distro='ubuntu'
+source_suite=`lsb_release -cs`
+dest_suite=`lsb_release -cs`
+verbose=0
+dryrun=0
+confirm=1
+include_binary=1
+auto_approve=0
+PPA=''
+PPA_NAME=''
+PACKAGES=''
+OPTIONS=''
+DPUT_TARGET=''
+DEFAULT_PPA_NAME=''
+
+if [ -f $HOME/.arsoft/ppa_publish.conf ]; then
+	source $HOME/.arsoft/ppa_publish.conf
+fi
+
+if [ -z "$DPUT_TARGET" ]; then
+	if [ -f "$HOME/.dput.cf" ]; then
+		DPUT_TARGET=`awk -F '=' '/^default_host_main[[:space:]]*=[[:space:]]*.*$/ { gsub(/^[[:space:]]*/,"",$2); print $2 }' "$HOME/.dput.cf"`
+	fi
+fi
+DEFAULT_PPA="$DPUT_TARGET"
+DEFAULT_PPA_NAME="ppa"
+
+if [ -z "$UBUNTU_ARCHIVE_TOOLS_DIR" ]; then
+	echo "UBUNTU_ARCHIVE_TOOLS_DIR not configure in $HOME/.arsoft/ppa_publish.conf" >&2
+	echo "Please checkout the ubuntu-archive-tools from Launchpad" >&2
+	echo "  bzr branch lp:ubuntu-archive-tools" >&2
+	echo "and set the variable UBUNTU_ARCHIVE_TOOLS_DIR in the config file $HOME/.arsoft/ppa_publish.conf" >&2
+	exit 1
+elif [ ! -d "$UBUNTU_ARCHIVE_TOOLS_DIR" ]; then
+	echo "Configured directory $UBUNTU_ARCHIVE_TOOLS_DIR for ubuntu-archive-tools is not correct. " >&2
+	echo "Please check your UBUNTU_ARCHIVE_TOOLS_DIR variable in $HOME/.arsoft/ppa_publish.conf" >&2
+	exit 1
+fi
+
+if [ ! -f "$UBUNTU_ARCHIVE_TOOLS_DIR/copy-package" ]; then
+	echo "Unable to find copy-package script in directory $ubuntu_archive_tools_dir" >&2
+	exit 1
+fi
+
+function usage()
+{
+    echo "ppa_copy <packages>"
+    echo "    -h, --help         shows this help screen"
+    echo "    -v, --verbose      enable verbose output"
+    echo "    -n, --dryrun       dry-run only show what would be done."
+    echo "    --ppa <ppa>            name of the destination PPA; username (default: $DEFAULT_PPA)"
+    echo "    --ppa-name <ppaname>   destination archive name (default: $DEFAULT_PPA_NAME)"
+    echo "    -S, --source <suite>   name of the source suite/codename (default: $source_suite)"
+    echo "    -D, --dest <suite>     name of the destination suite/codename (default: $dest_suite)"
+    exit 0
+}
+
+function verbose_exec()
+{
+    [ $verbose -ne 0 ] && echo "$@"
+    "$@"
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	'-?'|'-h'|'--help') usage;;
+	'-v'|'--verbose') verbose=1; ;;
+	'-n'|'--dryrun') dryrun=1; ;;
+	'--ppa') PPA="$2"; shift; ;;
+	'--ppa-name') PPA_NAME="$2"; shift; ;;
+	'-S'|'--source') source_suite="$2"; shift; ;;
+	'-D'|'--dest') dest_suite="$2"; shift; ;;
+	-*)
+		echo "Unrecognized option $1" >&2
+		exit 1
+		;;
+	*)
+		if [ -z "$PACKAGES" ]; then
+			PACKAGES="$1"
+		else
+			PACKAGES="$PACKAGES $1"
+		fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$PACKAGES" ]; then
+	echo "No packages specified."
+	exit 2
+fi
+
+if [ "$source_suite" == "$dest_suite" ]; then
+	echo "Source and destination suite are set to $dest_suite, which is most likely not what you want." >&2
+	exit 2
+fi
+
+[ -z "$PPA" ] && PPA="$DEFAULT_PPA"
+[ -z "$PPA_NAME" ] && PPA_NAME="$DEFAULT_PPA_NAME"
+
+if [ -z "$PPA" ]; then
+	echo "No destination PPA specified." >&2
+	exit 2
+fi
+if [ -z "$PPA_NAME" ]; then
+	echo "No destination PPA name specified." >&2
+	exit 2
+fi
+
+OPTIONS=''
+[ $dryrun -ne 0 ] && OPTIONS="$OPTIONS -n"
+[ $confirm -ne 0 ] && OPTIONS="$OPTIONS -y"
+[ $include_binary -ne 0 ] && OPTIONS="$OPTIONS -b"
+[ $auto_approve -ne 0 ] && OPTIONS="$OPTIONS --auto-approve"
+
+[ $verbose -ne 0 ] && echo "python $UBUNTU_ARCHIVE_TOOLS_DIR/copy-package" $OPTIONS --distribution=$source_distro --suite=$source_suite --to-suite=$dest_suite --to-ppa=$PPA --to-ppa-name=$PPA_NAME $PACKAGES $@
+python "$UBUNTU_ARCHIVE_TOOLS_DIR/copy-package" $OPTIONS --distribution=$source_distro --suite=$source_suite --to-suite=$dest_suite --to-ppa=$PPA --to-ppa-name=$PPA_NAME $PACKAGES $@
+

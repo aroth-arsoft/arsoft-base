@@ -3,6 +3,7 @@ etc/arsoft-base/system-startup.d
 etc/arsoft-base/system-shutdown.d
 etc/cron.daily/clean-old-bootcharts
 usr/bin/ppa_publish
+usr/bin/ppa_copy
 usr/bin/postfix-flush-queue
 usr/bin/postfix-sendmail
 usr/bin/postfix-mailstat

@@ -1,3 +1,9 @@
+arsoft-base (2.123) trusty; urgency=medium
+
+  * add ppa_copy script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 09 Oct 2014 19:23:16 +0200
+
 arsoft-base (2.122) trusty; urgency=medium
 
   * use old values from nslcd.conf
