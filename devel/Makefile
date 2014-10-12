@@ -1,4 +1,4 @@
-DEVEL_BIN_SCRIPTS := ppa_publish ppa_copy git-branch-diff
+DEVEL_BIN_SCRIPTS := ppa_publish ppa_copy git-branch-diff gdb-add-index
 
 .PHONY: all
 
