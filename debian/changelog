@@ -1,3 +1,9 @@
+arsoft-base (2.126) trusty; urgency=medium
+
+  * fixed symlink trouble in gdb-add-index
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 14 Oct 2014 14:49:57 +0200
+
 arsoft-base (2.125) trusty; urgency=medium
 
   * fixed package conflict for nagios

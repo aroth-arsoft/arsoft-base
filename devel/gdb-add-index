@@ -28,6 +28,7 @@ SCRIPTFILE=`readlink -f "$0"`
 SCRIPTNAME=`basename "$SCRIPTFILE"`
 SCRIPTDIR=`dirname "$SCRIPTFILE"`
 
+verbose=0
 targets=''
 library_directories=''
 libdir_candidates="lib lib/$(uname -m)-gnu-linux"
@@ -117,7 +118,8 @@ function process_target {
 
 	maybe_index "$target"
 	for lib in $shared_libraries; do
-		maybe_index "$lib"
+        local l=`readlink -f "$lib"`
+		maybe_index "$l"
 	done
 }
 
