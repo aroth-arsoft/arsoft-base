@@ -58,7 +58,7 @@ Replaces: arsoft-scripts-svn
 Description: some helper scripts for various SCM systems
  a collection of helper scripts for Subversion and GIT.
 
-Package: arsoft-nagios-plugins
+Package: nagios-plugins-arsoft
 Architecture: all
 Depends: arsoft-python-nagios, libnagios-plugin-perl, libmail-sender-perl, libwww-mechanize-perl, libjson-perl, 
  lm-sensors, hddtemp, dnsutils, ${perl:Depends}, ${misc:Depends}

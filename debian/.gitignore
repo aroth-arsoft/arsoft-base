@@ -12,3 +12,4 @@
 /*.debhelper.log
 /arsoft-pnp4nagios/
 /*.debhelper
+/nagios-plugins-arsoft/
