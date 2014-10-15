@@ -60,7 +60,7 @@ Description: some helper scripts for various SCM systems
 
 Package: nagios-plugins-arsoft
 Architecture: all
-Depends: arsoft-python-nagios, libnagios-plugin-perl, libmail-sender-perl, libwww-mechanize-perl, libjson-perl, 
+Depends: arsoft-python-nagios, libnagios-plugin-perl, libjson-perl,
  lm-sensors, hddtemp, dnsutils, ${perl:Depends}, ${misc:Depends}
 Description: additional Nagios plugins for AR Soft specific services
  Installs all files and packages required to use the AR Soft Nagios
@@ -70,9 +70,16 @@ Description: additional Nagios plugins for AR Soft specific services
   - PuppetDB
   - Jenkins
   - SMB
+  - and more
+
+Package: nagios-plugins-notifications
+Architecture: all
+Depends: libnagios-plugin-perl, libmail-sender-perl, libwww-mechanize-perl, libjson-perl,
+ ${perl:Depends}, ${misc:Depends}
+Description: additional nagios notification plugins
+ The following notification scripts are included:
   - Icinga HTML notification
   - NotifyMyAndroid
-  - and more
 
 Package: arsoft-pnp4nagios
 Architecture: all

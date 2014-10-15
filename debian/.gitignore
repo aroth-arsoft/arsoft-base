@@ -13,3 +13,4 @@
 /arsoft-pnp4nagios/
 /*.debhelper
 /nagios-plugins-arsoft/
+/nagios-plugins-notifications/

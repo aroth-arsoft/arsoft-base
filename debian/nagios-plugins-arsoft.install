@@ -1,3 +1,12 @@
-etc/nagios-plugins/config
-usr/lib/nagios
+etc/nagios-plugins/config/apt_upgrade.cfg
+etc/nagios-plugins/config/dhcp-remote.cfg
+etc/nagios-plugins/config/jenkins.cfg
+etc/nagios-plugins/config/nagiostats.cfg
+etc/nagios-plugins/config/ntpex.cfg
+etc/nagios-plugins/config/openvz.cfg
+etc/nagios-plugins/config/ps.cfg
+etc/nagios-plugins/config/puppet.cfg
+etc/nagios-plugins/config/smb.cfg
+etc/nagios-plugins/config/spamassassin.cfg
+etc/nagios-plugins/config/system_user_disk.cfg
 usr/lib/nagios/plugins
