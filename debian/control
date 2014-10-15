@@ -72,9 +72,9 @@ Description: additional Nagios plugins for AR Soft specific services
   - SMB
   - and more
 
-Package: nagios-plugins-notifications
+Package: nagios-notifications
 Architecture: all
-Depends: libnagios-plugin-perl, libmail-sender-perl, libwww-mechanize-perl, libjson-perl,
+Depends: libmail-sender-perl, libwww-mechanize-perl, libjson-perl,
  ${perl:Depends}, ${misc:Depends}
 Description: additional nagios notification plugins
  The following notification scripts are included:
