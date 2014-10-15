@@ -156,7 +156,14 @@ postfix_ldap_conf_update() {
 	local ldap_base="$3"
 	local ldap_start_tls="$4"
 	local ldap_tls_reqcert="$5"
-	
+    local postfix_tlsrequired
+
+    if [ "$ldap_start_tls" == 'start_tls' ]; then
+        postfix_tlsrequired='yes'
+    else
+        postfix_tlsrequired='no'
+    fi
+
 	log_info "postfix_ldap_conf_update $cf_file $ldap_uri $ldap_base $ldap_start_tls $ldap_tls_reqcert"
 	newsearch_base=`awk -F '= ' "/^[[:space:]]*(search_base)[[:space:]]*=[[:space:]]*.*\$/ { print \\\$2 }" "$cf_file" | sed -r -e "s@^(([a-zA-Z]+=[a-zA-Z0-9]+,)*)[a-zA-Z]+=[a-zA-Z0-9]+\\\$@\\1$ldap_base@"`
 	
@@ -171,7 +178,7 @@ postfix_ldap_conf_update() {
 		sed -r -e "s@^\s*(server_host)\s*=\s*.*\$@server_host = $ldap_uri@" \
 				-e "s@^\s*(search_base)\s*=\s*.*\$@search_base = $newsearch_base@" \
 				-e "s@^\s*(start_tls)\s*=\s*.*\$@start_tls = $ldap_start_tls@" \
-				-e "s@^\s*(tls_require_cert)\s*=\s*.*\$@tls_require_cert = $ldap_tls_reqcert@" \
+				-e "s@^\s*(tls_require_cert)\s*=\s*.*\$@tls_require_cert = $postfix_tlsrequired@" \
 			"$cf_file"
 	) >>$tmp
 	if [ $? -eq 0 ]; then

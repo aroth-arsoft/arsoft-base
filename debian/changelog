@@ -1,3 +1,9 @@
+arsoft-base (2.128) trusty; urgency=medium
+
+  * fixed postfix tls_require_cert parameter
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 15 Oct 2014 16:29:18 +0200
+
 arsoft-base (2.127) trusty; urgency=medium
 
   * put nagios/icinga notification scripts into extra package
