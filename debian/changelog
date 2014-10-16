@@ -1,3 +1,9 @@
+arsoft-base (2.129) trusty; urgency=medium
+
+  * add SSL root CA certs
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 16 Oct 2014 07:28:40 +0200
+
 arsoft-base (2.128) trusty; urgency=medium
 
   * fixed postfix tls_require_cert parameter
