@@ -1,6 +1,7 @@
 #!/bin/sh -e
 PKG=arsoft-base
-CERTS='arsoft/arsoft_root_ca_1.crt arsoft/arsoft_root_ca_2.crt arsoft/arsoft_root_ca_3.crt fastprotect/fastprotect_root_ca.crt'
+CERT_BASE_DIR='/usr/share/ca-certificates'
+CERT_COMPANIES='arsoft fastprotect'
 
 if [ "$1" = configure ] ; then
 	dpkg-divert --add --package ${PKG} --rename \
@@ -40,9 +41,14 @@ case "$1" in
 			-e "/!?arsoft\/arsoft_ca_root.crt/d" \
 			-e "/!?arsoft\/arsoft_root.crt/d" \
 			/etc/ca-certificates.conf > /etc/ca-certificates.conf.dpkg-new
-		for cert in $CERTS; do
-			grep -q "${cert}" /etc/ca-certificates.conf.dpkg-new || echo "${cert}" >> /etc/ca-certificates.conf.dpkg-new
-		done
+
+        for cert_company in $CERT_COMPANIES; do
+            for cert_full in $CERT_BASE_DIR/$cert_company/*.crt; do
+                cert="${cert_full#$CERT_BASE_DIR/}"
+                grep -q "${cert}" /etc/ca-certificates.conf.dpkg-new || echo "${cert}" >> /etc/ca-certificates.conf.dpkg-new
+            done
+        done
+
 		if cmp -s /etc/ca-certificates.conf /etc/ca-certificates.conf.dpkg-new; then
 			rm -f /etc/ca-certificates.conf.dpkg-new
 		else
