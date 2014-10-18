@@ -39,10 +39,20 @@ ntp_servers_setup_add() {
 	  echo
 	  sed -r -e '/^ *(server *[^1][^2][^7]\.|peer).*$/d' $NTP_CONF
 	) >>$tmp
-
-	mv $tmp $NTP_DHCP_CONF
-
-	ntp_server_restart
+	if [ -f "$NTP_DHCP_CONF" ]; then
+		if ! /usr/bin/diff -q "$tmp" "$NTP_DHCP_CONF" > /dev/null; then
+			mv "$tmp" "$NTP_DHCP_CONF"
+			ntp_server_restart
+			log_info "ntp_servers_setup_add restart ntp server"
+		else
+			# remove temp file because we no longer need it
+			rm "$tmp"
+		fi
+	else
+		mv "$tmp" "$NTP_DHCP_CONF"
+		ntp_server_restart
+		log_info "ntp_servers_setup_add restart ntp server"
+	fi
 }
 
 case $reason in
