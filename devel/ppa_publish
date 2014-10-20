@@ -32,6 +32,7 @@ declare -A VALID_RELEASE=(
 ["saucy"]="13.10"
 ["trusty"]="14.04"
 ["utopic"]="14.10"
+["vivid"]="15.04"
 )
 noput=0
 noorig=0
