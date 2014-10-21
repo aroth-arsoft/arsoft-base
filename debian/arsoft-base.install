@@ -22,6 +22,7 @@ usr/bin/puppet-template-check
 usr/bin/postfix-delete
 usr/bin/nss-import-cert
 usr/bin/pmem
+usr/bin/find-snmp-devices
 usr/sbin/postfix-ldap
 usr/sbin/biosinfo
 usr/sbin/slapd-clean-db

@@ -1,0 +1,60 @@
+#!/bin/bash
+verbose=0
+network=''
+
+function usage() {
+    echo "usage: find-snmp-devices"
+    echo "  find all SNMP devices in the network."
+    exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+    case "$1" in
+    "-?"|"-h"|"--help") usage;;
+    '-v'|'--verbose') verbose=1; ;;
+    *)
+        if [ -z "$network" ]; then
+            network="$1"
+        else
+            echo "Unrecognized parameter $1" 2>&1
+            exit 1
+        fi
+    ;;
+    esac
+    shift
+done
+
+if [ -z "$network" ]; then
+    echo "No network or host given to scan." 2>&1
+    exit 1
+fi
+
+nmap_bin=`which nmap`
+if [ -z "$nmap_bin" ]; then
+    echo "Nmap not installed. please install nmap." 2>&1
+    exit 2
+fi
+
+snmpwalk_bin=`which snmpwalk`
+if [ -z "$snmpwalk_bin" ]; then
+    echo "snmpwalk not installed. please install snmp." 2>&1
+    exit 2
+fi
+
+if [[ $EUID -ne 0 ]]; then
+    echo "You must be a root user." 2>&1
+    exit 1
+fi
+
+result_dir=`mktemp -d`
+"$nmap_bin" -P0 -v -sU -p 161 -oA "$result_dir/result" "$network"
+
+for j in $(awk '/161\/open/ { print $2 }' "$result_dir/result.gnmap"); do
+    echo "Checking host $j"
+    "$snmpwalk_bin" -v2c -c public "$j" &> snmpwalk_${j}_public.txt
+    if [ "$?" = "0" ]; then echo "$j accepts SNMP community string public"; fi
+    "$snmpwalk_bin" -v2c -c private $j &> snmpwalk_${j}_private.txt
+    if [ "$?" = "0" ]; then echo "$j accepts SNMP community string private"; fi
+done
+#rm -rf "$result_dir"
