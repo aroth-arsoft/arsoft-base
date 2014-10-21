@@ -1,3 +1,9 @@
+arsoft-base (2.132) trusty; urgency=medium
+
+  * fixed depend issues with utopic 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 21 Oct 2014 19:59:30 +0200
+
 arsoft-base (2.131) trusty; urgency=medium
 
   * only restart ntp server if config file actually changes
