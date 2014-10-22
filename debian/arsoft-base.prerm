@@ -8,6 +8,9 @@ if [ "$1" = remove ] ; then
 	[ -L /etc/profile ] && rm /etc/profile
 	dpkg-divert --remove --package ${PKG} --rename \
 				--divert /etc/profile.distrib /etc/profile
+	[ -L /usr/bin/gdb-add-index ] && rm /usr/bin/gdb-add-index
+	dpkg-divert --remove --package ${PKG} --rename \
+				--divert /usr/bin/gdb-add-index.distrib /usr/bin/gdb-add-index
 fi
 #DEBHELPER#
 exit 0

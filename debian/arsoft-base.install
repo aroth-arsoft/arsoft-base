@@ -4,7 +4,6 @@ etc/arsoft-base/system-shutdown.d
 etc/cron.daily/clean-old-bootcharts
 usr/bin/ppa_publish
 usr/bin/ppa_copy
-usr/bin/gdb-add-index
 usr/bin/postfix-flush-queue
 usr/bin/postfix-sendmail
 usr/bin/postfix-mailstat
@@ -42,6 +41,7 @@ usr/sbin/apt-purge-removed
 usr/sbin/alsa-info
 usr/share/arsoft-base/bash/bash.bashrc
 usr/share/arsoft-base/profile
+usr/share/arsoft-base/devel
 usr/bin/wine-rebuild-menu
 usr/share/ca-certificates/arsoft
 usr/share/ca-certificates/fastprotect
