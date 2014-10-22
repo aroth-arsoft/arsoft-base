@@ -6,7 +6,7 @@
 # Use of this source code is governed by a BSD-style license that can be
 # found in the LICENSE file.
 #
-# Copyright (C) 2010 Free Software Foundation, Inc.
+# Copyright (C) 2010-2014 Free Software Foundation, Inc.
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 3 of the License, or
@@ -23,6 +23,11 @@
 # This is a modification of gdb-add-index that recursively adds an index
 # to the shared libraries dependencies from the same build.
 # Script also supports to take multiple target files.
+
+# This program assumes gdb and objcopy are in $PATH.
+# If not, or you want others, pass the following in the environment
+GDB=${GDB:=gdb}
+OBJCOPY=${OBJCOPY:=objcopy}
 
 SCRIPTFILE=`readlink -f "$0"`
 SCRIPTNAME=`basename "$SCRIPTFILE"`
@@ -56,15 +61,23 @@ function usage() {
 function index_one_file {
   local file="$1"
   local dir="${file%/*}"
-
+  local index="${file}.gdb-index"
+  rm -f "$index"
+  
   # We don't care if gdb gives an error.
-  gdb -nx --batch-silent -ex "file $file" -ex "save gdb-index $dir"
+  $GDB -nx --batch-silent -iex 'set auto-load no' -ex "file $file" -ex "save gdb-index $dir" || {
+    # Just in case.
+    status=$?
+    echo "gdb error generating index for $file" 1>&2
+    return $status
+  }
 
-  if test -f "${file}.gdb-index"; then
-    objcopy --add-section .gdb_index="${file}.gdb-index" --set-section-flags \
-        .gdb_index=readonly "$file" "$file"
-    rm -f "${file}.gdb-index"
+  if test -f "$index"; then
+    $OBJCOPY --add-section .gdb_index="$index" \
+	--set-section-flags .gdb_index=readonly "$file" "$file"
+    rm -f "$index"
   fi
+  return 0
 }
 
 function maybe_index {
