@@ -1,3 +1,9 @@
+arsoft-base (2.134) trusty; urgency=medium
+
+  * only use dhcp info when real ethernet interface comes up
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 25 Oct 2014 18:47:20 +0200
+
 arsoft-base (2.133) trusty; urgency=medium
 
   * work around trouble with gdb-add-index

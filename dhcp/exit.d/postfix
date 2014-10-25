@@ -27,14 +27,22 @@ postfix_setup() {
 
 case $reason in
 	BOUND|RENEW|REBIND|REBOOT)
-		postfix_setup
+		if [ $interface == 'lo' ]; then
+			postfix_setup
+		else
+			true
+		fi
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
 		;;
 	# events from network-manager
 	up|vpn-up|dhcp4-change|dhcp6-change)
-		postfix_setup
+		if [ $interface == 'lo' ]; then
+			postfix_setup
+		else
+			true
+		fi
 		;;
-    down|vpn-down|hostname)
+	down|vpn-down|hostname)
 		;;
 esac

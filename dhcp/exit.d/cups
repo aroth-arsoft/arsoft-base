@@ -83,7 +83,11 @@ cups_restore_conf() {
 
 case $reason in
 	BOUND|RENEW|REBIND|REBOOT)  
-		[ $CUPS_USE_DNS_INFO -ne 0 ] && cups_update_conf
+		if [ $CUPS_USE_DNS_INFO -ne 0 -a $interface != 'lo' ]; then
+			cups_update_conf
+		else
+			true
+		fi
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
 		;;
@@ -94,7 +98,11 @@ case $reason in
 		;;
 	# events from network-manager
 	up|vpn-up|dhcp4-change|dhcp6-change)
-		[ $CUPS_USE_DNS_INFO -ne 0 ] && cups_update_conf
+		if [ $CUPS_USE_DNS_INFO -ne 0 -a $interface != 'lo' ]; then
+			cups_update_conf
+		else
+			true
+		fi
 		;;
     down|vpn-down)
 		cups_restore_conf

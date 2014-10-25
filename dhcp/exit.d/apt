@@ -17,13 +17,21 @@ apt_update_conf() {
 
 case $reason in
 	BOUND|RENEW|REBIND|REBOOT)
-		apt_update_conf
+		if [ $interface != 'lo' ]; then
+			apt_update_conf
+		else
+			true
+		fi
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
 		;;
 	# events from network-manager
 	up|vpn-up|dhcp4-change|dhcp6-change)
-		apt_update_conf
+		if [ $interface != 'lo' ]; then
+			apt_update_conf
+		else
+			true
+		fi
 		;;
     down|vpn-down|hostname)
         ;;

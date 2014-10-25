@@ -1,6 +1,7 @@
 #!/bin/sh
 PUPPET_CONF='/etc/puppet/puppet.conf'
 PUPPET_AGENT_DEFAULTS='/etc/default/puppet'
+STATE_FILE='/var/lib/dhcp/_puppet_interface'
 
 puppet_agent_restart() {
 	local puppet_agent_start=`ini-util "$PUPPET_AGENT_DEFAULTS" --value --get "START"`
@@ -35,35 +36,69 @@ puppet_update_conf() {
     [ -z "$newserver" ] && newserver="$oldserver"
 	[ -z "$newconfigtimeout" ] && newconfigtimeout="$oldconfigtimeout"
 	[ -z "$newpluginsync" ] && newpluginsync="$oldpluginsync"
-	
-	log_info "puppet server: $newserver"
-	log_info "puppet configtimeout: $newconfigtimeout"
-	log_info "puppet client hostname: $(hostname -f)"
-	if [ "$oldserver" != "$newserver" -o "$oldconfigtimeout" != "$newconfigtimeout" ]; then
-		ini-util "$PUPPET_CONF" --edit "main/server=$newserver" "main/configtimeout=$newconfigtimeout" "main/pluginsync=$newpluginsync"
-		RES=$?
-		if [ $RES -eq 0 ]; then
-			log_info "puppet reload service to take over changed settings"
-			puppet_agent_restart
+
+	if [ ! -z "$newserver" ]; then
+		if is_interface_for_host "$newserver"; then
+			local client_hostname=`hostname -f`
+			cat > "$STATE_FILE" <<STATE_FILE_EOF
+interface=$interface
+hostname=$client_hostname
+server=$newserver
+configtimeout=$newconfigtimeout
+STATE_FILE_EOF
+			log_info "puppet server: $newserver"
+			log_info "puppet configtimeout: $newconfigtimeout"
+			log_info "puppet client hostname: $(hostname -f)"
+			if [ "$oldserver" != "$newserver" -o "$oldconfigtimeout" != "$newconfigtimeout" ]; then
+				ini-util "$PUPPET_CONF" --edit "main/server=$newserver" "main/configtimeout=$newconfigtimeout" "main/pluginsync=$newpluginsync"
+				RES=$?
+				if [ $RES -eq 0 ]; then
+					log_info "puppet reload service to take over changed settings"
+					puppet_agent_restart
+				else
+					false
+				fi
+			else
+				log_info "puppet reload service to take over changed network settings"
+				puppet_agent_restart
+			fi
 		else
-			false
+			puppet_iface=`get_interface_for_host "$1"`
+			log_info "puppet host $newserver is not accessed through $interface must be $puppet_iface"
 		fi
-	else
-		log_info "puppet reload service to take over changed network settings"
-		puppet_agent_restart
+	fi
+}
+
+puppet_release_conf() {
+
+	# if state file does not exist bail out
+	[ ! -r "$STATE_FILE" ] && return
+
+	local puppet_interface=`awk -F '=' '/interface/ { print $2 }' "$STATE_FILE"`
+	if [ "$interface" == "$puppet_interface" ]; then
+		rm "$STATE_FILE" || true
 	fi
 }
 
 case $reason in
 	BOUND|RENEW|REBIND|REBOOT)
-		puppet_update_conf
+		if [ $interface != 'lo' ]; then
+			puppet_update_conf
+		else
+			true
+		fi
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
+		puppet_release_conf
 		;;
 	# events from network-manager
 	up|vpn-up|dhcp4-change|dhcp6-change)
-		puppet_update_conf
+		if [ $interface != 'lo' ]; then
+			puppet_update_conf
+		else
+			true
+		fi
 		;;
-    down|vpn-down|hostname)
+	down|vpn-down|hostname)
 		;;
 esac

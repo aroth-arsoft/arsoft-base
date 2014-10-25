@@ -28,14 +28,22 @@ timezone_update() {
 case $reason in
 	# events from dhclient
 	BOUND|RENEW|REBIND|REBOOT)
-		timezone_update
+		if [ $interface != 'lo' ]; then
+			timezone_update
+		else
+			true
+		fi
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
 		;;
 	# events from network-manager
 	up|vpn-up|dhcp4-change|dhcp6-change)
-		timezone_update
+		if [ $interface != 'lo' ]; then
+			timezone_update
+		else
+			true
+		fi
 		;;
-    down|vpn-down|hostname)
-        ;;
+	down|vpn-down|hostname)
+		;;
 esac

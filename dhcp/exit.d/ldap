@@ -416,7 +416,7 @@ ldap_release_conf() {
 	# if state file does not exist bail out
 	[ ! -r "$STATE_FILE" ] && return
 	
-	ldap_interface=`awk -F '=' '/interface/ { print $2 }' "$STATE_FILE"`
+	local ldap_interface=`awk -F '=' '/interface/ { print $2 }' "$STATE_FILE"`
 	if [ "$interface" == "$ldap_interface" ]; then
 		# got release on the interface on which we got the LDAP information
 		# so disable the entire LDAP
@@ -431,14 +431,22 @@ ldap_release_conf() {
 
 case $reason in
 	BOUND|RENEW|REBIND|REBOOT)
-		[ $LDAP_USE_DNS_INFO -ne 0 ] && ldap_update_conf
+		if [ $interface != 'lo' -a $LDAP_USE_DNS_INFO -ne 0 ]; then
+			ldap_update_conf
+		else
+			true
+		fi
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
 		ldap_release_conf
 		;;
 	# events from network-manager
 	up|vpn-up|dhcp4-change|dhcp6-change)
-		[ $LDAP_USE_DNS_INFO -ne 0 ] && ldap_update_conf
+		if [ $interface != 'lo' -a $LDAP_USE_DNS_INFO -ne 0 ]; then
+			ldap_update_conf
+		else
+			true
+		fi
 		;;
     down|vpn-down)
 		ldap_release_conf

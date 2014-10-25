@@ -64,11 +64,19 @@ case $reason in
 		;;
 	# events from network-manager
 	up|vpn-up|dhcp4-change|dhcp6-change)
-		ntp_servers_setup_add
+		if [ $interface != 'lo' ]; then
+			ntp_servers_setup_add
+		else
+			true
+		fi
 		;;
-    down|vpn-down|dhcp4-change|dhcp6-change)
-		ntp_servers_setup_remove
-        ;;
-    hostname)
+	down|vpn-down|dhcp4-change|dhcp6-change)
+		if [ $interface != 'lo' ]; then
+			ntp_servers_setup_remove
+		else
+			true
+		fi
+		;;
+	hostname)
 		;;
 esac

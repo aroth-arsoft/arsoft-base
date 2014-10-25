@@ -25,13 +25,21 @@ heimdal_check_server() {
 
 case $reason in
 	BOUND|RENEW|REBIND|REBOOT)
-		heimdal_check_server
+		if [ $interface != 'lo' ]; then
+			heimdal_check_server
+		else
+			true
+		fi
 		;;
 	EXPIRE|FAIL|RELEASE|STOP)
 		;;
 	# events from network-manager
 	up|vpn-up|dhcp4-change|dhcp6-change)
-		heimdal_check_server
+		if [ $interface != 'lo' ]; then
+			heimdal_check_server
+		else
+			true
+		fi
 		;;
     down|vpn-down|hostname)
         ;;
