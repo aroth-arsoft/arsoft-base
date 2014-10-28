@@ -46,6 +46,7 @@ hostname=$client_hostname
 server=$newserver
 configtimeout=$newconfigtimeout
 STATE_FILE_EOF
+            log_info "puppet interface: $interface"
 			log_info "puppet server: $newserver"
 			log_info "puppet configtimeout: $newconfigtimeout"
 			log_info "puppet client hostname: $(hostname -f)"
@@ -63,7 +64,7 @@ STATE_FILE_EOF
 				puppet_agent_restart
 			fi
 		else
-			puppet_iface=`get_interface_for_host "$1"`
+			puppet_iface=`get_interface_for_host "$newserver"`
 			log_info "puppet host $newserver is not accessed through $interface must be $puppet_iface"
 		fi
 	fi

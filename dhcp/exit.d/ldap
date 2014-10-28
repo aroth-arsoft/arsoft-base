@@ -315,12 +315,12 @@ autofs_conf_update() {
 	fi
 
 	if [ $autofs_reload -ne 0 ]; then
-		log_info "autofs_conf_update reload autofs"
+		log_info "autofs_conf_update reload/restart autofs"
 		# use upstart if available
 		if [ -f /etc/init/autofs.conf ]; then
-			/sbin/reload autofs || true
+			/sbin/restart autofs || true
 		else
-			/usr/sbin/service autofs reload || true
+			/usr/sbin/service autofs restart || true
 		fi
 	else
 		true
@@ -385,6 +385,7 @@ ldap_update_conf() {
 	if [ ! -z "$newldap_host" ]; then
 		if is_interface_for_host "$newldap_host"; then
 
+            log_info "newldap_interface=$interface"
 			log_info "newldap_uri=$newldap_uri"
 			log_info "newldap_base=$newldap_base"
 			log_info "newldap_start_tls=$newldap_start_tls"
@@ -405,7 +406,7 @@ STATE_FILE_EOF
 			postfix_ldap_conf "$newldap_uri" "$newldap_base" "$newldap_start_tls" "$newldap_tls_require_cert"
 			autofs_conf_update "$newldap_uri" "$newautofs_search_base" "$newldap_start_tls" "$newldap_tls_require_cert"
 		else
-			ldap_iface=`get_interface_for_host "$1"`
+			ldap_iface=`get_interface_for_host "$newldap_host"`
 			log_info "ldap host $newldap_host is not accessed through $interface must be $ldap_iface"
 		fi
 	fi

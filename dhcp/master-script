@@ -100,7 +100,7 @@ function get_dns_srv_record() {
 }
 
 function run_hook() {
-	log_info "run_hook $@"
+	log_info "run_hook $interface $@"
     local script="$1"
     local exit_status
     shift	# discard the first argument, then the rest are the script's

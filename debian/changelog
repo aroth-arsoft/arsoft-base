@@ -1,3 +1,9 @@
+arsoft-base (2.135) utopic; urgency=medium
+
+  * restart autofs instead of reload
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 28 Oct 2014 09:52:34 +0100
+
 arsoft-base (2.134) trusty; urgency=medium
 
   * only use dhcp info when real ethernet interface comes up
