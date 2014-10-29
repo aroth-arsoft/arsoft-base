@@ -1,3 +1,9 @@
+arsoft-base (2.136) utopic; urgency=medium
+
+  * use python-arsoft instead of arsoft-python
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 29 Oct 2014 19:28:06 +0100
+
 arsoft-base (2.135) utopic; urgency=medium
 
   * restart autofs instead of reload
