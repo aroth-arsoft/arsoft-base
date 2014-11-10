@@ -6,11 +6,11 @@ DEFAULT_CUPS='/etc/default/cups'
 BACKUP_DIR='/run/cups'
 BACKUP_CUPS_CLIENT_CONF="$BACKUP_DIR/client.conf.bak"
 
-CUPS_USE_DNS_INFO='auto'
+CUPS_USE_DNS_INFO=0
 [ -f "$DEFAULT_CUPS" ] && source "$DEFAULT_CUPS"
 
 if [ "$CUPS_USE_DNS_INFO" == 'auto' ]; then
-	CUPS_USE_DNS_INFO=1
+	CUPS_USE_DNS_INFO=0
 fi
 
 cups_update_conf() {
@@ -38,7 +38,7 @@ cups_update_conf() {
 		if [ ! -z "$cups_server" ]; then
 			log_info "add remote printers from $cups_server"
 			# using local CUPS server and import all remote printers
-			msg=`/usr/sbin/cups-admin --server localhost:631 --add-remote "$cups_server" 2>&1`
+			msg=`/usr/bin/cups-admin --server localhost:631 --add-remote "$cups_server" 2>&1`
 			RES=$?
 			if [ $RES -eq 0 ]; then
 				# We have added printer from the remote server to the local one
