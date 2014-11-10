@@ -10,7 +10,7 @@ ARSOFT_SCRIPTS_DHCLIENT_EXIT_DIR='/usr/lib/arsoft-dhcp/dhclient-exit'
 
 [ -f /etc/default/arsoft-dhcp-client ] && . /etc/default/arsoft-dhcp-client
 
-scriptdir='/usr/sbin'
+scriptdir='/usr/bin'
 realscriptfile=`readlink -f "$0"`
 current_id=`LANG=C id`
 

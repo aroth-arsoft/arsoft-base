@@ -1,6 +1,7 @@
 #!/bin/bash
 
 apt_update_conf() {
+	local newproxy=''
 	if [ ! -z "$domain_name" ]; then
 		local srv_record=`get_dns_srv_record 'apt-proxy' 'tcp'`
 		if [ ! -z "$srv_record" ]; then
@@ -12,7 +13,7 @@ apt_update_conf() {
 		fi
 	fi
 	log_info "apt-proxy=$newproxy"
-	verbose_exec "$scriptdir/apt-proxy" set "$newproxy"
+	verbose_exec "/usr/sbin/apt-proxy" set "$newproxy"
 }
 
 case $reason in

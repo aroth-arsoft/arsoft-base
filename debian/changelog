@@ -1,3 +1,9 @@
+arsoft-base (2.137) utopic; urgency=medium
+
+  * dhcp: fix path to scripts
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 10 Nov 2014 06:56:07 +0100
+
 arsoft-base (2.136) utopic; urgency=medium
 
   * use python-arsoft instead of arsoft-python
