@@ -105,9 +105,9 @@ nssldap_conf_update() {
 	# nsswitch-ldap automatically restarts the NSCD when
 	# any changes are necessary
 	if [ $enable_nss_ldap -ne 0 ]; then
-		/usr/sbin/nsswitch-ldap enable
+		/usr/bin/nsswitch-ldap enable
 	else
-		/usr/sbin/nsswitch-ldap disable
+		/usr/bin/nsswitch-ldap disable
 	fi
 }
 
@@ -144,9 +144,9 @@ nslcd_conf_update() {
 	# nsswitch-ldap automatically restarts the NSCD when
 	# any changes are necessary
 	if [ $enable_nss_ldap -ne 0 ]; then
-		/usr/sbin/nsswitch-ldap enable
+		/usr/bin/nsswitch-ldap enable
 	else
-		/usr/sbin/nsswitch-ldap disable
+		/usr/bin/nsswitch-ldap disable
 	fi
 }
 
