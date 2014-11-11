@@ -1,3 +1,9 @@
+arsoft-base (2.139) utopic; urgency=medium
+
+  * measure time passed running dhcp hooks
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Tue, 11 Nov 2014 19:04:21 +0100
+
 arsoft-base (2.138) utopic; urgency=medium
 
   * dhcp: fixed path to nsswitch-ldap script

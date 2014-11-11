@@ -100,19 +100,22 @@ function get_dns_srv_record() {
 }
 
 function run_hook() {
-	log_info "run_hook $interface $@"
     local script="$1"
     local exit_status
     shift	# discard the first argument, then the rest are the script's
 
     if [ -f $script ]; then
+		local starttime=`date +%s%3N`
         . $script "$@"
 		exit_status=$?
+		local endtime=`date +%s%3N`
+		local timepassed_ms=$(($endtime - $starttime))
+		log_err "run_hook $interface $@ $script took $timepassed_ms ms"
 		if [ $exit_status -ne 0 ]; then
 			log_err "$script returned non-zero exit status $exit_status"
 		fi
 	else
-		log_err "run_hook $script does not exist"
+		log_err "run_hook $interface $script does not exist"
 		exit_status=1
     fi
 
