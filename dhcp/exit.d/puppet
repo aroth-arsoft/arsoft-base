@@ -6,7 +6,8 @@ STATE_FILE='/var/lib/dhcp/_puppet_interface'
 puppet_agent_restart() {
 	local puppet_agent_start=`ini-util "$PUPPET_AGENT_DEFAULTS" --value --get "START"`
 	if [ "$puppet_agent_start" == 'yes' ]; then
-		invoke-rc.d puppet restart || true
+		invoke-rc.d puppet restart &
+		true
 	else
 		true
 	fi

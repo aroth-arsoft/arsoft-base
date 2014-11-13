@@ -1,3 +1,9 @@
+arsoft-base (2.140) utopic; urgency=medium
+
+  * dhcp: restart puppet agent, but don't wait for it's completion
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 13 Nov 2014 07:24:32 +0100
+
 arsoft-base (2.139) utopic; urgency=medium
 
   * measure time passed running dhcp hooks
