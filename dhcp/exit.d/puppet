@@ -26,20 +26,21 @@ puppet_update_conf() {
 		else
 			newserver=''
 		fi
-		newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$domain_name."`
 		newpluginsync=`get_dns_txt_record "_pluginsync._puppet._config.$domain_name."`
 	fi
 	[ -r "$PUPPET_CONF" ] && oldserver=`ini-util "$PUPPET_CONF" --value --get "main/server"` || oldserver=''
-	[ -r "$PUPPET_CONF" ] && oldconfigtimeout=`ini-util "$PUPPET_CONF" --value --get "main/configtimeout"` || oldconfigtimeout=''
-	[ -r "$PUPPET_CONF" ] && oldpluginsync=`ini-util "$PUPPET_CONF" --value --get "main/pluginsync"` || oldpluginsync=''
-	[ -z "$oldconfigtimeout" ] && oldconfigtimeout='300'
-	[ -z "$oldpluginsync" ] && oldpluginsync='true'
     [ -z "$newserver" ] && newserver="$oldserver"
-	[ -z "$newconfigtimeout" ] && newconfigtimeout="$oldconfigtimeout"
-	[ -z "$newpluginsync" ] && newpluginsync="$oldpluginsync"
 
 	if [ ! -z "$newserver" ]; then
 		if is_interface_for_host "$newserver"; then
+			newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$domain_name."`
+			[ -r "$PUPPET_CONF" ] && oldconfigtimeout=`ini-util "$PUPPET_CONF" --value --get "main/configtimeout"` || oldconfigtimeout=''
+			[ -r "$PUPPET_CONF" ] && oldpluginsync=`ini-util "$PUPPET_CONF" --value --get "main/pluginsync"` || oldpluginsync=''
+			[ -z "$oldconfigtimeout" ] && oldconfigtimeout='300'
+			[ -z "$oldpluginsync" ] && oldpluginsync='true'
+			[ -z "$newconfigtimeout" ] && newconfigtimeout="$oldconfigtimeout"
+			[ -z "$newpluginsync" ] && newpluginsync="$oldpluginsync"
+
 			local client_hostname=`hostname -f`
 			cat > "$STATE_FILE" <<STATE_FILE_EOF
 interface=$interface
