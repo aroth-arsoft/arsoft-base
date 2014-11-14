@@ -4,14 +4,15 @@ HOSTS_FILE='/etc/hosts'
 
 network_update_conf() {
 
-	verbose_exec "/usr/bin/managehosts" -f "$HOSTS_FILE" update "127.0.0.1" localhost.localdomain localhost
+	local update_opts="127.0.0.1=localhost.localdomain,localhost"
 	if [ ! -z "$domain_name" ]; then
-		verbose_exec "/usr/bin/managehosts" -f "$HOSTS_FILE" update "127.0.1.1" "${host_name}.${domain_name}" "$host_name"
-		verbose_exec "/usr/bin/managehosts" -f "$HOSTS_FILE" update "::1" "${host_name}.${domain_name}" "$host_name" ip6-localhost ip6-loopback
+		update_opts="$update_opts 127.0.1.1=${host_name}.${domain_name},$host_name"
+		update_opts="$update_opts ::1=${host_name}.${domain_name},$host_name,ip6-localhost,ip6-loopback"
 	else
-		verbose_exec "/usr/bin/managehosts" -f "$HOSTS_FILE" update "127.0.1.1" "$host_name"
-		verbose_exec "/usr/bin/managehosts" -f "$HOSTS_FILE" update "::1" "$host_name" ip6-localhost ip6-loopback
+		update_opts="$update_opts 127.0.1.1=$host_name"
+		update_opts="$update_opts ::1=$host_name,ip6-localhost,ip6-loopback"
 	fi
+	verbose_exec "/usr/bin/managehosts" -f "$HOSTS_FILE" update $update_opts
 }
 
 case $reason in
