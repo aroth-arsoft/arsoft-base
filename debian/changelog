@@ -1,3 +1,9 @@
+arsoft-base (2.141) utopic; urgency=medium
+
+  * dhcp: improve performance 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 14 Nov 2014 07:18:08 +0100
+
 arsoft-base (2.140) utopic; urgency=medium
 
   * dhcp: restart puppet agent, but don't wait for it's completion
