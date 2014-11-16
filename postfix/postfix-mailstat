@@ -3,6 +3,7 @@
 verbose=0
 noop=0
 all=0
+logrotate=0
 newline=`echo -e '\n'`
 FQDN=`hostname -f`
 DOMAIN=`hostname -d`
@@ -18,12 +19,15 @@ SUBJECT="$MYHOSTNAME mail statistics of "`LANG=C date -R`
 
 function usage()
 {
-    echo "postfix-mailstat [OPTIONS]"
+    echo "postfix-mailstat [OPTIONS] [LOGFILES]"
     echo "    -h, --help      shows this help screen"
 	echo "    -v, --verbose   enable verbose output"
 	echo "    --noop          do not actually send a mail."
 	echo "    --logdir <DIR>  specifies the directory where the log files are kept (default $LOGDIR)"
 	echo "    --all           process all found log file and generate report."
+	echo "    --logrotate     specify if called from within logrotate."
+	echo "  LOGFILES"
+	echo "    any number of log files. If none is specified the log files in $LOGDIR are used."
     exit 0
 }
 
@@ -46,8 +50,14 @@ function generate_summary()
 		for f in $LOGFILES; do
 			[ $verbose -ne 0 ] && echo "check logfile $f"
 			if [ -r "$f" ]; then
-				[ $verbose -ne 0 ] && echo "$PFLOGSUMM_BIN $PFLOGSUMM_OPTS 0<\"$f\" 2>/dev/null"
-				f_sum=`"$PFLOGSUMM_BIN" $PFLOGSUMM_OPTS 0<"$f" 2>/dev/null`
+				f_ext="${f##*.}"
+				if [ "$f_ext" == "gz" ]; then
+					[ $verbose -ne 0 ] && echo "zcat \"$f\" | $PFLOGSUMM_BIN $PFLOGSUMM_OPTS 2>/dev/null"
+					f_sum=`"zcat "$f" | $PFLOGSUMM_BIN" $PFLOGSUMM_OPTS 2>/dev/null`
+				else
+					[ $verbose -ne 0 ] && echo "$PFLOGSUMM_BIN $PFLOGSUMM_OPTS 0<\"$f\" 2>/dev/null"
+					f_sum=`"$PFLOGSUMM_BIN" $PFLOGSUMM_OPTS 0<"$f" 2>/dev/null`
+				fi
 			else
 				[ $verbose -ne 0 ] && echo "check logfile $f"
 				f_sum="Unable to read ${f}${newline}"
@@ -71,6 +81,10 @@ ${f_sum}
 	fi
 }
 
+# variables used to pass information between functions
+LOGFILES=''
+SUMMARY=''
+
 # parse command line arguments
 while [ $# -ne 0 ]; do
 	case "$1" in
@@ -78,24 +92,32 @@ while [ $# -ne 0 ]; do
 		'-v'|'--verbose') verbose=1; ;;
 		'--noop') noop=1; ;;
 		'--logdir') LOGDIR="$2"; shift; ;;
+		'--logrotate') logrotate=1; ;;
 		'--all') all=1; ;;
-		*)
-			echo "invalid argument $1" 1>&2
+		-*)
+			echo "invalid option $1" 1>&2
 			exit 1
+			;;
+		*)
+			if [ -f "$1" ]; then
+				log=`readlink -f "$1"`
+				LOGFILES="$LOGFILES $log"
+			else
+				echo "invalid argument $1" 1>&2
+				exit 1
+			fi
 			;;
 	esac
 	shift
 done
 
-# variables used to pass information between functions
-LOGFILES=''
-SUMMARY=''
-
 if [ ! -x "$PFLOGSUMM_BIN" ]; then
 	echo "$PFLOGSUMM_BIN not available. Please install pflogsum package." 1>&2
 	exit 1
 else
-	find_latest_logfile "$LOGDIR" "$LOGFILEPATTERN"
+	if [ -z "$LOGFILES" ]; then
+		find_latest_logfile "$LOGDIR" "$LOGFILEPATTERN"
+	fi
 	generate_summary
 	
 	if [ ! -z "$SUMMARY" ]; then

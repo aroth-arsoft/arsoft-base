@@ -1,3 +1,9 @@
+arsoft-base (2.143) utopic; urgency=medium
+
+  * improve postfix-mailstat script to run in logrotate 
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 16 Nov 2014 15:30:20 +0100
+
 arsoft-base (2.142) utopic; urgency=medium
 
   * detect if ldap is disable for autofs and postfix
