@@ -1,6 +1,7 @@
 arsoft-base (2.143) utopic; urgency=medium
 
   * improve postfix-mailstat script to run in logrotate 
+  * do not set the hostname and domain name to localhost on every startup
 
  -- Andreas Roth <aroth@arsoft-online.com>  Sun, 16 Nov 2014 15:30:20 +0100
 
