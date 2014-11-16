@@ -110,7 +110,7 @@ function run_hook() {
 		exit_status=$?
 		local endtime=`date +%s%3N`
 		local timepassed_ms=$(($endtime - $starttime))
-		log_err "run_hook $interface $@ $script took $timepassed_ms ms"
+		log_err "run_hook $interface $script args \"$@\" took $timepassed_ms ms"
 		if [ $exit_status -ne 0 ]; then
 			log_err "$script returned non-zero exit status $exit_status"
 		fi

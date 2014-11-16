@@ -1,3 +1,9 @@
+arsoft-base (2.142) utopic; urgency=medium
+
+  * detect if ldap is disable for autofs and postfix
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 16 Nov 2014 11:30:39 +0100
+
 arsoft-base (2.141) utopic; urgency=medium
 
   * dhcp: improve performance 

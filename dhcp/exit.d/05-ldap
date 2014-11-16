@@ -14,6 +14,28 @@ LDAP_USE_DNS_INFO=1
 LDAP_NSS_LDAP_LOOKUP=1
 [ -f "$DEFAULT_LDAP" ] && source "$DEFAULT_LDAP"
 
+nsswitch_ldap_modify() {
+	local enable="$1"
+	if [ $enable -eq 0 ]; then
+		/usr/sbin/nsswitch-config \
+			--set passwd files \
+			--set group files \
+			--set shadow files \
+			--set sudoers files
+		RES=$?
+	else
+		/usr/sbin/nsswitch-config \
+			--set passwd files ldap \
+			--set group files ldap \
+			--set shadow files ldap \
+			--set sudoers files ldap
+		RES=$?
+	fi
+	if [ $RES -ne 0 ]; then
+		echo "Failed to modify nsswitch.conf" 1>&2
+	fi
+}
+
 nssldap_conf_update_base() {
 	cat "$NSSLDAP_CONF" | awk "/^ *($1)/ { print \$2 }" | sed -r -e "s@^(([a-zA-Z]+=[a-zA-Z0-9]+,)*)[a-zA-Z]+=[a-zA-Z0-9]+\$@\1$newldap_base@"
 }
@@ -105,9 +127,9 @@ nssldap_conf_update() {
 	# nsswitch-ldap automatically restarts the NSCD when
 	# any changes are necessary
 	if [ $enable_nss_ldap -ne 0 ]; then
-		/usr/bin/nsswitch-ldap enable
+		nsswitch_ldap_modify enable
 	else
-		/usr/bin/nsswitch-ldap disable
+		nsswitch_ldap_modify disable
 	fi
 }
 
@@ -144,9 +166,9 @@ nslcd_conf_update() {
 	# nsswitch-ldap automatically restarts the NSCD when
 	# any changes are necessary
 	if [ $enable_nss_ldap -ne 0 ]; then
-		/usr/bin/nsswitch-ldap enable
+		nsswitch_ldap_modify enable
 	else
-		/usr/bin/nsswitch-ldap disable
+		nsswitch_ldap_modify disable
 	fi
 }
 
@@ -206,36 +228,44 @@ postfix_ldap_conf() {
 	# bail out when postfix is not installed
 	[ ! -d /etc/postfix ] && return
 
-    # map start_tls value to yes so postfix does understand us.
-    [ "$ldap_start_tls" == 'start_tls' ] && ldap_start_tls='yes'
+    if [ ! -f /etc/postfix/ldap-aliases.cf ]; then
+		# disable ldap completely because postfix has been configured
+		# without ldap
+		/usr/sbin/nsswitch-config --set aliases files
+	else
+		/usr/sbin/nsswitch-config --set aliases files ldap
 
-	# update all /etc/postfix/ldap-*.cf files
-	for cf_file in /etc/postfix/ldap-*.cf; do
-		map_name=`basename "$cf_file" | sed -r -e 's@ldap-([a-z_]+)\.cf@\1@'`
-		if [ "$map_name" == 'aliases' ]; then
-			parameter='alias_maps'
-			map_file='hash:/etc/aliases'
-		else
-			parameter="${map_name}_maps"
-			map_file="hash:/etc/postfix/${map_name}"
-		fi
-		map_value=`/usr/sbin/postconf -h "$parameter"`
-		
-		if [ ! -z "$ldap_uri" ]; then
-			postfix_ldap_conf_update "$cf_file" "$ldap_uri" "$ldap_base" "$ldap_start_tls" "$ldap_tls_reqcert"
-			[ $? -ne 0 ] && postfix_reload=1
-			
-			new_map_value="${map_file},ldap:/etc/postfix/ldap-${map_name}.cf"
-		else
-			new_map_value="${map_file}"
-		fi
-		if [ "$map_value" != "$new_map_value" ]; then
-			verbose_exec /usr/sbin/postconf -e "$parameter=$new_map_value"
-			postfix_reload=1
-		fi
-	done
+		# map start_tls value to yes so postfix does understand us.
+		[ "$ldap_start_tls" == 'start_tls' ] && ldap_start_tls='yes'
 
-	[ $postfix_reload -ne 0 ] && /usr/sbin/service postfix reload || true
+		# update all /etc/postfix/ldap-*.cf files
+		for cf_file in /etc/postfix/ldap-*.cf; do
+			map_name=`basename "$cf_file" | sed -r -e 's@ldap-([a-z_]+)\.cf@\1@'`
+			if [ "$map_name" == 'aliases' ]; then
+				parameter='alias_maps'
+				map_file='hash:/etc/aliases'
+			else
+				parameter="${map_name}_maps"
+				map_file="hash:/etc/postfix/${map_name}"
+			fi
+			map_value=`/usr/sbin/postconf -h "$parameter"`
+
+			if [ ! -z "$ldap_uri" ]; then
+				postfix_ldap_conf_update "$cf_file" "$ldap_uri" "$ldap_base" "$ldap_start_tls" "$ldap_tls_reqcert"
+				[ $? -ne 0 ] && postfix_reload=1
+
+				new_map_value="${map_file},ldap:/etc/postfix/ldap-${map_name}.cf"
+			else
+				new_map_value="${map_file}"
+			fi
+			if [ "$map_value" != "$new_map_value" ]; then
+				verbose_exec /usr/sbin/postconf -e "$parameter=$new_map_value"
+				postfix_reload=1
+			fi
+		done
+
+		[ $postfix_reload -ne 0 ] && /usr/sbin/service postfix reload || true
+	fi
 }
 
 autofs_conf_update_base() {
@@ -254,6 +284,12 @@ autofs_conf_update() {
 	local autofs_tlsrequired=''
 	local autofs_authrequired=''
 	local autofs_reload=0
+
+	if [ ! -f "$AUTOFS_LDAP_AUTH_CONF" ]; then
+		log_info "autofs_conf_update autofs-ldap not installed"
+		/usr/sbin/nsswitch-config --set automount files
+		return
+	fi
 	
 	cp -a "$AUTOFS_LDAP_CONF" "$AUTOFS_LDAP_CONF_ORG" || return
 	tmp=$(mktemp "$AUTOFS_LDAP_CONF.XXXXXX") || return
@@ -313,6 +349,7 @@ autofs_conf_update() {
 		rm -f "$tmp"
 		log_warn "failed to modify $AUTOFS_LDAP_CONF"
 	fi
+	/usr/sbin/nsswitch-config --set automount ldap
 
 	if [ $autofs_reload -ne 0 ]; then
 		log_info "autofs_conf_update reload/restart autofs"
@@ -346,44 +383,46 @@ ldap_update_conf() {
 				newldap_uri="ldap://${newldap_host}"
 			fi
 		fi
-
-		newldap_base=`get_dns_txt_record "_base._ldap._config.$domain_name."`
-		[ -z "$newldap_base" -a -r "$OPENLDAP_LDAP_CONF" ] && newldap_base=`awk '/^ *(BASE)/ { print $2 }' "$OPENLDAP_LDAP_CONF"`
-
-        local oldldap_tls_require_cert=''
-		if [ -r "$NSLCD_CONF" ]; then
-            oldldap_tls_require_cert=`awk '/^ *(tls_reqcert)/ { print $2 }' "$NSLCD_CONF"`
-        elif [ -r "$NSSLDAP_CONF" ]; then
-            oldldap_tls_require_cert=`awk '/^ *(TLS_REQCERT)/ { print $2 }' "$NSSLDAP_CONF"`
-        fi
-
-		# set a sensable default
-		[ -z "$oldldap_tls_require_cert" ] && oldldap_tls_require_cert='no'
-		
-        local oldldap_start_tls=''
-        if [ -r "$NSLCD_CONF" ]; then
-            oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSLCD_CONF"`
-        elif [ -r "$NSSLDAP_CONF" ]; then
-            oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSSLDAP_CONF"`
-        fi
-		# set a sensable default
-		[ -z "$oldldap_start_tls" ] && oldldap_start_tls='no'
-
-		newldap_start_tls=`get_dns_txt_record "_start_tls._ldap._config.$domain_name."`
-		[ -z "$newldap_start_tls" ] && newldap_start_tls="$oldldap_start_tls"
-
-		newldap_tls_require_cert=`get_dns_txt_record "_tls_reqcert._ldap._config.$domain_name."`
-		[ -z "$newldap_tls_require_cert" ] && newldap_tls_require_cert="$oldldap_tls_require_cert"
-
-		newautofs_search_base=`get_dns_txt_record "_search_base._autofs._config.$domain_name."`
-		[ -z "$newautofs_search_base" ] && newautofs_search_base="$newldap_base"
-		
-		log_info "newautofs_search_base=$newautofs_search_base"
-		newautofs_search_base=`autofs_conf_update_base SEARCH_BASE "$newautofs_search_base"`
 	fi
 	
 	if [ ! -z "$newldap_host" ]; then
 		if is_interface_for_host "$newldap_host"; then
+
+			newldap_base=`get_dns_txt_record "_base._ldap._config.$domain_name."`
+			[ -z "$newldap_base" -a -r "$OPENLDAP_LDAP_CONF" ] && newldap_base=`awk '/^ *(BASE)/ { print $2 }' "$OPENLDAP_LDAP_CONF"`
+
+			local oldldap_tls_require_cert=''
+			if [ -r "$NSLCD_CONF" ]; then
+				oldldap_tls_require_cert=`awk '/^ *(tls_reqcert)/ { print $2 }' "$NSLCD_CONF"`
+			elif [ -r "$NSSLDAP_CONF" ]; then
+				oldldap_tls_require_cert=`awk '/^ *(TLS_REQCERT)/ { print $2 }' "$NSSLDAP_CONF"`
+			fi
+
+			# set a sensable default
+			[ -z "$oldldap_tls_require_cert" ] && oldldap_tls_require_cert='no'
+
+			local oldldap_start_tls=''
+			if [ -r "$NSLCD_CONF" ]; then
+				oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSLCD_CONF"`
+			elif [ -r "$NSSLDAP_CONF" ]; then
+				oldldap_start_tls=`awk '/^ *(ssl)/ { print $2 }' "$NSSLDAP_CONF"`
+			fi
+			# set a sensable default
+			[ -z "$oldldap_start_tls" ] && oldldap_start_tls='no'
+
+			newldap_start_tls=`get_dns_txt_record "_start_tls._ldap._config.$domain_name."`
+			[ -z "$newldap_start_tls" ] && newldap_start_tls="$oldldap_start_tls"
+
+			newldap_tls_require_cert=`get_dns_txt_record "_tls_reqcert._ldap._config.$domain_name."`
+			[ -z "$newldap_tls_require_cert" ] && newldap_tls_require_cert="$oldldap_tls_require_cert"
+
+			if [ -f "$AUTOFS_LDAP_CONF" ]; then
+				newautofs_search_base=`get_dns_txt_record "_search_base._autofs._config.$domain_name."`
+				[ -z "$newautofs_search_base" ] && newautofs_search_base="$newldap_base"
+
+				log_info "newautofs_search_base=$newautofs_search_base"
+				newautofs_search_base=`autofs_conf_update_base SEARCH_BASE "$newautofs_search_base"`
+			fi
 
             log_info "newldap_interface=$interface"
 			log_info "newldap_uri=$newldap_uri"
