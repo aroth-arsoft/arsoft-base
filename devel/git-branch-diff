@@ -7,13 +7,21 @@ base_revision=''
 dest_revision=''
 base_ref=''
 dest_ref=''
+default_base_ref='refs/heads/master'
+default_dest_ref='refs/remotes/origin/master'
+
 output_file=''
 
 function usage() {
-	echo "Usage: $SCRIPTNAME [OPTIONS] <branch>"
+	echo "Usage: $SCRIPTNAME [OPTIONS] [base_ref] [dest_ref]"
 	echo "OPTIONS:"
 	echo "    -h, --help            shows this help"
 	echo "    -v, --verbose         enable verbose output"
+	echo "    -o outfile            override the name of the output file"
+	echo "  base_ref                base reference e.g. tags/v1.7.0"
+	echo "                          if none if specified $default_base_ref is used."
+	echo "  dest_ref                destination reference e.g. origin/1.7"
+	echo "                          if none if specified $default_dest_ref is used."
 	exit 0
 }
 
@@ -51,8 +59,23 @@ function git_show_ref_hash() {
 [ -z "$base_ref" ] && base_ref='refs/heads/master'
 [ -z "$dest_ref" ] && dest_ref='refs/remotes/origin/master'
 
+if [ $verbose -ne 0 ]; then
+	echo "base_ref $base_ref"
+	echo "dest_ref $dest_ref"
+fi
+
 [ -z "$base_revision" ] && base_revision=`git_show_ref_hash "$base_ref"`
 [ -z "$dest_revision" ] && dest_revision=`git_show_ref_hash "$dest_ref"`
+
+if [ -z "$base_revision" ]; then
+	echo "Unable to get hash for base reference $base_ref." >&2
+	exit 1
+fi
+
+if [ -z "$dest_revision" ]; then
+	echo "Unable to get hash for destination reference $dest_ref" >&2
+	exit 1
+fi
 
 if [ -z "$output_file" ]; then
 	output_base=`basename "$dest_ref"`
@@ -60,8 +83,6 @@ if [ -z "$output_file" ]; then
 fi
 
 if [ $verbose -ne 0 ]; then
-	echo "base_ref: $base_ref"
-	echo "dest_ref $dest_ref"
 	echo "base_revision $base_revision"
 	echo "dest_revision $dest_revision"
 	echo "output_file $output_file"
