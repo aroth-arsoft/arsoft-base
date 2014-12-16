@@ -90,6 +90,16 @@ fi
 
 if [ "$base_revision" != "$dest_revision" ]; then
 	git diff "$base_revision" "$dest_revision" > "$output_file"
+	RES=$?
+	if [ $RES -eq 0 ]; then
+		if [ -s "$output_file" ]; then
+			echo "Patch written to $output_file"
+		else
+			echo "Patch written to $output_file, but patch is empty."
+		fi
+	else
+		echo "Error generating patch between written $base_revision and $dest_revision"
+	fi
 else
 	echo "base and destination revisions ($base_revision) are identical."
 fi
