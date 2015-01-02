@@ -1,3 +1,9 @@
+arsoft-base (2.146) utopic; urgency=medium
+
+  * require arsoft python2 and python3 packages
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 02 Jan 2015 15:18:21 +0100
+
 arsoft-base (2.145) utopic; urgency=medium
 
   * improved usage and error handling of git-branch-diff

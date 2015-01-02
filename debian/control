@@ -17,6 +17,7 @@ Depends: arsoft-ppa,
  console-data, console-setup, gawk,
  strace, 
  openssh-server, ethtool, wget, curl, resolvconf, ncdu,
+ python-arsoft, python3-arsoft,
  ${misc:Depends}
 Replaces: arsoft-scripts
 Description: configure the system to use the AR Soft packages.
@@ -32,7 +33,7 @@ Description: installs the AR Soft package repository
 Package: arsoft-dhcp-client
 Architecture: all
 Replaces: arsoft-scripts-dhcp
-Depends: arsoft-base, python-arsoft, ${dhcpclient:Depends}, ${misc:Depends}
+Depends: arsoft-base, ${dhcpclient:Depends}, ${misc:Depends}
 Description: script for network configuration
  installs dhcp client scripts to configure your workstations
  according to data provided by DHCP, DNS and LDAP.
