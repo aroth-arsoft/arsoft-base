@@ -1,3 +1,9 @@
+arsoft-base (2.147) vivid; urgency=medium
+
+  * fixed syntax error in dhcp ldap script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 14 Mar 2015 16:42:13 +0100
+
 arsoft-base (2.146) utopic; urgency=medium
 
   * require arsoft python2 and python3 packages
