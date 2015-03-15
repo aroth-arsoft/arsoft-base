@@ -1,3 +1,9 @@
+arsoft-base (2.148) vivid; urgency=medium
+
+  * fixed duplicate mkhomedir file
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 15 Mar 2015 08:27:09 +0100
+
 arsoft-base (2.147) vivid; urgency=medium
 
   * fixed syntax error in dhcp ldap script
