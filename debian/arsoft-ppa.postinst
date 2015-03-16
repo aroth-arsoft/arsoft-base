@@ -10,8 +10,8 @@ case "$1" in
 		## create the apt source list file
 		release=$(lsb_release -c -s)
         puppetlabs_release="$release"
-        [ "$puppetlabs_release" = 'utopic' ] && distro_cs='trusty'
-        [ "$puppetlabs_release" = 'vivid' ] && distro_cs='trusty'
+        [ "$puppetlabs_release" = 'utopic' ] && puppetlabs_release='trusty'
+        [ "$puppetlabs_release" = 'vivid' ] && puppetlabs_release='trusty'
 
 		echo "# /etc/apt/sources.list.d/ppa-aroth.list" >> /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
