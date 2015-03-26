@@ -256,7 +256,7 @@ function repoExport() {
 }
 
 function repoCleanup() {
-	if ! callReprepro clearvanished; then
+	if ! callReprepro --delete clearvanished; then
 		echo "Failed to clean up repository $repo_dir" 1>&2
 	fi
 }
