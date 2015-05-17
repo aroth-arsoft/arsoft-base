@@ -2,6 +2,9 @@
 
 NTP_CONF=/etc/ntp.conf
 NTP_DHCP_CONF=/var/lib/ntp/ntp.conf.dhcp
+SYSTEMD_TIMESYNCD_CONF=/etc/systemd/timesyncd.conf
+SYSTEMD_TIMESYNCD_DEFAULT_NTP='ntp.ubuntu.com 0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org'
+
 
 ntp_server_restart() {
 	invoke-rc.d ntp try-restart
@@ -55,6 +58,55 @@ ntp_servers_setup_add() {
 	fi
 }
 
+timesyncd_restart() {
+	systemctl restart systemd-timesyncd.service
+}
+
+timesyncd_stop() {
+	systemctl stop systemd-timesyncd.service
+}
+
+timesyncd_setup_remove() {
+	if [ ! -e $SYSTEMD_TIMESYNCD_CONF ]; then
+		return
+	fi
+	log_info "timesyncd_setup_remove"
+	tmp=$(mktemp "$SYSTEMD_TIMESYNCD_CONF.XXXXXX") || return
+	chmod --reference=$SYSTEMD_TIMESYNCD_CONF $tmp
+	chown --reference=$SYSTEMD_TIMESYNCD_CONF $tmp
+    (
+        sed -r \
+            -e "s/^#*(FallbackNTP|NTP)=(.*)$/#NTP=\2/" \
+            "$SYSTEMD_TIMESYNCD_CONF"
+    ) >>"$tmp"
+    if [ $? -eq 0 ]; then
+        mv "$tmp" "$SYSTEMD_TIMESYNCD_CONF"
+        timesyncd_stop
+    fi
+}
+
+timesyncd_setup_add() {
+	if [ -z "$ntp_servers" ]; then
+		timesyncd_setup_remove
+		return
+	fi
+
+	log_info "timesyncd_setup_add ntp_servers=$ntp_servers"
+	tmp=$(mktemp "$SYSTEMD_TIMESYNCD_CONF.XXXXXX") || return
+	chmod --reference=$SYSTEMD_TIMESYNCD_CONF $tmp
+	chown --reference=$SYSTEMD_TIMESYNCD_CONF $tmp
+    (
+        sed -r \
+            -e "s/^#*NTP=.*$/NTP=$ntp_servers/" \
+            -e "s/^#*FallbackNTP=.*$/FallbackNTP=$SYSTEMD_TIMESYNCD_DEFAULT_NTP/" \
+            "$SYSTEMD_TIMESYNCD_CONF"
+    ) >>"$tmp"
+    if [ $? -eq 0 ]; then
+        mv "$tmp" "$SYSTEMD_TIMESYNCD_CONF"
+		timesyncd_restart
+    fi
+}
+
 case $reason in
 	# events from dhclient
 	BOUND|RENEW|REBIND|REBOOT|EXPIRE|FAIL|RELEASE|STOP)
@@ -65,13 +117,18 @@ case $reason in
 	# events from network-manager
 	up|vpn-up|dhcp4-change|dhcp6-change)
 		if [ $interface != 'lo' ]; then
-			ntp_servers_setup_add
+            if [ -e "$SYSTEMD_TIMESYNCD_CONF" ]; then
+                timesyncd_setup_add
+            else
+                ntp_servers_setup_add
+            fi
 		else
 			true
 		fi
 		;;
 	down|vpn-down|dhcp4-change|dhcp6-change)
 		if [ $interface != 'lo' ]; then
+            timesyncd_setup_remove
 			ntp_servers_setup_remove
 		else
 			true
