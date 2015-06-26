@@ -1,5 +1,5 @@
 SUBDIRS = apt bind cert cron.daily cyrusimapd desktop \
-	dhcp devel ldap mythtv nagios network pam \
+	dhcp devel ldap nagios network pam \
 	nfs openvpn pnp4nagios postfix puppet shell spamassassin \
 	ssh scm sysinfo tftp wine
 
@@ -14,8 +14,7 @@ clean:
 
 install:
 	mkdir -p $(DESTDIR)/etc/apt/trusted.gpg.d
-	install -m 0644 -o root -g root keyrings/ppa-aroth.gpg $(DESTDIR)/etc/apt/trusted.gpg.d/ppa-aroth.gpg
-	install -m 0644 -o root -g root keyrings/puppetlabs.gpg $(DESTDIR)/etc/apt/trusted.gpg.d/puppetlabs.gpg
+	install -m 0644 -o root -g root keyrings/*.gpg $(DESTDIR)/etc/apt/trusted.gpg.d
 
 	mkdir -p $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/usr/sbin

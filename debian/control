@@ -3,7 +3,7 @@ Section: admin
 Priority: extra
 Maintainer: Andreas Roth <aroth@arsoft-online.com>
 Build-Depends: debhelper (>= 9)
-Standards-Version: 3.9.5
+Standards-Version: 3.9.6
 Homepage: http://www.arsoft-online.com
 
 Package: arsoft-base
@@ -39,13 +39,6 @@ Description: script for network configuration
  installs dhcp client scripts to configure your workstations
  according to data provided by DHCP, DNS and LDAP.
 
-Package: arsoft-scripts-mythtv
-Architecture: all
-Depends: arsoft-mythtv, ${misc:Depends}, ${python:Depends} 
-Description: some helper script to set up MythTV
- installs helper scripts for MythTV to start the frontend
- on tty6.
-
 Package: arsoft-scripts-cyrusimapd
 Architecture: all
 Depends: ${misc:Depends}
@@ -55,7 +48,7 @@ Description: scripts for the Cyrus IMAP server
 
 Package: arsoft-scm
 Architecture: all
-Depends: arsoft-base, libimage-exiftool-perl, odt2txt, ${misc:Depends}, ${python:Depends} 
+Depends: arsoft-base, libimage-exiftool-perl, odt2txt, ${misc:Depends}
 Replaces: arsoft-scripts-svn
 Description: some helper scripts for various SCM systems
  a collection of helper scripts for Subversion and GIT.

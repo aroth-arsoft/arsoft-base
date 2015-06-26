@@ -13,7 +13,7 @@ apt_update_conf() {
 		fi
 	fi
 	log_info "apt-proxy=$newproxy"
-	verbose_exec "/usr/sbin/apt-proxy" set "$newproxy"
+	verbose_exec "/usr/bin/apt-proxy" set "$newproxy"
 }
 
 case $reason in

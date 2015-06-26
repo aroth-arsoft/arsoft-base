@@ -1,42 +1,40 @@
 arsoft-base binary: diversion-for-unknown-file etc/profile postinst:9
 arsoft-base binary: diversion-for-unknown-file etc/bash.bashrc postinst:6
-arsoft-base binary: binary-without-manpage usr/sbin/apt-cleanup
-arsoft-base binary: binary-without-manpage usr/sbin/apt-key-import
-arsoft-base binary: binary-without-manpage usr/sbin/apt-proxy
-arsoft-base binary: binary-without-manpage usr/sbin/apt-purge-removed
-arsoft-base binary: binary-without-manpage usr/sbin/autofs-ldap-auth
-arsoft-base binary: binary-without-manpage usr/sbin/biosinfo
-arsoft-base binary: binary-without-manpage usr/sbin/dns-update
+arsoft-base binary: binary-without-manpage usr/bin/alsa-info
+arsoft-base binary: binary-without-manpage usr/bin/apt-cleanup
+arsoft-base binary: binary-without-manpage usr/bin/apt-key-import
+arsoft-base binary: binary-without-manpage usr/bin/apt-proxy
+arsoft-base binary: binary-without-manpage usr/bin/apt-purge-removed
+arsoft-base binary: binary-without-manpage usr/bin/apt-repo
 arsoft-base binary: binary-without-manpage usr/bin/dpkg-info
-arsoft-base binary: binary-without-manpage usr/sbin/kmesg
-arsoft-base binary: binary-without-manpage usr/sbin/managehosts
-arsoft-base binary: binary-without-manpage usr/sbin/motherboardinfo
-arsoft-base binary: binary-without-manpage usr/sbin/nfs-control
-arsoft-base binary: binary-without-manpage usr/sbin/nsswitch-ldap
+arsoft-base binary: binary-without-manpage usr/bin/find-snmp-devices
+arsoft-base binary: binary-without-manpage usr/bin/nfs-control
+arsoft-base binary: binary-without-manpage usr/bin/nss-import-cert
+arsoft-base binary: binary-without-manpage usr/bin/pmem
 arsoft-base binary: binary-without-manpage usr/bin/postfix-delete
 arsoft-base binary: binary-without-manpage usr/bin/postfix-flush-queue
-arsoft-base binary: binary-without-manpage usr/sbin/postfix-ldap
 arsoft-base binary: binary-without-manpage usr/bin/postfix-mailstat
 arsoft-base binary: binary-without-manpage usr/bin/postfix-queue-rm
 arsoft-base binary: binary-without-manpage usr/bin/postfix-sendmail
 arsoft-base binary: binary-without-manpage usr/bin/postfix-update-maps
+arsoft-base binary: binary-without-manpage usr/bin/ppa_copy
 arsoft-base binary: binary-without-manpage usr/bin/ppa_publish
 arsoft-base binary: binary-without-manpage usr/bin/puppet-clean-ssl
 arsoft-base binary: binary-without-manpage usr/bin/puppet-function-check
-arsoft-base binary: binary-without-manpage usr/sbin/puppet-node
 arsoft-base binary: binary-without-manpage usr/bin/puppet-template-check
-arsoft-base binary: binary-without-manpage usr/sbin/salearn_imap
-arsoft-base binary: binary-without-manpage usr/sbin/schema2ldif
-arsoft-base binary: binary-without-manpage usr/sbin/slapd-clean-db
-arsoft-base binary: binary-without-manpage usr/sbin/slapd-online-config
+arsoft-base binary: binary-without-manpage usr/bin/schema2ldif
 arsoft-base binary: binary-without-manpage usr/bin/ssh-nogss
-arsoft-base binary: binary-without-manpage usr/sbin/tftp-update-installers
-arsoft-base binary: binary-without-manpage usr/sbin/vizone
-arsoft-base binary: binary-without-manpage usr/bin/xpid
+arsoft-base binary: binary-without-manpage usr/bin/ssh-nopubkey
+arsoft-base binary: binary-without-manpage usr/bin/ssh-setup-keys
+arsoft-base binary: binary-without-manpage usr/bin/sshsudo
+arsoft-base binary: binary-without-manpage usr/bin/vizone
 arsoft-base binary: binary-without-manpage usr/bin/wine-rebuild-menu
-arsoft-base: binary-without-manpage usr/sbin/alsa-info
-arsoft-base: binary-without-manpage usr/bin/nss-import-cert
-arsoft-base: binary-without-manpage usr/sbin/slapd-debug
-arsoft-base: binary-without-manpage usr/bin/ssh-setup-keys
-arsoft-base: binary-without-manpage usr/sbin/apt-repo
-arsoft-base: binary-without-manpage usr/bin/pmem
+arsoft-base binary: binary-without-manpage usr/bin/xpid
+arsoft-base binary: binary-without-manpage usr/sbin/biosinfo
+arsoft-base binary: binary-without-manpage usr/sbin/motherboardinfo
+arsoft-base binary: binary-without-manpage usr/sbin/postfix-ldap
+arsoft-base binary: binary-without-manpage usr/sbin/salearn_imap
+arsoft-base binary: binary-without-manpage usr/sbin/slapd-clean-db
+arsoft-base binary: binary-without-manpage usr/sbin/slapd-debug
+arsoft-base binary: binary-without-manpage usr/sbin/slapd-online-config
+arsoft-base binary: binary-without-manpage usr/sbin/tftp-update-installers
