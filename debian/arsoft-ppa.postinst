@@ -5,25 +5,25 @@
 case "$1" in
 	configure|upgrade)
 		rm /etc/apt/sources.list.d/ppa-aroth.list 2>/dev/null || true
+		rm /etc/apt/sources.list.d/puppetlabs-pc1.list 2>/dev/null || true
+		# remove old puppetlabs APT repo from times before Puppet 4.x
 		rm /etc/apt/sources.list.d/puppetlabs.list 2>/dev/null || true
+		rm /etc/apt/trusted.gpg.d/puppetlabs.gpg
 
 		## create the apt source list file
 		release=$(lsb_release -c -s)
         puppetlabs_release="$release"
         [ "$puppetlabs_release" = 'utopic' ] && puppetlabs_release='trusty'
         [ "$puppetlabs_release" = 'vivid' ] && puppetlabs_release='trusty'
+        [ "$puppetlabs_release" = 'wily' ] && puppetlabs_release='trusty'
 
 		echo "# /etc/apt/sources.list.d/ppa-aroth.list" >> /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb-src http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
-
-		echo "# Puppetlabs products" >> /etc/apt/sources.list.d/puppetlabs.list
-		echo "deb http://apt.puppetlabs.com $puppetlabs_release main" >> /etc/apt/sources.list.d/puppetlabs.list
-        echo "deb-src http://apt.puppetlabs.com $puppetlabs_release main" >> /etc/apt/sources.list.d/puppetlabs.list
-		echo "" >> /etc/apt/sources.list.d/puppetlabs.list
-		echo "# Puppetlabs dependencies" >> /etc/apt/sources.list.d/puppetlabs.list
-        echo "deb http://apt.puppetlabs.com $puppetlabs_release dependencies" >> /etc/apt/sources.list.d/puppetlabs.list
-        echo "deb-src http://apt.puppetlabs.com $puppetlabs_release dependencies" >> /etc/apt/sources.list.d/puppetlabs.list
+		
+		echo "# Puppetlabs PC1 $puppetlabs_release Repository" >> /etc/apt/sources.list.d/puppetlabs-pc1.list
+		echo "deb http://apt.puppetlabs.com $puppetlabs_release PC1" >> /etc/apt/sources.list.d/puppetlabs-pc1.list
+        echo "#deb-src http://apt.puppetlabs.com $puppetlabs_release PC1" >> /etc/apt/sources.list.d/puppetlabs-pc1.list
 
 		;;
     abort-upgrade|abort-remove|abort-deconfigure)
