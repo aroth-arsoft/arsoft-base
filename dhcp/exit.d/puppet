@@ -1,7 +1,9 @@
 #!/bin/sh
-PUPPET_CONF='/etc/puppet/puppet.conf'
+PUPPET_CONF='/etc/puppetlabs/puppet/puppet.conf'
 PUPPET_AGENT_DEFAULTS='/etc/default/puppet'
 STATE_FILE='/var/lib/dhcp/_puppet_interface'
+
+[ ! -f "$PUPPET_CONF" ] && PUPPET_CONF='/etc/puppet/puppet.conf' || true
 
 puppet_agent_restart() {
 	local puppet_agent_start=`ini-util "$PUPPET_AGENT_DEFAULTS" --value --get "START"`
@@ -33,12 +35,8 @@ puppet_update_conf() {
 
 	if [ ! -z "$newserver" ]; then
 		if is_interface_for_host "$newserver"; then
-			newconfigtimeout=`get_dns_txt_record "_configtimeout._puppet._config.$domain_name."`
-			[ -r "$PUPPET_CONF" ] && oldconfigtimeout=`ini-util "$PUPPET_CONF" --value --get "main/configtimeout"` || oldconfigtimeout=''
 			[ -r "$PUPPET_CONF" ] && oldpluginsync=`ini-util "$PUPPET_CONF" --value --get "main/pluginsync"` || oldpluginsync=''
-			[ -z "$oldconfigtimeout" ] && oldconfigtimeout='300'
 			[ -z "$oldpluginsync" ] && oldpluginsync='true'
-			[ -z "$newconfigtimeout" ] && newconfigtimeout="$oldconfigtimeout"
 			[ -z "$newpluginsync" ] && newpluginsync="$oldpluginsync"
 
 			local client_hostname=`hostname -f`
@@ -46,14 +44,13 @@ puppet_update_conf() {
 interface=$interface
 hostname=$client_hostname
 server=$newserver
-configtimeout=$newconfigtimeout
 STATE_FILE_EOF
             log_info "puppet interface: $interface"
 			log_info "puppet server: $newserver"
-			log_info "puppet configtimeout: $newconfigtimeout"
+			log_info "puppet plugin sync: $newpluginsync"
 			log_info "puppet client hostname: $(hostname -f)"
-			if [ "$oldserver" != "$newserver" -o "$oldconfigtimeout" != "$newconfigtimeout" ]; then
-				ini-util "$PUPPET_CONF" --edit "main/server=$newserver" "main/configtimeout=$newconfigtimeout" "main/pluginsync=$newpluginsync"
+			if [ "$oldserver" != "$newserver" -o "$oldpluginsync" != "$newpluginsync" ]; then
+				ini-util "$PUPPET_CONF" --edit "main/server=$newserver" "main/pluginsync=$newpluginsync"
 				RES=$?
 				if [ $RES -eq 0 ]; then
 					log_info "puppet reload service to take over changed settings"
