@@ -8,7 +8,7 @@ case "$1" in
 		rm /etc/apt/sources.list.d/puppetlabs-pc1.list 2>/dev/null || true
 		# remove old puppetlabs APT repo from times before Puppet 4.x
 		rm /etc/apt/sources.list.d/puppetlabs.list 2>/dev/null || true
-		rm /etc/apt/trusted.gpg.d/puppetlabs.gpg
+		rm /etc/apt/trusted.gpg.d/puppetlabs.gpg 2>/dev/null || true
 
 		## create the apt source list file
 		release=$(lsb_release -c -s)
