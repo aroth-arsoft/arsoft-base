@@ -1,3 +1,9 @@
+arsoft-base (2.155) vivid; urgency=medium
+
+  * properly encode special chars in icinga notification mail
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 06 Jul 2015 07:05:50 +0200
+
 arsoft-base (2.154) vivid; urgency=medium
 
   * fixed arsoft-ppa postinst script

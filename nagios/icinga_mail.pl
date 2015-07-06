@@ -45,6 +45,7 @@ use Getopt::Long;
 use WWW::Mechanize;
 use JSON -support_by_pp;
 use Data::Dumper;
+use HTML::Entities;
 
 # define all used variables
 # generic stuff
@@ -363,13 +364,14 @@ sub getheader4messagebody {
 	";
 	
 	if ($notificationtype eq "SERVICE") {
-		$messageBody = $messageBody . "<div style=\"font-weight: bold;\">[Icinga] Service $icinga_notificationtype
-			$icinga_hostname $icinga_servicedesc is $icinga_servicestate ($self_notificationnumber)</div>
-			<div style=\"margin-bottom: 10px;\"><strong>Output:</strong>$icinga_serviceoutput</div>";
+		$messageBody = $messageBody . "<div style=\"font-weight: bold;\">[Icinga] Service $icinga_notificationtype " .
+			encode_entities($icinga_hostname) . " " . encode_entities($icinga_servicedesc) . " is " .
+			encode_entities($icinga_servicestate) . " ($self_notificationnumber)</div>" .
+			"<div style=\"margin-bottom: 10px;\"><strong>Output:</strong>" . encode_entities($icinga_serviceoutput) . "</div>";
 	} else {
-		$messageBody = $messageBody . "<div style=\"font-weight: bold;\">[Icinga] Host $icinga_notificationtype
-			$icinga_hostname $icinga_hostname is $icinga_hoststate ($self_notificationnumber)</div>
-			<div style=\"margin-bottom: 10px;\"><strong>Output:</strong> $icinga_hoststate: $icinga_hostoutput</div>";		
+		$messageBody = $messageBody . "<div style=\"font-weight: bold;\">[Icinga] Host $icinga_notificationtype " .
+			encode_entities($icinga_hostname) . " is $icinga_hoststate ($self_notificationnumber)</div>" .
+			"<div style=\"margin-bottom: 10px;\"><strong>Output:</strong>$icinga_hoststate: " . encode_entities($icinga_hostoutput) . "</div>";
 	}
 	
 	$messageBody = $messageBody . "
@@ -434,7 +436,7 @@ sub gethostdetails4messagebody {
 					<tr>
 						<td
 							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Address</td>
-						<td><a href=\"$icinga_hostaddress\">$icinga_hostaddress</a></td>
+						<td>$icinga_hostaddress</td>
 					</tr>
 					<tr>
 						<td
@@ -464,7 +466,7 @@ sub gethostdetails4messagebody {
 					<tr>
 						<td
 							style=\"padding: 1px 2px 1px 2px;\"
-							colspan=\"2\">$icinga_hostoutput</td>
+							colspan=\"2\">" . encode_entities($icinga_hostoutput) . "</td>
 					</tr>
 				</tbody>
 			</table>
@@ -533,7 +535,7 @@ sub gethostdetails4messagebody {
 				<tr>
 					<td
 						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Command</td>
-					<td>$icinga_hostcheckcommand</td>
+					<td>" . encode_entities($icinga_hostcheckcommand) . "</td>
 				</tr>
 				<tr>
 					<td
@@ -637,27 +639,27 @@ sub getservicedetails4messagebody {
 					<tr>
 						<td
 							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Service</td>
-						<td>$icinga_servicedesc</td>
+						<td>" . encode_entities($icinga_servicedesc) . "</td>
 					</tr>
 					<tr>
 						<td
 							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Alias</td>
-						<td>$icinga_servicedisplayname</td>
+						<td>" . encode_entities($icinga_servicedisplayname) . "</td>
 					</tr>
 					<tr>
 						<td
 							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Service Notes</td>
-						<td>$icinga_servicenotes</td>
+						<td>" . encode_entities($icinga_servicenotes) . "</td>
 					</tr>
 					<tr>
 						<td
 							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">URL</td>
-						<td><a href=\"$icinga_servicenotesurl\">$icinga_servicenotesurl</a></td>
+						<td><a href=\"$icinga_servicenotesurl\">" . encode_entities($icinga_servicenotesurl) . "</a></td>
 					</tr>
 					<tr>
 						<td
 							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Command</td>
-						<td>$icinga_servicecheckcommand</td>
+						<td>" . encode_entities($icinga_servicecheckcommand) . "</td>
 					</tr>
 					<tr>
 						<td
@@ -693,7 +695,7 @@ sub getservicedetails4messagebody {
 					<tr>
 						<td
 							style=\"padding: 1px 2px 1px 2px;\"
-							colspan=\"2\">$icinga_serviceoutput</td>
+							colspan=\"2\">" . encode_entities($icinga_serviceoutput) . "</td>
 					</tr>
 				</tbody>
 			</table>
@@ -907,22 +909,22 @@ sub getstatistics4messagebody {
 			<tbody>
 				<tr>
 					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Hosts (Up)</td>
+						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Up</td>
 					<td>$icinga_totalhostsup</td>
 				</tr>
 				<tr>
 					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Hosts (Down)</td>
+						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Down</td>
 					<td>$icinga_totalhostsdown</td>
 				</tr>
 				<tr>
 					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Hosts (Unreachable)</td>
+						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unreachable</td>
 					<td>$icinga_totalhostsunreachable</td>
 				</tr>
 				<tr>
 					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unhandled Hosts</td>
+						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unhandled</td>
 					<td>$icinga_totalhostproblemsunhandled</td>
 				</tr>
 			</tbody>
@@ -945,27 +947,27 @@ sub getstatistics4messagebody {
 			<tbody>
 				<tr>
 					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Services (OK)</td>
+						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">OK</td>
 					<td>$icinga_totalservicesok</td>
 				</tr>
 				<tr>
 					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Services (Warning)</td>
+						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Warning</td>
 					<td>$icinga_totalserviceswarning</td>
 				</tr>
 				<tr>
 					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Services (Critical)</td>
+						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Critical</td>
 					<td>$icinga_totalservicescritical</td>
 				</tr>
 				<tr>
 					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Services (Unknown)</td>
+						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unknown</td>
 					<td>$icinga_totalservicesunknown</td>
 				</tr>
 				<tr>
 					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unhandled Services</td>
+						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unhandled</td>
 					<td>$icinga_totalserviceproblemsunhandled</td>
 				</tr>
 			</tbody>
@@ -1096,7 +1098,7 @@ sub getenvironment4messagebody {
                 <tr>
                     <td
                         style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">$key</td>
-                    <td>$ENV{$key}</td>
+                    <td>" . encode_entities($ENV{$key}) . "</td>
                 </tr>";
     }
 
@@ -1182,7 +1184,7 @@ sub getnagiosbpjson {
 									<td
 										style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Output
 									</td>
-									<td>$element->{plugin_output}</td>
+									<td>" . encode_entities($element->{plugin_output}) . "</td>
 								</tr>
 							</tbody>
 						</table>
