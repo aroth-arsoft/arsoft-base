@@ -15,6 +15,8 @@ clean:
 install:
 	mkdir -p $(DESTDIR)/etc/apt/trusted.gpg.d
 	install -m 0644 -o root -g root keyrings/*.gpg $(DESTDIR)/etc/apt/trusted.gpg.d
+	mkdir -p $(DESTDIR)/usr/share/keyrings
+	install -m 0644 -o root -g root keyrings/*.gpg $(DESTDIR)/usr/share/keyrings
 
 	mkdir -p $(DESTDIR)/usr/bin
 	mkdir -p $(DESTDIR)/usr/sbin

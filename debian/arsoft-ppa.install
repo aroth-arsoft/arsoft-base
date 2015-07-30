@@ -1,2 +1,3 @@
 etc/apt/trusted.gpg.d
 etc/cron.daily/arsoft-base-repos
+usr/share/keyrings

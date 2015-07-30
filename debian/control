@@ -26,7 +26,7 @@ Description: configure the system to use the AR Soft packages.
 
 Package: arsoft-ppa
 Architecture: all
-Depends: ${misc:Depends}
+Depends: ${misc:Depends}, lsb-release
 Conflicts: puppetlabs-release-pc1, puppetlabs-release
 Description: installs the AR Soft package repository
  Installs all files to access the AR Soft package repository.

@@ -150,7 +150,7 @@ echo "Original version: $original_version"
 if [[ "$original_version" =~ .*~([0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2})[0-9]* ]]; then
 	original_version=`echo "$original_version" | sed -r 's/(.*)~[0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2}/\1/'`
 	echo "Original version without release: $original_version"
-elif [[ "$original_version" =~ .*~(hardy|intrepid|jaunty|lucid|karmic|maverick|natty|oneiric|precise|quantal|raring|saucy|trusty|utopic|[0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2})[0-9]* ]]; then
+elif [[ "$original_version" =~ .*~(hardy|intrepid|jaunty|lucid|karmic|maverick|natty|oneiric|precise|quantal|raring|saucy|trusty|utopic|vivid|wily|[0-9]{1,2}.[0-9]{1,2}.[0-9]{1,2})[0-9]* ]]; then
 	original_version=`echo "$original_version" | sed -r 's/(.*)~[a-z0-9]+/\1/'`
 	echo "Original version without release: $original_version"
 fi
