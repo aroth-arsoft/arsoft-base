@@ -1,0 +1,124 @@
+#!/bin/bash
+
+verbose=0
+base_list=''
+operation=''
+pbuilder_cache='/var/cache/pbuilder'
+pbuilder_conf_dir='/etc/arsoft/pbuilder/conf.d'
+
+function usage() {
+	echo "usage: pbuildmgr [OPERATION] [OPTIONS]"
+	echo "  -h, -?, --help          shows this usage information."
+	echo "  -v, --verbose           enables the verbose output."
+	echo ""
+	echo "OPTIONS:"
+	echo "  create                  (re)create a base image"
+	echo "  update                  update existing base image"
+	echo "  delete                  delete an existing base image"
+	echo "  info                    show all existing base images"
+	echo "  login                   login using an existing base image"
+	exit 0
+}
+
+function get_base_list() {
+    local base_list=''
+    for f in "$pbuilder_conf_dir"/*.conf; do
+        base=`basename $f .conf`
+        base_arch="${base##*-}"
+        base_dist="${base%-*}"
+        [ "$base_dist" == "$base" ] && base_arch=$machine_arch
+        base_full="${base_dist}-${base_arch}"
+        base_list="$base_list $base_full"
+    done
+    echo "$base_list"
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	'-?'|'-h'|'--help') usage;; 
+	'-v'|'--verbose') verbose=1; ;;
+	'update'|'create'|'delete'|'info'|'login')
+        operation="$1"
+        ;;
+	*)
+        base_list="$base_list $1"
+        ;;
+	esac
+	shift
+done
+
+if [ -z "$operation" ]; then
+    echo "No operation specified." 1>&2
+    exit 1
+fi
+
+machine_arch=`uname -m`
+case $machine_arch in
+    'i[34567]86') machine_arch='i386'; ;;
+    'x86_64') machine_arch='amd64'; ;;
+    *) echo "WARNING: Unsupported machine architecture $machine_arch" 1>&2; ;;
+esac
+
+if [ -z "$base_list" ]; then
+    if [ $operation = 'info' ]; then
+        base_list=`get_base_list`
+    else
+        echo "No base image specified." 1>&2
+        exit 1
+    fi
+fi
+
+req_sudo=1
+case "$operation" in
+    'login')
+        num=`echo "$base_list" | wc -w`
+        if [ $num -gt 1 ]; then
+            echo "You can only login to one base image." 2>&1
+            exit 1
+        fi
+        ;;
+    'info')
+        req_sudo=0
+        ;;
+    *)
+esac
+if [ $req_sudo -ne 0 ]; then
+    if [[ $EUID -ne 0 ]]; then
+        echo "You must be a root user." 2>&1
+        exit 1
+    fi
+fi
+
+for base in $base_list; do
+
+    base_arch="${base##*-}"
+    base_dist="${base%-*}"
+    
+    [ "$base_dist" == "$base" ] && base_arch=$machine_arch
+    base_full="${base_dist}-${base_arch}"
+
+    case "$operation" in
+        'create') 
+            DIST="$base_dist" ARCH="$base_arch" pbuilder create --debootstrapopts --variant=buildd
+            ;;
+        'update')
+            DIST="$base_dist" ARCH="$base_arch" pbuilder update
+            ;;
+        'delete')
+            [ -d "$pbuilder_cache/$base_full" ] && rm -rf "$pbuilder_cache/$base_full"
+            [ -f "$pbuilder_cache/${base_full}-base.tgz" ] && rm -f "$pbuilder_cache/${base_full}-base.tgz"
+            ;;
+        'info')
+            echo "$base_full:"
+            if [ -f "$pbuilder_cache/${base_full}-base.tgz" ]; then
+                echo "  Image file: $pbuilder_cache/${base_full}-base.tgz (ok)"
+            else
+                echo "  Image file: $pbuilder_cache/${base_full}-base.tgz (missing)"
+            fi
+            ;;
+        'login')
+            DIST="$base_dist" ARCH="$base_arch" pbuilder login
+            ;;
+    esac
+done

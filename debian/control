@@ -83,3 +83,10 @@ Description: additional templates and check_commands for PNP4Nagios
  custom templates and check_commands for PNP4Nagios:
   - PuppetDB
 
+Package: arsoft-pbuilder
+Architecture: all
+Depends: arsoft-ppa, lintian, pbuilder, ${misc:Depends}
+Description: setting up pbuilder
+ Includes helper scripts and hooks for pbuilder:
+  - Kubuntu hooks (lp:~kubuntu-packagers/pbuilder/pbuilder-hooks)
+

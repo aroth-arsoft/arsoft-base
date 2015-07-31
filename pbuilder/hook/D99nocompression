@@ -1,0 +1,4 @@
+#!/bin/bash
+
+export DEB_NO_LZMA=1
+export DEB_NO_COMPRESSION=1

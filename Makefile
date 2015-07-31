@@ -1,6 +1,6 @@
 SUBDIRS = apt bind cert cron.daily cyrusimapd desktop \
-	dhcp devel ldap nagios network pam \
-	nfs openvpn pnp4nagios postfix puppet shell spamassassin \
+	dhcp devel ldap nagios network nfs openvpn pam \
+	pbuilder pnp4nagios postfix puppet shell spamassassin \
 	ssh scm sysinfo tftp wine
 
 .PHONY: all

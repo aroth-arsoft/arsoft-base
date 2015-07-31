@@ -1,3 +1,9 @@
+arsoft-base (2.157) vivid; urgency=medium
+
+  * add pbuilder package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 31 Jul 2015 10:12:08 +0200
+
 arsoft-base (2.156) vivid; urgency=medium
 
   * install keyrings to /usr/share/keyrings as well

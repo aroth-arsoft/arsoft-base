@@ -1,5 +1,6 @@
-arsoft-base binary: diversion-for-unknown-file etc/profile postinst:9
-arsoft-base binary: diversion-for-unknown-file etc/bash.bashrc postinst:6
+arsoft-base binary: diversion-for-unknown-file etc/profile postinst:11
+arsoft-base binary: diversion-for-unknown-file etc/bash.bashrc postinst:8
+arsoft-base binary: diversion-for-unknown-file usr/bin/gdb-add-index postinst:14
 arsoft-base binary: binary-without-manpage usr/bin/alsa-info
 arsoft-base binary: binary-without-manpage usr/bin/apt-cleanup
 arsoft-base binary: binary-without-manpage usr/bin/apt-key-import
@@ -10,6 +11,7 @@ arsoft-base binary: binary-without-manpage usr/bin/dpkg-info
 arsoft-base binary: binary-without-manpage usr/bin/find-snmp-devices
 arsoft-base binary: binary-without-manpage usr/bin/nfs-control
 arsoft-base binary: binary-without-manpage usr/bin/nss-import-cert
+arsoft-base binary: binary-without-manpage usr/bin/pbuildmgr
 arsoft-base binary: binary-without-manpage usr/bin/pmem
 arsoft-base binary: binary-without-manpage usr/bin/postfix-delete
 arsoft-base binary: binary-without-manpage usr/bin/postfix-flush-queue

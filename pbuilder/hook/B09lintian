@@ -1,0 +1,11 @@
+#!/bin/sh
+#
+# run lintian on the finished binary package
+
+apt-get install -y --force-yes lintian
+
+cd /tmp/buildd/*/debian/..
+
+echo "START LINTIAN"
+lintian || true
+echo "END LINTIAN"

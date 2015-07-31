@@ -1,0 +1,34 @@
+#!/bin/sh
+
+cd /tmp/buildd/*/debian/..
+
+if [ ! -f debian/tests/control ]; then
+    # No tests to run
+    echo "Package does not have autopkgtest support, debian/tests/control is missing"
+    exit 0
+fi
+
+if [ ! -f debian/files ]; then
+    echo "Package source is not built, debian/files is missing" >&2
+    exit 1
+fi
+
+# runner/adt-run uses apt-utils's apt-ftparchive and
+# pbuilder's pbuilder-satisfydepends-classic
+apt-get install -y --force-yes autopkgtest exuberant-ctags apt-utils pbuilder
+
+rm /dev/random
+ln /dev/urandom /dev/random
+
+TMPADT=/tmp/adt
+mkdir -p "$TMPADT/out"
+
+binaries=$(awk '/\.deb / { print "--binary ../" $1 }' debian/files)
+
+adt-run --tmp-dir "$TMPADT/out" --summary "$TMPADT/summary" --user pbuilder \
+      $binaries --built-tree "$PWD" --- adt-virt-null
+ret=$?
+if [ $ret -ne 0 ]; then
+    /bin/bash < /dev/tty > /dev/tty 2> /dev/tty
+fi
+exit $ret
