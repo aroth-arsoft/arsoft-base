@@ -1,6 +1,8 @@
 #!/bin/bash
 
 verbose=0
+save=0
+debug=0
 base_list=''
 operation=''
 pbuilder_cache='/var/cache/pbuilder'
@@ -10,6 +12,8 @@ function usage() {
 	echo "usage: pbuildmgr [OPERATION] [OPTIONS]"
 	echo "  -h, -?, --help          shows this usage information."
 	echo "  -v, --verbose           enables the verbose output."
+	echo "  -d, --debug             enables the debug mode."
+	echo "  --save                  save all changes to the base image."
 	echo ""
 	echo "OPTIONS:"
 	echo "  create                  (re)create a base image"
@@ -38,6 +42,8 @@ while [ $# -ne 0 ]; do
 	case "$1" in
 	'-?'|'-h'|'--help') usage;; 
 	'-v'|'--verbose') verbose=1; ;;
+	'-d'|'--debug') debug=1; ;;
+	'--save') save=1; ;;
 	'update'|'create'|'delete'|'info'|'login')
         operation="$1"
         ;;
@@ -82,6 +88,7 @@ case "$operation" in
         req_sudo=0
         ;;
     *)
+        ;;
 esac
 if [ $req_sudo -ne 0 ]; then
     if [[ $EUID -ne 0 ]]; then
@@ -89,6 +96,9 @@ if [ $req_sudo -ne 0 ]; then
         exit 1
     fi
 fi
+
+[ $debug -ne 0 ] && PBUILDER_OPTS="$PBUILDER_OPTS --debug"
+[ $save -ne 0 ] && PBUILDER_OPTS="$PBUILDER_OPTS --save-after-login"
 
 for base in $base_list; do
 
@@ -100,10 +110,10 @@ for base in $base_list; do
 
     case "$operation" in
         'create') 
-            DIST="$base_dist" ARCH="$base_arch" pbuilder create --debootstrapopts --variant=buildd
+            DIST="$base_dist" ARCH="$base_arch" pbuilder create $PBUILDER_OPTS --debootstrapopts --variant=buildd
             ;;
         'update')
-            DIST="$base_dist" ARCH="$base_arch" pbuilder update
+            DIST="$base_dist" ARCH="$base_arch" pbuilder update $PBUILDER_OPTS --override-config
             ;;
         'delete')
             [ -d "$pbuilder_cache/$base_full" ] && rm -rf "$pbuilder_cache/$base_full"
@@ -118,7 +128,7 @@ for base in $base_list; do
             fi
             ;;
         'login')
-            DIST="$base_dist" ARCH="$base_arch" pbuilder login
+            DIST="$base_dist" ARCH="$base_arch" pbuilder login $PBUILDER_OPTS
             ;;
     esac
 done
