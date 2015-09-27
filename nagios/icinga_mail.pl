@@ -286,13 +286,13 @@ sub getMessageBody {
 	}
 
 	# add pnp4nagios graph to message body if url is set
-	if ($pnp4nagios_url) {
+	if ($pnp4nagios_url and $pnp4nagios_url ne "") {
 		my $pnp4nagios4messagebody = getpnp4nagios4messagebody();
 		$messageBody = $messageBody . $pnp4nagios4messagebody;
 	}
 	
 	# add nagiosbp informations to message body
-	if (($nagiosbp_url) && ($icinga_servicedesc =~ m/^check_bp_/)) {
+	if (($nagiosbp_url and $nagiosbp_url ne "") && ($icinga_servicedesc =~ m/^check_bp_/)) {
 		# set nagiosbp_conf to default if nothing is set
 		if (!$nagiosbp_conf) {
 				$nagiosbp_conf = "nagios-bp";
@@ -319,287 +319,212 @@ return $messageBody;
 
 sub getheader4messagebody {
 	# build header for message body
-	my $messageBody = "
-	<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">
-		<html xmlns=\"http://www.w3.org/1999/xhtml\">
-		<head>";
-		
-    if ($notificationtype eq "SERVICE") {
-        $messageBody = $messageBody . "<title>[Icinga] Service $icinga_notificationtype $icinga_hostname $icinga_servicedesc is $icinga_servicestate ($self_notificationnumber)</title>";
-    } else {
-        $messageBody = $messageBody . "<title>[Icinga] Host $icinga_notificationtype $icinga_hostname $icinga_hostname is $icinga_hoststate ($self_notificationnumber)</title>";
-    }
-    $messageBody = $messageBody. "
-		<meta
-			http-equiv=\"Content-Type\"
-			content=\"text/html; charset=iso-8859-15\" />
-		<meta
-			name=\"viewport\"
-			content=\"width=600\" />
-		</head>
-		<body
-			style=\"font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-		<table
-			cellpadding=\"0\"
-			cellspacing=\"0\"
-			width=\"100%\"
-			style=\"font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-			<tr>
-				<td width=\"16\">
-	";
-	
-	if ($notificationtype eq "SERVICE") {
-		$messageBody = $messageBody . "<div style=\"height: 16px; width: 16px; background-color: $icinga_servicestate_color;\">&nbsp;</div>";
-	} else {
-		$messageBody = $messageBody . "<div style=\"height: 16px; width: 16px; background-color: $icinga_hoststate_color;\">&nbsp;</div>";
-	}
-	
-	$messageBody = $messageBody. "	</td>
-				<td style=\"font-size: 15pt; font-weight: bold; color: #666666; padding-left: 4px\">
-					Icinga Monitoring Report
-				</td>
-			</tr>
-		</table>
-		<div style=\"background-color: #CCC; padding: 5px; clear: both;\">
-	";
-	
-	if ($notificationtype eq "SERVICE") {
-		$messageBody = $messageBody . "<div style=\"font-weight: bold;\">[Icinga] Service $icinga_notificationtype " .
+	my $messageBody = "<!DOCTYPE html><html><head>";
+    $messageBody = $messageBody. "<style>body {
+    font-family: sans-serif;
+    font-size: 10pt;
+}
+table {
+    width:100%;
+    border: 1px solid #CFCFCF;
+    border-spacing: 0;
+    border-collapse: collapse;
+    vertical-align:top;
+    text-align:left;
+    padding: 0 0 10px 0;
+}
+table.outer {
+    border: 0px;
+}
+td {
+    padding-left: 4px;
+    vertical-align:top;
+}
+td.outer {
+    padding-bottom: 4px;
+}
+td.statebox {
+    width: 16px;
+    height: 16px;
+    padding: 0px;
+    vertical-align:middle;
+}
+td.key {
+    padding: 1px 2px 1px 2px; 
+    width: 120px; 
+    font-weight: bold;
+}
+td.half {
+    width:50%;
+}
+thead {
+    font-weight: bold; 
+    color: #003399; 
+    background-color: #CFCFCF;
+}
+div.statebox {
+    height: 16px;
+    width: 16px;
+    padding: 0px;
+    background-color: red;
+}
+h1 {
+    font-weight: bold; 
+    color: #666666;
+    font-size: 18pt;
+}
+h2 {
+    font-family: sans-serif;
+    font-size: 10pt; 
+    font-weight: bold; 
+    color: #666666; 
+    border-bottom: 1px solid #CCCCCC; 
+    clear: both; 
+    margin-top: 15px;
+}</style>";
+
+	# $messageBody = $messageBody. "<link rel=\"stylesheet\" type=\"text/css\" href=\"mystyle.css\">";
+	my $cssBody = "";
+	my $title = "";
+	my $is_service = ($notificationtype eq "SERVICE") ? 1 : 0;
+
+    if ($is_service) {
+		$title = "Service $icinga_notificationtype " .
 			encode_entities($icinga_hostname) . " " . encode_entities($icinga_servicedesc) . " is " .
-			encode_entities($icinga_servicestate) . " ($self_notificationnumber)</div>" .
-			"<div style=\"margin-bottom: 10px;\"><strong>Output:</strong>" . encode_entities($icinga_serviceoutput) . "</div>";
-	} else {
-		$messageBody = $messageBody . "<div style=\"font-weight: bold;\">[Icinga] Host $icinga_notificationtype " .
-			encode_entities($icinga_hostname) . " is $icinga_hoststate ($self_notificationnumber)</div>" .
-			"<div style=\"margin-bottom: 10px;\"><strong>Output:</strong>$icinga_hoststate: " . encode_entities($icinga_hostoutput) . "</div>";
-	}
+			encode_entities($icinga_servicestate) . " ($self_notificationnumber)";
+    } else {
+		$title = "Host $icinga_notificationtype " .
+			encode_entities($icinga_hostname) . " is $icinga_hoststate ($self_notificationnumber)";
+    }
+	my $statebox_color = ($is_service) ? $icinga_servicestate_color : $icinga_hoststate_color;
+	$cssBody = $cssBody . "div.statebox { height: 16px;  width: 16px; background-color: $statebox_color; }\r\n";
+	my $state = ($is_service) ? $icinga_servicestate : $icinga_hoststate;
+    
+	$messageBody = $messageBody. "<title>[Icinga] $title</title>";
+    $messageBody = $messageBody. "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">";
+    $messageBody = $messageBody. "</head><body>";
+    $messageBody = $messageBody. "<table class=\"outer\"><tr><td colspan=\"2\">";
+    $messageBody = $messageBody. "<table class=\"outer\"><tr><td class=\"statebox\"><div class=\"statebox\">&nbsp;</div></td><td><h1>$title</h1></td></tr></table>\r\n";
+	$messageBody = $messageBody. "</td></tr>";
+
+	my $output = ($is_service) ? $icinga_serviceoutput : $icinga_hostoutput;
+	$messageBody = $messageBody . "<tr><td class=\"key\">Output</td><td>$state: " . encode_entities($output) . "</td></tr>";
 	
-	$messageBody = $messageBody . "
-			<div><a href=\"$icinga_url\">$icinga_url</a></div>
-		</div>
-	";
+	if($icinga_url) {
+        $messageBody = $messageBody . "<tr><td class=\"key\">URL</td><td><a href=\"$icinga_url\">$icinga_url</a></td></tr>";
+    }
+	$messageBody = $messageBody . "</td></tr></table>";
 	
 	return $messageBody;
 }
 
 sub getfooter4messagebody {
-	my $messageBody = "
-	</body></html>
-	";
-	
-	return $messageBody;
+	return "</body></html>";
 }
 
 sub gethostdetails4messagebody {
 	# build message body for host details
-	my $messageBody = "
-		<h2
-		style=\"font-size: 10pt; font-weight: bold; color: #666666; border-bottom: 1px solid #CCCCCC; clear: both; margin-top: 15px;\">Host
-	details</h2>
-	<table
-		width=\"100%\"
-		cellpadding=\"0\"
-		cellspacing=\"0\">
-		<tr>
-			<td
-				width=\"570\"
-				valign=\"top\"
-				align=\"left\"
-				style=\"padding: 0 0 5px 0\">
-			<table
-				cellspacing=\"0\"
-				cellpadding=\"0\"
-				width=\"565\"
-				style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-				<thead
-					style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-					<tr>
-						<td colspan=\"2\">Host Informations</td>
-					</tr>
-				</thead>
+	my $messageBody = "<h2>Host details</h2>
+	<table class=\"outer\">
+		<tr><td colspan=\"2\">
+			<table>
+				<thead><tr><td colspan=\"2\">Host Informations</td></tr></thead>
 				<tbody>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Hostname</td>
+						<td class=\"key\">Hostname</td>
 						<td>$icinga_hostname</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Alias</td>
+						<td class=\"key\">Alias</td>
 						<td>$icinga_hostalias</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Notes</td>
+						<td class=\"key\">Notes</td>
 						<td>$icinga_hostnotes</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Address</td>
+						<td class=\"key\">Address</td>
 						<td>$icinga_hostaddress</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">URL</td>
+						<td class=\"key\">URL</td>
 						<td><a href=\"$icinga_hostnotesurl\">$icinga_hostnotesurl</a></td>
 					</tr>
 				</tbody>
 			</table>
-		<tr>
-			<td
-				width=\"570\"
-				valign=\"top\"
-				align=\"left\"
-				style=\"padding: 0 0 5px 0\">
-			<table
-				cellspacing=\"0\"
-				cellpadding=\"0\"
-				width=\"565\"
-				style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-				<thead
-					style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-					<tr>
-						<td colspan=\"2\">Host-Output</td>
-					</tr>
-				</thead>
+        </td></td>
+		<tr><td colspan=\"2\"><table>
+            <thead><tr><td>Host output</td></tr></thead>
 				<tbody>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px;\"
-							colspan=\"2\">" . encode_entities($icinga_hostoutput) . "</td>
-					</tr>
+					<tr><td>" . encode_entities($icinga_hostoutput) . "</td></tr>
 				</tbody>
-			</table>
-		</tr>
-	</table>
-	<table
-		width=\"100%\"
-		cellpadding=\"0\"
-		cellspacing=\"0\">
-		<tr>
-			<td
-				width=\"285\"
-				valign=\"top\"
-				align=\"left\"
-				style=\"padding: 0 0 5px 0\">
-			<table
-				cellspacing=\"0\"
-				cellpadding=\"0\"
-				width=\"280\"
-				style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-				<thead
-					style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-					<tr>
-						<td colspan=\"2\">Host State</td>
-					</tr>
-				</thead>
+        </table></td></tr>
+		<tr><td class=\"half\">
+			<table>
+				<thead><tr><td colspan=\"2\">Host state</td></tr></thead>
 				<tbody>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">State</td>
+						<td class=\"key\">State</td>
 						<td>$icinga_hoststate</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">State-Type</td>
+						<td class=\"key\">State type</td>
 						<td>$icinga_hoststatetype</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Attempt</td>
+						<td class=\"key\">Attempt</td>
 						<td>$icinga_hostattempt of $icinga_maxhostattempt</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Duration</td>
+						<td class=\"key\">Duration</td>
 						<td>$icinga_hostduration</td>
 					</tr>
 				</tbody>
 			</table>
-		<td
-			valign=\"top\"
-			align=\"left\"
-			style=\"padding: 0 0 5px 0\">
-		<table
-			cellspacing=\"0\"
-			cellpadding=\"0\"
-			width=\"280\"
-			style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-			<thead
-				style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-				<tr>
-					<td colspan=\"2\">Host State Data</td>
-				</tr>
-			</thead>
+			</td>
+            <td class=\"half\">
+            <table>
+			<thead><tr><td colspan=\"2\">Host state data</td></tr></thead>
 			<tbody>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Command</td>
+					<td class=\"key\">Command</td>
 					<td>" . encode_entities($icinga_hostcheckcommand) . "</td>
 				</tr>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Latency</td>
+					<td class=\"key\">Latency</td>
 					<td>$icinga_hostlatency</td>
 				</tr>
 			</tbody>
-		</table>
+            </table>
+            </td>
 		</tr>
 		<tr>
-			<td
-				width=\"285\"
-				valign=\"top\"
-				align=\"left\"
-				style=\"padding: 0 0 5px 0\">
-			<table
-				cellspacing=\"0\"
-				cellpadding=\"0\"
-				width=\"280\"
-				style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-				<thead
-					style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
+			<td colspan=\"2\">
+			<table>
+                <thead><tr><td colspan=\"2\">Host times</td></tr></thead>
+                <tbody>
 					<tr>
-						<td colspan=\"2\">Host Times</td>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						Check</td>
+						<td class=\"key\">Last Check</td>
 						<td>$icinga_lasthostcheck</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						State-Change</td>
+						<td class=\"key\">Last State-Change</td>
 						<td>$icinga_lasthoststatechange</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						Up</td>
+						<td class=\"key\">Last Up</td>
 						<td>$icinga_lasthostup</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						Down</td>
+						<td class=\"key\">Last Down</td>
 						<td>$icinga_lasthostdown</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						Unrechable</td>
+						<td class=\"key\">Last Unrechable</td>
 						<td>$icinga_lasthostunreachable</td>
 					</tr>
 				</tbody>
 			</table>
-			</td>
-			<td
-			valign=\"top\"
-			align=\"left\"
-			style=\"padding: 0 0 5px 0\">
 			</td>
 		</tr>
 	</table>
@@ -611,197 +536,100 @@ sub gethostdetails4messagebody {
 sub getservicedetails4messagebody {
 	# build message body for service details
 	my $messageBody = "
-	<h2
-		style=\"font-size: 10pt; font-weight: bold; color: #666666; border-bottom: 1px solid #CCCCCC; clear: both; margin-top: 15px;\">Service
-	Details</h2>
-	<table
-		width=\"100%\"
-		cellpadding=\"0\"
-		cellspacing=\"0\">
-		<tr>
-			<td
-				width=\"570\"
-				valign=\"top\"
-				align=\"left\"
-				style=\"padding: 0 0 5px 0\">
-			<table
-				cellspacing=\"0\"
-				cellpadding=\"0\"
-				width=\"565\"
-				style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-				<thead
-					style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-					<tr>
-						<td colspan=\"2\">Service details</td>
-					</tr>
-				</thead>
+	<h2>Service Details</h2>
+	<table class=\"outer\">
+		<tr><td colspan=\"2\"><table>
+            <thead><tr><td colspan=\"2\">Service details</td></tr></thead>
+            <tbody>
+                <tr>
+                    <td class=\"key\">Service</td>
+                    <td>" . encode_entities($icinga_servicedesc) . "</td>
+                </tr>
+                <tr>
+                    <td class=\"key\">Alias</td>
+                    <td>" . encode_entities($icinga_servicedisplayname) . "</td>
+                </tr>
+                <tr>
+                    <td class=\"key\">Service Notes</td>
+                    <td>" . encode_entities($icinga_servicenotes) . "</td>
+                </tr>
+                <tr>
+                    <td class=\"key\">URL</td>
+                    <td><a href=\"$icinga_servicenotesurl\">" . encode_entities($icinga_servicenotesurl) . "</a></td>
+                </tr>
+                <tr>
+                    <td class=\"key\">Command</td>
+                    <td>" . encode_entities($icinga_servicecheckcommand) . "</td>
+                </tr>
+                <tr>
+                    <td class=\"key\">Latency</td>
+                    <td>$icinga_servicelatency</td>
+                </tr>
+                <tr>
+                    <td class=\"key\">Percentage</td>
+                    <td>$icinga_servicepercentchange</td>
+                </tr>
+            </tbody>
+        </table></td></tr>
+		<tr><td colspan=\"2\">
+			<table>
+				<thead><tr><td>Service output</td></tr></thead>
 				<tbody>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Service</td>
-						<td>" . encode_entities($icinga_servicedesc) . "</td>
-					</tr>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Alias</td>
-						<td>" . encode_entities($icinga_servicedisplayname) . "</td>
-					</tr>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Service Notes</td>
-						<td>" . encode_entities($icinga_servicenotes) . "</td>
-					</tr>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">URL</td>
-						<td><a href=\"$icinga_servicenotesurl\">" . encode_entities($icinga_servicenotesurl) . "</a></td>
-					</tr>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Command</td>
-						<td>" . encode_entities($icinga_servicecheckcommand) . "</td>
-					</tr>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Latency</td>
-						<td>$icinga_servicelatency</td>
-					</tr>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Percentage</td>
-						<td>$icinga_servicepercentchange</td>
-					</tr>
+					<tr><td class=\"value\">" . encode_entities($icinga_serviceoutput) . "</td></tr>
 				</tbody>
 			</table>
-			</td>
-		</tr>
+        </td></tr>
 		<tr>
-			<td
-				valign=\"top\"
-				align=\"left\"
-				style=\"padding: 0 0 5px 0\">
-			<table
-				cellspacing=\"0\"
-				cellpadding=\"0\"
-				width=\"565\"
-				style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-				<thead
-					style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-					<tr>
-						<td colspan=\"2\">Service-Output</td>
-					</tr>
-				</thead>
+			<td class=\"half\"><table>
+				<thead><tr><td colspan=\"2\">Service state</td></tr></thead>
 				<tbody>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px;\"
-							colspan=\"2\">" . encode_entities($icinga_serviceoutput) . "</td>
-					</tr>
-				</tbody>
-			</table>
-			</td>
-		</tr>
-	</table>
-	<table
-		width=\"100%\"
-		cellpadding=\"0\"
-		cellspacing=\"0\">
-		<tr>
-			<td
-				width=\"285\"
-				valign=\"top\"
-				align=\"left\"
-				style=\"padding: 0 0 5px 0\">
-			<table
-				cellspacing=\"0\"
-				cellpadding=\"0\"
-				width=\"280\"
-				style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-				<thead
-					style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-					<tr>
-						<td colspan=\"2\">Service State</td>
-					</tr>
-				</thead>
-				<tbody>
-					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">State</td>
+						<td class=\"key\">State</td>
 						<td>$icinga_servicestate</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">State-Type</td>
+						<td class=\"key\">State type</td>
 						<td>$icinga_servicestatetype</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Attempt</td>
+						<td class=\"key\">Attempt</td>
 						<td>$icinga_serviceattempt of $icinga_maxserviceattempts</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Duration</td>
+						<td class=\"key\">Duration</td>
 						<td>$icinga_serviceduration</td>
 					</tr>
 				</tbody>
-			</table>
-			</td>
-			<td
-				valign=\"top\"
-				align=\"left\"
-				style=\"padding: 0 0 5px 0\">
-			<table
-				cellspacing=\"0\"
-				cellpadding=\"0\"
-				width=\"280\"
-				style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-				<thead
-					style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-					<tr>
-						<td colspan=\"2\">Service Times</td>
-					</tr>
-				</thead>
+			</table></td>
+			<td class=\"half\"><table>
+				<thead><tr><td colspan=\"2\">Service times</td></tr></thead>
 				<tbody>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						Check</td>
+						<td class=\"key\">Last Check</td>
 						<td>$icinga_lastservicecheck</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						State-Change</td>
+						<td class=\"key\">Last State-Change</td>
 						<td>$icinga_lastservicestatechange</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						OK</td>
+						<td class=\"key\">Last OK</td>
 						<td>$icinga_lastserviceok</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						Critical</td>
+						<td class=\"key\">Last Critical</td>
 						<td>$icinga_lastservicecritical</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						Warning</td>
+						<td class=\"key\">Last Warning</td>
 						<td>$icinga_lastservicewarning</td>
 					</tr>
 					<tr>
-						<td
-							style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last
-						Unknown</td>
+						<td class=\"key\">Last Unknown</td>
 						<td>$icinga_lastserviceunknown</td>
 					</tr>
 				</tbody>
-			</table>
-			</td>
+			</table></td>
 		</tr>
 	</table>
 	";
@@ -811,32 +639,17 @@ sub getservicedetails4messagebody {
 
 sub getpnp4nagios4messagebody {
 	# get pnp4nagios images as base64
-	my $base64image = `wget --no-proxy --no-check-certificate -O - '$pnp4nagios_url/image?host=$icinga_hostname&srv=$icinga_servicedesc&view=1&source=0' 2> /dev/null | base64`;
+	my $base64image = `wget --no-proxy --no-check-certificate -O - --timeout=3 '$pnp4nagios_url/image?host=$icinga_hostname&srv=$icinga_servicedesc&view=1&source=0' 2> /dev/null | base64`;
 
 	# build message body for pnp4nagios if a pnp4nagios graph was found
 	my $messageBody = "";
 	if ($base64image) {
-		$messageBody = "
-		<h2
-		style=\"font-size: 10pt; font-weight: bold; color: #666666; border-bottom: 1px solid #CCCCCC; clear: both; margin-top: 15px;\">PNP4Nagios</h2>
-		<table>
+		$messageBody = "<h2>PNP4Nagios</h2>
+		<table class=\"outer\">
 			<tr>
-				<td
-					width=\"285\"
-					valign=\"top\"
-					align=\"left\"
-					style=\"padding: 0 0 5px 0\">
-				<table
-					cellspacing=\"0\"
-					cellpadding=\"0\"
-					width=\"280\"
-					style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-					<thead
-						style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-						<tr>
-							<td colspan=\"2\">PNP4Nagios</td>
-						</tr>
-					</thead>
+				<td>
+				<table>
+					<thead><tr><td>PNP4Nagios</td></tr></thead>
 					<tbody>
 						<tr>
 							<td>
@@ -865,14 +678,7 @@ sub getnagiosbp4messagebody {
 	my $nagiosbp_json_url = $nagiosbp_url . "?outformat=json" . "&tree=$icinga_servicedesc" . "&conf=$nagiosbp_conf";
 	
 	# build message body for icinga business processes
-	my $messageBody = "
-	<h2
-	style=\"font-size: 10pt; font-weight: bold; color: #666666; border-bottom: 1px solid #CCCCCC; clear: both; margin-top: 15px;\">Business Process Information</h2>
-	<table
-		width=\"100%\"
-		cellpadding=\"0\"
-		cellspacing=\"0\">
-	";
+	my $messageBody = "<h2>Business Process Information</h2><table>";
 	
 	# get messagebody from json structure
 	$messageBody = $messageBody . getnagiosbpjson($nagiosbp_json_url, $nagiosbp_url);
@@ -882,139 +688,66 @@ sub getnagiosbp4messagebody {
 
 sub getstatistics4messagebody {
 	# build message body for icinga statistics
-	my $messageBody = "
-	<h2
-	style=\"font-size: 10pt; font-weight: bold; color: #666666; border-bottom: 1px solid #CCCCCC; clear: both; margin-top: 15px;\">Information</h2>
-	<table
-	width=\"100%\"
-	cellpadding=\"0\"
-	cellspacing=\"0\">
+	my $messageBody = "<h2>Information</h2>
+	<table class=\"outer\">
 		<tr>
-		<td
-			width=\"285\"
-			valign=\"top\"
-			align=\"left\"
-			style=\"padding: 0 0 5px 0\">
-		<table
-			cellspacing=\"0\"
-			cellpadding=\"0\"
-			width=\"280\"
-			style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-			<thead
-				style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-				<tr>
-					<td colspan=\"2\">Icinga Host Statistics</td>
-				</tr>
-			</thead>
+		<td class=\"half\"><table>
+            <thead><tr><td colspan=\"2\">Host statistics</td></tr></thead>
 			<tbody>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Up</td>
+					<td class=\"key\">Up</td>
 					<td>$icinga_totalhostsup</td>
 				</tr>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Down</td>
+					<td class=\"key\">Down</td>
 					<td>$icinga_totalhostsdown</td>
 				</tr>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unreachable</td>
+					<td class=\"key\">Unreachable</td>
 					<td>$icinga_totalhostsunreachable</td>
 				</tr>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unhandled</td>
+					<td class=\"key\">Unhandled</td>
 					<td>$icinga_totalhostproblemsunhandled</td>
 				</tr>
 			</tbody>
-		</table>
-		</td>
-		<td
-			valign=\"top\"
-			align=\"left\"
-			style=\"padding: 0 0 5px 0\">
-		<table
-			cellspacing=\"0\"
-			cellpadding=\"0\"
-			width=\"280\"
-			style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-			<thead
-				style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-				<tr><td colspan=\"2\">Icinga Service Statistics</td>
-				</tr>
-			</thead>
+            </table>
+            <table>
+            <thead><tr><td colspan=\"2\">Service statistics</td></tr></thead>
 			<tbody>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">OK</td>
+					<td class=\"key\">OK</td>
 					<td>$icinga_totalservicesok</td>
 				</tr>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Warning</td>
+					<td class=\"key\">Warning</td>
 					<td>$icinga_totalserviceswarning</td>
 				</tr>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Critical</td>
+					<td class=\"key\">Critical</td>
 					<td>$icinga_totalservicescritical</td>
 				</tr>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unknown</td>
+					<td class=\"key\">Unknown</td>
 					<td>$icinga_totalservicesunknown</td>
 				</tr>
 				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Unhandled</td>
+					<td class=\"key\">Unhandled</td>
 					<td>$icinga_totalserviceproblemsunhandled</td>
 				</tr>
 			</tbody>
-		</table>
-		</td>		
-	</tr>
-		<tr>
-		<td
-			width=\"285\"
-			valign=\"top\"
-			align=\"left\"
-			style=\"padding: 0 0 5px 0\">
-		<table
-			cellspacing=\"0\"
-			cellpadding=\"0\"
-			width=\"280\"
-			style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-			<thead
-				style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-				<tr>
-					<td colspan=\"2\">Icinga Statistics</td>
-				</tr>
-			</thead>
+            </table>
+        </td>
+		<td class=\"half\"><table>
+            <thead><tr><td colspan=\"2\">Icinga statistics</td></tr></thead>
 			<tbody>
-				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Report Time</td>
-					<td>$icinga_timet</td>
-				</tr>
-				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Admin Contact</td>
-					<td>$icinga_adminemail</td>
-				</tr>
-				<tr>
-					<td
-						style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Last Start</td>
-					<td>$icinga_processstarttime</td>
+				<tr><td class=\"key\">Report Time</td><td>$icinga_timet</td></tr>
+				<tr><td class=\"key\">Admin Contact</td><td>$icinga_adminemail</td>
+				</tr><tr><td class=\"key\">Last Start</td><td>$icinga_processstarttime</td>
 				</tr>
 			</tbody>
-		</table>
-		</td>
-		<td
-			valign=\"top\"
-			align=\"left\"
-			style=\"padding: 0 0 5px 0\">
-		</td>		
+            </table>
+        </td>
 		</tr>
 	</table>
 	";
@@ -1023,30 +756,12 @@ sub getstatistics4messagebody {
 
 sub getnotifications4messagebody {
 	# get acknowledges for message body
-	my $messageBody = "
-	<h2
-	style=\"font-size: 10pt; font-weight: bold; color: #666666; border-bottom: 1px solid #CCCCCC; clear: both; margin-top: 15px;\">Notifications</h2>
-		<table
-	width=\"100%\"
-	cellpadding=\"0\"
-	cellspacing=\"0\">
+	my $messageBody = "<h2>Notifications</h2>
+		<table>
 		<tr>
-		<td
-			width=\"285\"
-			valign=\"top\"
-			align=\"left\"
-			style=\"padding: 0 0 5px 0\">
-		<table
-			cellspacing=\"0\"
-			cellpadding=\"0\"
-			width=\"280\"
-			style=\"border: 1px solid #CFCFCF; font-family: 'Courier New', Courier, monospace; font-size: 8pt;\">
-			<thead
-				style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-				<tr>
-					<td colspan=\"2\">Notifications</td>
-				</tr>
-			</thead>
+		<td>
+		<table>
+			<thead><tr><td colspan=\"2\">Notifications</td></tr></thead>
 			<tbody>
 				<tr>
 					<td
@@ -1061,11 +776,7 @@ sub getnotifications4messagebody {
 			</tbody>
 		</table>
 		</td>
-		<td
-			valign=\"top\"
-			align=\"left\"
-			style=\"padding: 0 0 5px 0\">
-		</td>		
+		<td>&nbsp;</td>
 		</tr>
 	</table>
 	";
@@ -1075,36 +786,14 @@ sub getnotifications4messagebody {
 
 sub getenvironment4messagebody {
     # get acknowledges for message body
-    my $messageBody = "
-    <h2
-    style=\"font-size: 10pt; font-weight: bold; color: #666666; border-bottom: 1px solid #CCCCCC; clear: both; margin-top: 15px;\">Environment</h2>
-        <table
-    width=\"100%\"
-    cellpadding=\"0\"
-    cellspacing=\"0\">
-        <thead
-            style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-            <tr>
-                <td>Name</td>
-                <td>Value</td>
-            </tr>
-        </thead>
-        <tbody>
-        ";
+    my $messageBody = "<h2>Environment</h2><table><thead class=\"env\"><tr><td>Name</td><td>Value</td></tr></thead><tbody>";
 
     my $key;
     foreach $key (sort keys(%ENV)) {
-        $messageBody = $messageBody . "
-                <tr>
-                    <td
-                        style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">$key</td>
-                    <td>" . encode_entities($ENV{$key}) . "</td>
-                </tr>";
+        $messageBody = $messageBody . "<tr><td>$key</td><td>" . encode_entities($ENV{$key}) . "</td></tr>";
     }
 
-    $messageBody = $messageBody . "
-        </tbody>
-    </table>";
+    $messageBody = $messageBody . "</tbody></table>";
 
     return $messageBody;
 }
@@ -1145,45 +834,24 @@ sub getnagiosbpjson {
 			if ($nagiosbp_state =~ /($element->{hardstate})/) {
 				$messageBody = $messageBody . "	
 					<tr>
-						<td
-							width=\"570\"
-							valign=\"top\"
-							align=\"left\"
-							style=\"padding: 0 0 5px 0\">
-						<table
-							cellspacing=\"0\"
-							cellpadding=\"0\"
-							width=\"565\"
-							style=\"border: 1px solid #CFCFCF; font-family: \'Courier New\', Courier, monospace; font-size: 8pt;\">
-							<thead
-								style=\"font-weight: bold; color: #003399; background-color: #CFCFCF;\">
-								<tr>
-									<td colspan=\"2\">$element->{host}->$element->{service}</td>
-								</tr>
-							</thead>
+						<td>
+						<table>
+                            <thead><tr><td colspan=\"2\">$element->{host}->$element->{service}</td></tr></thead>
 							<tbody>
 								<tr>
-									<td
-										style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Host
-									</td>
+									<td class=\"key\">Host</td>
 									<td>$element->{host}</td>
 								</tr>
 								<tr>
-									<td
-										style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Service
-									</td>
+									<td class=\"key\">Service</td>
 									<td>$element->{service}</td>
 								</tr>
 								<tr style=\"color: $servicestate_color;\">
-									<td
-										style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">State
-									</td>
+									<td class=\"key\">State</td>
 									<td>$element->{hardstate}</td>
 								</tr>
 								<tr>
-									<td
-										style=\"padding: 1px 2px 1px 2px; width: 120px; font-weight: bold;\">Output
-									</td>
+									<td class=\"key\">Output</td>
 									<td>" . encode_entities($element->{plugin_output}) . "</td>
 								</tr>
 							</tbody>
