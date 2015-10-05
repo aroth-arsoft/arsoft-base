@@ -1,3 +1,9 @@
+arsoft-base (2.158) wily; urgency=medium
+
+  * improved icinga-mail script using CSS
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 05 Oct 2015 06:47:04 +0200
+
 arsoft-base (2.157) vivid; urgency=medium
 
   * add pbuilder package
