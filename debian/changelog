@@ -1,3 +1,9 @@
+arsoft-base (2.159) wily; urgency=medium
+
+  * reduce padding in icinga-mails
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 09 Oct 2015 19:24:51 +0200
+
 arsoft-base (2.158) wily; urgency=medium
 
   * improved icinga-mail script using CSS

@@ -318,6 +318,8 @@ return $messageBody;
 }
 
 sub getheader4messagebody {
+	my $is_service = ($notificationtype eq "SERVICE") ? 1 : 0;
+    my $statebox_color = ($is_service) ? $icinga_servicestate_color : $icinga_hoststate_color;
 	# build header for message body
 	my $messageBody = "<!DOCTYPE html><html><head>";
     $messageBody = $messageBody. "<style>body {
@@ -366,12 +368,13 @@ div.statebox {
     height: 16px;
     width: 16px;
     padding: 0px;
-    background-color: red;
+    background-color: ${statebox_color};
 }
 h1 {
     font-weight: bold; 
     color: #666666;
     font-size: 18pt;
+    margin: 0px 0px 0px 0px;
 }
 h2 {
     font-family: sans-serif;
@@ -384,9 +387,7 @@ h2 {
 }</style>";
 
 	# $messageBody = $messageBody. "<link rel=\"stylesheet\" type=\"text/css\" href=\"mystyle.css\">";
-	my $cssBody = "";
 	my $title = "";
-	my $is_service = ($notificationtype eq "SERVICE") ? 1 : 0;
 
     if ($is_service) {
 		$title = "Service $icinga_notificationtype " .
@@ -396,8 +397,6 @@ h2 {
 		$title = "Host $icinga_notificationtype " .
 			encode_entities($icinga_hostname) . " is $icinga_hoststate ($self_notificationnumber)";
     }
-	my $statebox_color = ($is_service) ? $icinga_servicestate_color : $icinga_hoststate_color;
-	$cssBody = $cssBody . "div.statebox { height: 16px;  width: 16px; background-color: $statebox_color; }\r\n";
 	my $state = ($is_service) ? $icinga_servicestate : $icinga_hoststate;
     
 	$messageBody = $messageBody. "<title>[Icinga] $title</title>";
@@ -440,7 +439,7 @@ sub gethostdetails4messagebody {
 					</tr>
 					<tr>
 						<td class=\"key\">Notes</td>
-						<td>$icinga_hostnotes</td>
+						<td>" . encode_entities($icinga_hostnotes) . "</td>
 					</tr>
 					<tr>
 						<td class=\"key\">Address</td>
@@ -550,7 +549,7 @@ sub getservicedetails4messagebody {
                     <td>" . encode_entities($icinga_servicedisplayname) . "</td>
                 </tr>
                 <tr>
-                    <td class=\"key\">Service Notes</td>
+                    <td class=\"key\">Notes</td>
                     <td>" . encode_entities($icinga_servicenotes) . "</td>
                 </tr>
                 <tr>
