@@ -1,3 +1,9 @@
+arsoft-base (2.160) wily; urgency=medium
+
+  * add codename of 16.04 LTS xenial
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 22 Oct 2015 06:30:26 +0200
+
 arsoft-base (2.159) wily; urgency=medium
 
   * reduce padding in icinga-mails
