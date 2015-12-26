@@ -1,5 +1,4 @@
-PUPPET_BIN_SCRIPTS := puppet-template-check \
-		puppet-function-check \
+PUPPET_BIN_SCRIPTS := puppet-function-check \
 		puppet-clean-ssl
 
 .PHONY: all

@@ -23,7 +23,6 @@ usr/bin/ppa_copy
 usr/bin/ppa_publish
 usr/bin/puppet-clean-ssl
 usr/bin/puppet-function-check
-usr/bin/puppet-template-check
 usr/bin/schema2ldif
 usr/bin/ssh-nogss
 usr/bin/ssh-nopubkey
