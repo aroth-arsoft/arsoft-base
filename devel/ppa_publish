@@ -50,6 +50,7 @@ if [ -z "$DPUT_TARGET" ]; then
 	fi
 fi
 
+
 function usage() {
 	echo "Usage: $SCRIPTNAME [OPTIONS] [RELEASE]"
 	echo "  Edits the changelog before calling debuild and dput to publish"
@@ -63,7 +64,7 @@ function usage() {
 	echo "    --noput               do not upload the package"
 	echo "    --noorig              do not upload the original tarball"
 	echo "RELEASE:"
-	for rel in ${!VALID_RELEASE[@]}; do
+	for rel in "${!VALID_RELEASE[@]}"; do
 		if $(echo $DEFAULT_RELEASES} | grep -q $rel); then
 			echo "    $rel (default)"
 		else

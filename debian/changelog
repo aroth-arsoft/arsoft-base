@@ -1,3 +1,9 @@
+arsoft-base (2.162) xenial; urgency=medium
+
+  * fixed arsoft-ppa postinst script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Wed, 20 Apr 2016 17:56:40 +0200
+
 arsoft-base (2.161) wily; urgency=medium
 
   * remove puppet-template-check
