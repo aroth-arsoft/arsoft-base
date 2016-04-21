@@ -78,7 +78,8 @@ Description: additional nagios notification plugins
 
 Package: arsoft-pnp4nagios
 Architecture: all
-Depends: pnp4nagios, ${misc:Depends}
+Recommends: pnp4nagios
+Depends: ${misc:Depends}
 Description: additional templates and check_commands for PNP4Nagios
  custom templates and check_commands for PNP4Nagios:
   - PuppetDB

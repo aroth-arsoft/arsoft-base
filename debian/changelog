@@ -1,3 +1,9 @@
+arsoft-base (2.163) xenial; urgency=medium
+
+  * arsoft-pnp4nagios: drop hard depend on pnp4nagios
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 21 Apr 2016 10:07:25 +0200
+
 arsoft-base (2.162) xenial; urgency=medium
 
   * fixed arsoft-ppa postinst script
