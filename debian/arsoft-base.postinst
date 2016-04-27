@@ -48,7 +48,11 @@ case "$1" in
         for cert_company in $CERT_COMPANIES; do
             for cert_full in $CERT_BASE_DIR/$cert_company/*.crt; do
                 cert="${cert_full#$CERT_BASE_DIR/}"
-                grep -q "${cert}" /etc/ca-certificates.conf.dpkg-new || echo "${cert}" >> /etc/ca-certificates.conf.dpkg-new
+                if grep -q "!${cert}" /etc/ca-certificates.conf.dpkg-new; then
+                    sed -i "s@!${cert}@${cert}@" /etc/ca-certificates.conf.dpkg-new
+                else
+                    grep -q "${cert}" /etc/ca-certificates.conf.dpkg-new || echo "${cert}" >> /etc/ca-certificates.conf.dpkg-new
+                fi
             done
         done
 
