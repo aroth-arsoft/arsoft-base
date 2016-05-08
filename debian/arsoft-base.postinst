@@ -65,7 +65,12 @@ case "$1" in
 	
 		# in any case call update-ca-certificates
 		update-ca-certificates
-		
+
+		# Remove the obsolete arsoft-base service
+        update-rc.d arsoft-base remove >/dev/null
+        # ... and startup scripts (using systemd instead)
+        [ -d /etc/arsoft-base ] && find /etc/arsoft-base -type d -empty -delete || true
+
 		;;
 esac
 

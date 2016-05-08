@@ -1,6 +1,3 @@
-etc/default/arsoft-scripts
-etc/arsoft-base/system-startup.d
-etc/arsoft-base/system-shutdown.d
 etc/cron.daily/clean-old-bootcharts
 usr/bin/alsa-info
 usr/bin/apt-cleanup

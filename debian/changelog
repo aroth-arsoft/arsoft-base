@@ -1,3 +1,9 @@
+arsoft-base (2.166) xenial; urgency=medium
+
+  * remove arsoft-base startup script
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 08 May 2016 13:18:52 +0200
+
 arsoft-base (2.165) xenial; urgency=medium
 
   * re-activate broken certificates

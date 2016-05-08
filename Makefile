@@ -22,8 +22,6 @@ install:
 	mkdir -p $(DESTDIR)/usr/sbin
 	mkdir -p $(DESTDIR)/bin
 	mkdir -p $(DESTDIR)/sbin
-	mkdir -p $(DESTDIR)/etc/default
-	install -m 0644 -o root -g root etc_default_arsoft-scripts $(DESTDIR)/etc/default/arsoft-scripts
 
 	for dir in $(SUBDIRS); do \
 		${MAKE} -C $$dir install || exit 1; \
