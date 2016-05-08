@@ -16,6 +16,7 @@ install:
 	[ -f dhclient-script.$(TARGET_DISTRIBUTION) ] && install -m 0755 -o root -g root dhclient-script.$(TARGET_DISTRIBUTION) $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-script || true
 	[ ! -f dhclient-script.$(TARGET_DISTRIBUTION) ] && install -m 0755 -o root -g root dhclient-script.saucy $(DESTDIR)/usr/lib/arsoft-dhcp/dhclient-script || true
 
+	[ ! -d $(DESTDIR)/etc/default ] && mkdir -p $(DESTDIR)/etc/default || true
 	install -m 0644 default $(DESTDIR)/etc/default/arsoft-dhcp-client
 
 	mkdir -p $(DESTDIR)/etc/dhcp/dhclient-exit-hooks.d
