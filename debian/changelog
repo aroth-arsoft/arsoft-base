@@ -1,3 +1,9 @@
+arsoft-base (2.168) xenial; urgency=medium
+
+  * add more fastprotect certificates
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 19 May 2016 12:49:01 +0200
+
 arsoft-base (2.167) xenial; urgency=medium
 
   * fixed build
