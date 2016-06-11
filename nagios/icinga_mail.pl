@@ -38,7 +38,6 @@
 #
 use warnings;
 use strict;
-use Mail::Sender;
 use Getopt::Long;
 
 # load json extesion to decode nagiosbp status
@@ -234,20 +233,17 @@ exit 0;
 ###############################################################################
 sub sendMail {
   my $messageBody = $_[0];
-  my $sender = new Mail::Sender {
-  	smtp		=>	$mailServer,
-  	from		=>	$originator,
-  	on_errors	=>	undef
-  } or die "Can't create the Mail::Sender object: $Mail::Sender::Error\n";
-  
-  $sender->Open({
-  	to	=>	$recipient,
-  	subject		=>	$subject,
-  	ctype		=>	"text/html",
-  	encoding	=>	"UTF-8"
-  }) or die $Mail::Sender::Error . "\n";
-  $sender->SendEx($messageBody);
-  $sender->Close();
+    open(MAIL, "|/usr/sbin/sendmail -t") or die "Can't send mail using sendmail.\n";
+
+    # Email Header
+    print MAIL "To: $recipient\n";
+    print MAIL "From: $originator\n";
+    print MAIL "Subject: $subject\n\n";
+    print MAIL "Content-type: text/html; charset=\"UTF-8\"\n";
+    # Email Body
+    print MAIL $messageBody;
+
+    close(MAIL);
 }
 
 sub getLocaltimeFromUnixtime {
