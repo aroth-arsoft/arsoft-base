@@ -1,3 +1,10 @@
+arsoft-base (2.169) xenial; urgency=medium
+
+  * use local sendmail instead of Mail::Sender perl module
+  * correct the postfix map update
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 12 Jun 2016 16:51:45 +0200
+
 arsoft-base (2.168) xenial; urgency=medium
 
   * add more fastprotect certificates
