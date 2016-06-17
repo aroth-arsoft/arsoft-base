@@ -1,3 +1,9 @@
+arsoft-base (2.170) xenial; urgency=medium
+
+  * fixed icinga_mail.pl missing newline
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 17 Jun 2016 07:46:52 +0200
+
 arsoft-base (2.169) xenial; urgency=medium
 
   * use local sendmail instead of Mail::Sender perl module
