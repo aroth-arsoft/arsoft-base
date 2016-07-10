@@ -1,3 +1,9 @@
+arsoft-base (2.171) xenial; urgency=medium
+
+  * update puppetlabs keyring file
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 10 Jul 2016 09:49:23 +0200
+
 arsoft-base (2.170) xenial; urgency=medium
 
   * fixed icinga_mail.pl missing newline
