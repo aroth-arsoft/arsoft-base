@@ -1,0 +1,11 @@
+install_script_files(
+        mimediff
+		oodiff
+		zipdiff
+		imagediff
+		svn2git
+		git-deep-clone
+		git-info
+		git-shrink
+		git-subdir2submodule
+)

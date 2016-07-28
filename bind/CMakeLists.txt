@@ -1,0 +1,1 @@
+install_script_files(vizone)

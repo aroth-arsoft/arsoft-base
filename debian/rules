@@ -9,21 +9,20 @@ ifeq ($(TARGET_DISTRIBUTION),UNRELEASED)
 	TARGET_DISTRIBUTION := $(shell lsb_release -cs)
 endif
 
-SUBSTVARS=
-
-ifeq ($(TARGET_DISTRIBUTION),lucid)
-	SUBSTVARS += -Vdhcpclient:Depends="dhcp3-client"
-	SUBSTVARS += -Vdhcpserver:Depends="dhcp3-server"
-else
-	SUBSTVARS += -Vdhcpclient:Depends="isc-dhcp-client"
-	SUBSTVARS += -Vdhcpserver:Depends="isc-dhcp-server"
-endif
+SUBSTVARS =
+SUBSTVARS += -Vdhcpclient:Depends="isc-dhcp-client"
+SUBSTVARS += -Vdhcpserver:Depends="isc-dhcp-server"
 
 %:
 	dh $@
 	
 override_dh_auto_install:
 	dh_auto_install -- TARGET_DISTRIBUTION=$(TARGET_DISTRIBUTION)
+	mkdir -p $(DESTDIR)/usr/share/arsoft-base/bash
+	ln -s /usr/share/arsoft-base/bash/bash.bashrc $(DESTDIR)/etc/bash.bashrc
+	ln -s /usr/share/arsoft-base/profile $(DESTDIR)/etc/profile
+	install -d -m 0755 -o root -g root $(DESTDIR)/etc/arsoft-base/system-startup.d
+	install -d -m 0755 -o root -g root $(DESTDIR)/etc/arsoft-base/system-shutdown.d
 
 override_dh_gencontrol:
 	dh_gencontrol -- $(SUBSTVARS)
