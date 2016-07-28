@@ -112,7 +112,7 @@ class keytab : public krb5_base_object
     bool _ok;
 public:
     keytab(krb5_context ctx, const string & filename)
-        : krb5_base_object(ctx), _handle(), _ok(false)
+        : krb5_base_object(ctx), _handle(NULL), _ok(false)
     {
         if(!filename.empty())
         {
@@ -122,7 +122,7 @@ public:
     }
     ~keytab()
     {
-        if(_ok)
+        if(_handle)
             krb5_kt_close(_ctx, _handle);
     }
 
@@ -161,6 +161,84 @@ public:
         }
         return ret;
     }
+
+    bool update(const keytab & source)
+    {
+        bool ret = false;
+        if(source._ok)
+        {
+            krb5_kt_cursor cursor;
+            krb5_keytab_entry entry;
+            krb5_error_code code;
+            code = krb5_kt_start_seq_get (source._ctx, source._handle, &cursor);
+            while(!code)
+            {
+                code = krb5_kt_next_entry (source._ctx, source._handle, &entry, &cursor);
+                if (code == 0)
+                {
+                    updateEntry(&entry);
+                    
+                    // release all memory
+                    krb5_free_keytab_entry_contents(_ctx, &entry);
+                }
+            }
+
+            if (code == KRB5_KT_END)
+                code = 0;
+
+            krb5_kt_end_seq_get (source._ctx, source._handle, &cursor);
+
+            ret = true;
+        }
+        return ret;
+    }
+
+protected:
+    krb5_error_code updateEntry(krb5_keytab_entry * updatedEntry)
+    {
+        krb5_kt_cursor cursor = NULL;
+        krb5_keytab_entry entry;
+        krb5_error_code code;
+        bool add_princ = true;
+
+        code = krb5_kt_start_seq_get (_ctx, _handle, &cursor);
+        while(!code && add_princ)
+        {
+            code = krb5_kt_next_entry (_ctx, _handle, &entry, &cursor);
+            if (code == 0)
+            {
+                if(krb5_principal_compare(_ctx, entry.principal, updatedEntry->principal) && entry.key.enctype == updatedEntry->key.enctype)
+                {
+                    if(entry.vno > updatedEntry->vno)
+                    {
+                        // newer key entry with higher kvno is already in the keytab
+                        add_princ = false;
+                    }
+                    else if(entry.vno == updatedEntry->vno)
+                    {
+                        // found same kvno, so check timestamp
+                        if(entry.timestamp >= updatedEntry->timestamp)
+                        {
+                            // same kvno but a new (or same) timestamp already in keytab
+                            add_princ = false;
+                        }
+                    }
+                }
+                // release all memory
+                krb5_free_keytab_entry_contents(_ctx, &entry);
+            }
+        }
+
+        if (code == KRB5_KT_END)
+            code = 0;
+        if(cursor)
+            krb5_kt_end_seq_get (_ctx, _handle, &cursor);
+        if(add_princ)
+            code = krb5_kt_add_entry(_ctx, _handle, updatedEntry);
+        else
+            code = 0;
+        return code;
+    }
 };
 
 int main(int argc, char ** argv)
@@ -185,8 +263,12 @@ int main(int argc, char ** argv)
         keytab sourceKeyTab(ctx, source);
         keytab destKeyTab(ctx, dest);
 
+        cout << "sourceKeyTab" << endl;
         sourceKeyTab.list();
 
+        destKeyTab.update(sourceKeyTab);
+        cout << "new dest" << endl;
+        destKeyTab.list();
 
         krb5_free_context(ctx);
     }
