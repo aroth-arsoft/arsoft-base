@@ -1,6 +1,9 @@
 #include <iostream>
 #include <krb5.h>
 #include <errno.h>
+#include <boost/program_options.hpp>
+#include <boost/filesystem.hpp>
+#include "opts_helper.h"
 
 using namespace std;
 
@@ -244,13 +247,61 @@ protected:
 int main(int argc, char ** argv)
 {
     int ret = 0;
-    cout << "usage: akt [source] [dest]" << endl;
 
-    string source = (argc > 1) ? argv[1] : string();
-    string dest = (argc > 2) ? argv[2] : string();
+    std::string appName = boost::filesystem::basename(argv[0]);
+    std::string command;
+
+    namespace po = boost::program_options;
+    po::options_description desc("Options");
+    desc.add_options()
+      ("help,h", "Print help messages")
+      ("verbose,v", "enable verbose output")
+      ("version,V", "show version number")
+      ("list,l", po::value<std::string>(), "list all entries of the given keytab")
+      ("update,u", po::value< vector<string> >()->multitoken(), "command to execute")
+      ;
+
+    po::positional_options_description positionalOptions;
+
+    po::variables_map vm;
+    try
+    {
+        po::store(po::command_line_parser(argc, argv).options(desc).positional(positionalOptions).run(), vm); // throws on error
+        /** --help option
+        */
+        if ( vm.count("help")  )
+        {
+            arsoft::OptionPrinter::printStandardAppDesc(appName,
+                                                 std::cout,
+                                                 desc,
+                                                 &positionalOptions);
+            return 0;
+        }
+
+        po::notify(vm); // throws on error, so do after help in case
+                        // there are any problems
+    }
+    catch(boost::program_options::required_option& e)
+    {
+      arsoft::OptionPrinter::formatRequiredOptionError(e);
+      std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
+      arsoft::OptionPrinter::printStandardAppDesc(appName,
+                                               std::cout,
+                                               desc,
+                                               &positionalOptions);
+      return 1;
+    }
+    catch(boost::program_options::error& e)
+    {
+      std::cerr << "ERROR: " << e.what() << std::endl << std::endl;
+      arsoft::OptionPrinter::printStandardAppDesc(appName,
+                                               std::cout,
+                                               desc,
+                                               &positionalOptions);
+      return 1;
+    }
 
     krb5_context ctx;
-
     krb5_error_code code;
     code = krb5_init_context(&ctx);
     if(code != 0)
@@ -260,18 +311,24 @@ int main(int argc, char ** argv)
     }
     else
     {
-        keytab sourceKeyTab(ctx, source);
-        keytab destKeyTab(ctx, dest);
+        if ( vm.count("list") )
+        {
+            string filename = vm["list"].as<std::string>();
+            keytab kt(ctx, filename);
+            kt.list();
+        }
+        else if( vm.count("update"))
+        {
+            vector<string> filenames = vm["update"].as< vector<string> >();
+            string source = (filenames.size() >= 1) ? filenames[0] : string();
+            string dest = (filenames.size() >= 2) ? filenames[1] : string();
 
-        cout << "sourceKeyTab" << endl;
-        sourceKeyTab.list();
-
-        destKeyTab.update(sourceKeyTab);
-        cout << "new dest" << endl;
-        destKeyTab.list();
-
-        krb5_free_context(ctx);
+            keytab sourceKeyTab(ctx, source);
+            keytab destKeyTab(ctx, dest);
+            destKeyTab.update(sourceKeyTab);
+        }
     }
+    krb5_free_context(ctx);
 
     return ret;
 }

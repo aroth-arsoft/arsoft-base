@@ -2,13 +2,14 @@ Source: arsoft-base
 Section: admin
 Priority: extra
 Maintainer: Andreas Roth <aroth@arsoft-online.com>
-Build-Depends: debhelper (>= 9), cmake
+Build-Depends: debhelper (>= 9), cmake, libboost-program-options-dev,
+ libboost-filesystem-dev, libboost-system-dev, libboost-regex-dev
 Standards-Version: 3.9.7
 Homepage: http://www.arsoft-online.com
 
 Package: arsoft-base
 Architecture: all
-Depends: arsoft-ppa,
+Depends: arsoft-ppa, arsoft-base-bin,
  tzdata, mc, screen,
  unzip, zip, unrar, iotop, htop,
  ntfs-3g, xfsprogs, cryptsetup,
@@ -23,6 +24,12 @@ Replaces: arsoft-scripts
 Description: configure the system to use the AR Soft packages.
  installs basic packages and configuration for operation on 
  AR Soft managed systems.
+
+Package: arsoft-base-bin
+Architecture: i386 amd64
+Depends: ${misc:Depends}
+Description: binary packages for system administration
+ includes a tool to manipulate kerberos 5 keytabs
 
 Package: arsoft-ppa
 Architecture: all
