@@ -20,15 +20,23 @@ macro(install_nagios_config)
            )
 endmacro(install_nagios_config)
 
+install(
+    FILES
+        capture_plugin.pl
+        icinga_mail.pl
+        nma.pl
+    DESTINATION
+        usr/lib/nagios
+    PERMISSIONS
+        ${PERM_0755}
+        )
+
 install_nagios_plugin(
     check_apt_upgrade
     check_jenkins_job_time.pl
     check_jenkins.pl
     check_jenkins_slaves.pl
     check_jenkins_version.pl
-    capture_plugin.pl
-    icinga_mail.pl
-    nma.pl
     check_puppetdb_dups
     check_puppetdb_memory
     check_puppetdb_populations

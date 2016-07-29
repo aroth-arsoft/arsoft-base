@@ -1,1 +1,1 @@
-arsoft-scripts-cyrusimapd: binary-without-manpage usr/sbin/cyrusimap-backup
+arsoft-scripts-cyrusimapd: binary-without-manpage usr/bin/cyrusimap-backup

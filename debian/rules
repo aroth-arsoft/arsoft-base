@@ -13,16 +13,23 @@ SUBSTVARS =
 SUBSTVARS += -Vdhcpclient:Depends="isc-dhcp-client"
 SUBSTVARS += -Vdhcpserver:Depends="isc-dhcp-server"
 
+CMAKE_BUILD_TYPE = Release
+
 %:
-	dh $@
+	 dh $@ --buildsystem=cmake
+
+override_dh_clean:
+	dh_clean --buildsystem=cmake
+	-rm -rf build
+
+override_dh_auto_configure:
+	dh_auto_configure --buildsystem=cmake -- -DTARGET_DISTRIBUTION=$(TARGET_DISTRIBUTION)
 	
 override_dh_auto_install:
-	dh_auto_install -- TARGET_DISTRIBUTION=$(TARGET_DISTRIBUTION)
-	mkdir -p $(DESTDIR)/usr/share/arsoft-base/bash
-	ln -s /usr/share/arsoft-base/bash/bash.bashrc $(DESTDIR)/etc/bash.bashrc
-	ln -s /usr/share/arsoft-base/profile $(DESTDIR)/etc/profile
-	install -d -m 0755 -o root -g root $(DESTDIR)/etc/arsoft-base/system-startup.d
-	install -d -m 0755 -o root -g root $(DESTDIR)/etc/arsoft-base/system-shutdown.d
+	dh_auto_install --buildsystem=cmake
+	mkdir -p $(CURDIR)/debian/tmp/usr/share/arsoft-base/bash
+	ln -s /usr/share/arsoft-base/bash/bash.bashrc $(CURDIR)/debian/tmp/etc/bash.bashrc
+	ln -s /usr/share/arsoft-base/profile $(CURDIR)/debian/tmp/etc/profile
 
 override_dh_gencontrol:
 	dh_gencontrol -- $(SUBSTVARS)

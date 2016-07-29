@@ -1,9 +1,15 @@
 
 install(FILES arsoft-dhcp-client-exit DESTINATION etc/dhcp/dhclient-exit-hooks.d)
 install(FILES arsoft-dhcp-client-enter DESTINATION etc/dhcp/dhclient-enter-hooks.d)
+install(FILES default DESTINATION etc/default/arsoft-dhcp-client)
 
-install(FILES nm-dispatch DESTINATION etc/NetworkManager/dispatcher.d PERMISSIONS ${PERM_0755})
+install(FILES nm-dispatch DESTINATION etc/NetworkManager/dispatcher.d RENAME 20arsoft-nm-dispatch PERMISSIONS ${PERM_0755})
 
+#install(CODE "file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/usr/lib/arsoft-dhcp/dhclient-enter\")")
+#install(CODE "file(MAKE_DIRECTORY \"\${CMAKE_INSTALL_PREFIX}/usr/lib/arsoft-dhcp/dhclient-exit\")")
+
+install_mkdir(usr/lib/arsoft-dhcp/dhclient-exit)
+install_mkdir(usr/lib/arsoft-dhcp/dhclient-enter)
 
 
 file(GLOB _files "exit.d/*")
