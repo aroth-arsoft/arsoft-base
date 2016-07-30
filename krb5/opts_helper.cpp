@@ -17,6 +17,34 @@ namespace
 
 } // namespace
 
+namespace {
+#if BOOST_VERSION < 105000
+    std::string
+    canonical_display_name(const boost::program_options::option_description & od, int prefix_style)
+    {
+        if (!od.long_name().empty())
+        {
+            if (prefix_style == boost::program_options::command_line_style::allow_long)
+                return "--" + od.long_name();
+            if (prefix_style == boost::program_options::command_line_style::allow_long_disguise)
+                return "-" + od.long_name();
+        }
+        // sanity check: m_short_name[0] should be '-' or '/'
+        if (od.format_name().length() == 2)
+        {
+            if (prefix_style == boost::program_options::command_line_style::allow_slash_for_short)
+                return std::string("/") + od.format_name();
+            if (prefix_style == boost::program_options::command_line_style::allow_dash_for_short)
+                return std::string("-") + od.format_name();
+        }
+        if (!od.long_name().empty())
+            return od.long_name();
+        else
+            return od.format_name();
+    }
+#endif
+}
+
 namespace arsoft
 {
 //---------------------------------------------------------------------------------------------------------------------
@@ -26,6 +54,7 @@ namespace arsoft
     hasArgument_(false),
     isPositional_(false)
   {
+#if BOOST_VERSION > 105000
     if ( (option->canonical_display_name(SHORT_PREPENDED_IF_EXIST_ELSE_LONG).size() == SHORT_OPTION_STRING_LENGTH ) )
     {
       hasShort_ = true;
@@ -38,6 +67,20 @@ namespace arsoft
       optionID_ = option->canonical_display_name(LONG_NON_PREPENDED_IF_EXIST_ELSE_PREPENDED_SHORT);
       optionDisplayName_ = option->canonical_display_name(LONG_PREPENDED_IF_EXIST_ELSE_PREPENDED_SHORT);
     }
+#else
+    if ( (canonical_display_name(*option, SHORT_PREPENDED_IF_EXIST_ELSE_LONG).size() == SHORT_OPTION_STRING_LENGTH ) )
+    {
+      hasShort_ = true;
+      optionID_ = canonical_display_name(*option, SHORT_PREPENDED_IF_EXIST_ELSE_LONG);
+      optionDisplayName_ = canonical_display_name(*option, SHORT_PREPENDED_IF_EXIST_ELSE_LONG);
+    }
+    else
+    {
+      hasShort_ = false;
+      optionID_ = canonical_display_name(*option, LONG_NON_PREPENDED_IF_EXIST_ELSE_PREPENDED_SHORT);
+      optionDisplayName_ = canonical_display_name(*option, LONG_PREPENDED_IF_EXIST_ELSE_PREPENDED_SHORT);
+    }
+#endif
 
     boost::shared_ptr<const boost::program_options::value_semantic> semantic = option->semantic();
     required_ = semantic->is_required();
@@ -232,8 +275,9 @@ namespace arsoft
   {
     std::string currOptionName = error.get_option_name();
     boost::algorithm::erase_regex(currOptionName, boost::regex("^-+"));
+#if BOOST_VERSION > 105000
     error.set_option_name(currOptionName);
-
+#endif
   }
 
 //---------------------------------------------------------------------------------------------------------------------
