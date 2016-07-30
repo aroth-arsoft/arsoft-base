@@ -3,7 +3,8 @@ Section: admin
 Priority: extra
 Maintainer: Andreas Roth <aroth@arsoft-online.com>
 Build-Depends: debhelper (>= 9), cmake, libboost-program-options-dev,
- libboost-filesystem-dev, libboost-system-dev, libboost-regex-dev
+ libboost-filesystem-dev, libboost-system-dev, libboost-regex-dev,
+ libkrb5-dev
 Standards-Version: 3.9.7
 Homepage: http://www.arsoft-online.com
 
@@ -27,7 +28,7 @@ Description: configure the system to use the AR Soft packages.
 
 Package: arsoft-base-bin
 Architecture: i386 amd64
-Depends: ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: binary packages for system administration
  includes a tool to manipulate kerberos 5 keytabs
 

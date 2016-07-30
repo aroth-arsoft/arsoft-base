@@ -7,39 +7,7 @@
 
 using namespace std;
 
-krb5_error_code
-keytab_list(krb5_context k5,
-                          krb5_keytab keytab,
-                          krb5_boolean (* match_func) (krb5_context,
-                                                       krb5_keytab_entry *,
-                                                       void *) = NULL,
-                          void *match_data = NULL)
-{
-	krb5_kt_cursor cursor;
-	krb5_keytab_entry entry;
-	krb5_error_code code;
-
-	code = krb5_kt_start_seq_get (k5, keytab, &cursor);
-	while(!code)
-    {
-		code = krb5_kt_next_entry (k5, keytab, &entry, &cursor);
-		if (code == 0)
-        {
-            /* See if we should remove this entry */
-            if (match_func && !match_func (k5, &entry, match_data)) {
-                krb5_free_keytab_entry_contents (k5, &entry);
-                continue;
-            }
-
-        }
-	}
-
-	if (code == KRB5_KT_END)
-		code = 0;
-
-	krb5_kt_end_seq_get (k5, keytab, &cursor);
-	return code;
-}
+#define SYSTEM_KEYTAB "/etc/krb5.keytab"
 
 class krb5_base_object
 {
@@ -139,11 +107,12 @@ public:
         bool ret = false;
         if(_ok)
         {
-            krb5_kt_cursor cursor;
+            krb5_kt_cursor cursor = NULL;
             krb5_keytab_entry entry;
             krb5_error_code code;
 
             code = krb5_kt_start_seq_get (_ctx, _handle, &cursor);
+            ret = (code == 0);
             while(!code)
             {
                 code = krb5_kt_next_entry (_ctx, _handle, &entry, &cursor);
@@ -159,7 +128,8 @@ public:
             if (code == KRB5_KT_END)
                 code = 0;
 
-            krb5_kt_end_seq_get (_ctx, _handle, &cursor);
+            if(cursor)
+                krb5_kt_end_seq_get (_ctx, _handle, &cursor);
 
         }
         return ret;
@@ -170,10 +140,11 @@ public:
         bool ret = false;
         if(source._ok)
         {
-            krb5_kt_cursor cursor;
+            krb5_kt_cursor cursor = NULL;
             krb5_keytab_entry entry;
             krb5_error_code code;
             code = krb5_kt_start_seq_get (source._ctx, source._handle, &cursor);
+            ret = (code == 0);
             while(!code)
             {
                 code = krb5_kt_next_entry (source._ctx, source._handle, &entry, &cursor);
@@ -189,9 +160,8 @@ public:
             if (code == KRB5_KT_END)
                 code = 0;
 
-            krb5_kt_end_seq_get (source._ctx, source._handle, &cursor);
-
-            ret = true;
+            if(cursor)
+                krb5_kt_end_seq_get (source._ctx, source._handle, &cursor);
         }
         return ret;
     }
@@ -257,8 +227,8 @@ int main(int argc, char ** argv)
       ("help,h", "Print help messages")
       ("verbose,v", "enable verbose output")
       ("version,V", "show version number")
-      ("list,l", po::value<std::string>(), "list all entries of the given keytab")
-      ("update,u", po::value< vector<string> >()->multitoken(), "command to execute")
+      ("list,l", po::value<string>()->implicit_value(SYSTEM_KEYTAB), "list all entries of the given keytab")
+      ("update,u", po::value< vector<string> >()->multitoken(), "copies new or missing entries from source keytab to destination")
       ;
 
     po::positional_options_description positionalOptions;
@@ -311,7 +281,11 @@ int main(int argc, char ** argv)
     }
     else
     {
-        if ( vm.count("list") )
+        if( vm.count("version"))
+        {
+            cout << appName << " version " << TARGET_VERSION << " (" << TARGET_DISTRIBUTION << ")" << endl;
+        }
+        else if ( vm.count("list") )
         {
             string filename = vm["list"].as<std::string>();
             keytab kt(ctx, filename);
@@ -323,9 +297,25 @@ int main(int argc, char ** argv)
             string source = (filenames.size() >= 1) ? filenames[0] : string();
             string dest = (filenames.size() >= 2) ? filenames[1] : string();
 
-            keytab sourceKeyTab(ctx, source);
-            keytab destKeyTab(ctx, dest);
-            destKeyTab.update(sourceKeyTab);
+            if(source.empty())
+            {
+                cerr << "No source keytab file given." << endl;
+                ret = 1;
+            }
+            else if(dest.empty())
+            {
+                cerr << "No destination keytab file given." << endl;
+                ret = 1;
+            }
+            else
+            {
+                keytab sourceKeyTab(ctx, source);
+                keytab destKeyTab(ctx, dest);
+                if(destKeyTab.update(sourceKeyTab))
+                    ret = 0;
+                else
+                    ret = 2;
+            }
         }
     }
     krb5_free_context(ctx);

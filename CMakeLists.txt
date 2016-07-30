@@ -10,9 +10,30 @@ if(NOT TARGET_DISTRIBUTION)
     set(TARGET_DISTRIBUTION ${_lsb_codename})
 endif()
 
+if(NOT TARGET_VERSION)
+    # Get the current working branch
+    execute_process(
+        COMMAND git rev-parse --abbrev-ref HEAD
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_BRANCH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    # Get the latest abbreviated commit hash of the working branch
+    execute_process(
+        COMMAND git log -1 --format=%h
+        WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+        OUTPUT_VARIABLE GIT_COMMIT_HASH
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+    set(TARGET_VERSION "git-${GIT_BRANCH}-${GIT_COMMIT_HASH}")
+endif()
+
+add_definitions(-DTARGET_VERSION=\"${TARGET_VERSION}\" -DTARGET_DISTRIBUTION=\"${TARGET_DISTRIBUTION}\")
 set(CMAKE_INSTALL_PREFIX "")
 
 message(STATUS "Target distribution: ${TARGET_DISTRIBUTION}")
+message(STATUS "Target version: ${TARGET_VERSION}")
 
 set(PERM_0755 OWNER_WRITE OWNER_READ OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
 

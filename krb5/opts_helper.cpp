@@ -220,15 +220,11 @@ namespace arsoft
     } // foreach option
 
     out << "USAGE: " << appName << " " << optionPrinter.usage() << std::endl
-        << std::endl
-        << "-- Option Descriptions --" << std::endl
-        << std::endl
-        << "Positional arguments:" << std::endl
-        << optionPrinter.positionalOptionDetails()
-        << std::endl
-        << "Option Arguments: " << std::endl
-        << optionPrinter.optionDetails()
         << std::endl;
+    if(!optionPrinter.positionalOptionDetails().empty())
+        out << "Positional arguments:" << std::endl << optionPrinter.positionalOptionDetails() << std::endl;
+    if(!optionPrinter.optionDetails().empty())
+        out << "Option Arguments: " << std::endl << optionPrinter.optionDetails() << std::endl;
   }
 
 //---------------------------------------------------------------------------------------------------------------------
