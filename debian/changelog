@@ -1,3 +1,9 @@
+arsoft-base (2.174) xenial; urgency=medium
+
+  * fixed bash script installation
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 31 Jul 2016 09:40:15 +0200
+
 arsoft-base (2.173) xenial; urgency=medium
 
   * fix build issue by old boost version on precise

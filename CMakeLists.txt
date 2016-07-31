@@ -55,6 +55,10 @@ macro(install_mkdir)
     endforeach()
 endmacro(install_mkdir)
 
+macro(install_symlink src dest)
+    install(CODE "execute_process(COMMAND \${CMAKE_COMMAND} -E create_symlink \"${src}\" \"\${CMAKE_INSTALL_PREFIX}/${dest}\")")
+endmacro(install_symlink)
+
 
 add_subdirectory(apt)
 add_subdirectory(bind)

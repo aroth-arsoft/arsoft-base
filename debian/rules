@@ -25,12 +25,6 @@ override_dh_clean:
 
 override_dh_auto_configure:
 	dh_auto_configure --buildsystem=cmake -- -DTARGET_DISTRIBUTION=$(TARGET_DISTRIBUTION) -DTARGET_VERSION=$(TARGET_VERSION)
-	
-override_dh_auto_install:
-	dh_auto_install --buildsystem=cmake
-	mkdir -p $(CURDIR)/debian/tmp/usr/share/arsoft-base/bash
-	ln -s /usr/share/arsoft-base/bash/bash.bashrc $(CURDIR)/debian/tmp/etc/bash.bashrc
-	ln -s /usr/share/arsoft-base/profile $(CURDIR)/debian/tmp/etc/profile
 
 override_dh_gencontrol:
 	dh_gencontrol -- $(SUBSTVARS)
