@@ -1,5 +1,10 @@
 #include "krb5_wrapper.h"
 #include <krb5.h>
+#include <string.h>
+#include <vector>
+
+#include <iostream>
+using namespace std;
 
 namespace arsoft {
     namespace krb5 {
@@ -110,6 +115,11 @@ std::string timestamp::to_string() const
 keytab_entry::keytab_entry(const context & ctx, krb5_keytab_entry * entry)
     : base_object(ctx), _entry(entry)
 {
+}
+
+int keytab_entry::get_magic() const
+{
+    return _entry->magic;
 }
 
 principal keytab_entry::get_principal() const
@@ -275,5 +285,97 @@ krb5_error_code keytab::updateEntry(krb5_keytab_entry * updatedEntry)
         code = 0;
     return code;
 }
+
+bool keytab::expunge()
+{
+    bool ret = false;
+    if(_ok)
+    {
+        krb5_kt_cursor cursor = NULL;
+        krb5_keytab_entry entry;
+        krb5_error_code code;
+        std::vector<krb5_keytab_entry> entries_to_remove;
+        code = krb5_kt_start_seq_get (_ctx, _handle, &cursor);
+        ret = (code == 0);
+        while(!code)
+        {
+            code = krb5_kt_next_entry (_ctx, _handle, &entry, &cursor);
+            if (code == 0)
+            {
+                krb5_kt_cursor inner_cursor = NULL;
+                krb5_keytab_entry inner_entry;
+                code = krb5_kt_start_seq_get (_ctx, _handle, &inner_cursor);
+                ret = (code == 0);
+                while(!code)
+                {
+                    bool free_inner_entry = true;
+                    code = krb5_kt_next_entry (_ctx, _handle, &inner_entry, &inner_cursor);
+                    if (code == 0)
+                    {
+                        if( entry.magic == inner_entry.magic &&
+                            entry.key.enctype == inner_entry.key.enctype &&
+                            entry.key.length == inner_entry.key.length &&
+                            entry.vno == inner_entry.vno &&
+                            krb5_principal_compare(_ctx, entry.principal, inner_entry.principal) &&
+                            memcmp(entry.key.contents, entry.key.contents, entry.key.length) == 0 &&
+                            1
+                            )
+                        {
+                            //cout << "Found same entry" << endl;
+                        }
+                        else if(
+                            entry.magic == inner_entry.magic &&
+                            entry.key.enctype == inner_entry.key.enctype &&
+                            entry.vno > inner_entry.vno &&
+                            krb5_principal_compare(_ctx, entry.principal, inner_entry.principal)
+                            )
+                        {
+                            // keep the memory of the entry alive
+                            free_inner_entry = false;
+                            entries_to_remove.push_back(inner_entry);
+                        }
+
+                        if(free_inner_entry)
+                        {
+                            // release all memory
+                            krb5_free_keytab_entry_contents(_ctx, &inner_entry);
+                        }
+                    }
+                }
+                if(inner_cursor)
+                    krb5_kt_end_seq_get (_ctx, _handle, &inner_cursor);
+
+                // reset any error of the second pass
+                code = 0;
+
+                // release all memory
+                krb5_free_keytab_entry_contents(_ctx, &entry);
+            }
+        }
+
+        if (code == KRB5_KT_END)
+            code = 0;
+
+        if(cursor)
+            krb5_kt_end_seq_get (_ctx, _handle, &cursor);
+
+        if(!entries_to_remove.empty())
+        {
+            for(std::vector<krb5_keytab_entry>::iterator it = entries_to_remove.begin(); it != entries_to_remove.end(); ++it)
+            {
+                krb5_keytab_entry & entry = *it;
+                code = krb5_kt_remove_entry(_ctx, _handle, &entry);
+                if(code)
+                    throw error(this, code);
+
+                // release all memory
+                krb5_free_keytab_entry_contents(_ctx, &entry);
+            }
+        }
+
+    }
+    return ret;
+}
+
     } // namespace krb5
 } // namespace arsoft

@@ -16,6 +16,7 @@ struct console_list_handler {
         OutputLevelKeyVersion = 0x02,
         OutputLevelEncryptionType = 0x04,
         OutputLevelTimestamp = 0x08,
+        OutputLevelMagic = 0x10,
         OutputLevelDefault = OutputLevelPrincipal|OutputLevelKeyVersion|OutputLevelEncryptionType|OutputLevelTimestamp
     };
     OutputLevel _level;
@@ -25,6 +26,12 @@ struct console_list_handler {
     void operator()(const keytab_entry & e) const
     {
         bool first = true;
+        if(_level & OutputLevelMagic)
+        {
+            if(!first) cout << ", ";
+            first = false;
+            cout << std::hex << e.get_magic() << std::dec;
+        }
         if(_level & OutputLevelPrincipal)
         {
             if(!first) cout << ", ";
@@ -70,6 +77,7 @@ int main(int argc, char ** argv)
       ("version,V", "show version number")
       ("list,l", po::value<string>()->implicit_value(SYSTEM_KEYTAB), "list all entries of the given keytab")
       ("update,u", po::value< vector<string> >()->multitoken(), "copies new or missing entries from source keytab to destination")
+      ("expunge,E", po::value< vector<string> >()->multitoken(), "remove all duplicated or obsolete keytab entries.")
       ;
 
     po::positional_options_description positionalOptions;
@@ -147,6 +155,18 @@ int main(int argc, char ** argv)
                 keytab sourceKeyTab(ctx, source);
                 keytab destKeyTab(ctx, dest);
                 if(destKeyTab.update(sourceKeyTab))
+                    ret = 0;
+                else
+                    ret = 2;
+            }
+        }
+        else if( vm.count("expunge"))
+        {
+            vector<string> filenames = vm["expunge"].as< vector<string> >();
+            for(vector<string>::const_iterator it = filenames.begin(); it != filenames.end(); ++it)
+            {
+                keytab keytab(ctx, *it);
+                if(keytab.expunge())
                     ret = 0;
                 else
                     ret = 2;

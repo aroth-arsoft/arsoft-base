@@ -107,6 +107,7 @@ class keytab_entry : public base_object
 public:
     keytab_entry(const context & ctx, krb5_keytab_entry * entry);
 
+    int get_magic() const;
     int get_key_version() const;
     principal get_principal() const;
     timestamp get_timestamp() const;
@@ -144,6 +145,7 @@ public:
         return list(list_handler_impl(handler));
     }
     bool update(const keytab & source);
+    bool expunge();
 
 protected:
     krb5_error_code updateEntry(krb5_keytab_entry * updatedEntry);
