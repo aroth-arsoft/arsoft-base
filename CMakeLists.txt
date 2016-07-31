@@ -1,6 +1,8 @@
 cmake_minimum_required (VERSION 2.8)
 project (arsoft-base C CXX)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
 EXECUTE_PROCESS(COMMAND lsb_release -cs
                 OUTPUT_VARIABLE _lsb_codename
                 OUTPUT_STRIP_TRAILING_WHITESPACE
