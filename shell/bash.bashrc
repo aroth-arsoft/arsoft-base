@@ -112,7 +112,7 @@ alias ..4="cd ../../../.."
 alias ..5="cd ../../../../.."
 
 # become root
-alias root='sudo -i -s'
+alias root='sudo -s'
 
 # reboot / halt / poweroff
 alias reboot='sudo /sbin/reboot'
