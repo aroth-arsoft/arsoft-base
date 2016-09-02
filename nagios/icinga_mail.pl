@@ -239,6 +239,7 @@ sub sendMail {
     print MAIL "To: $recipient\n";
     print MAIL "From: $originator\n";
     print MAIL "Subject: $subject\n";
+    print MAIL "MIME-Version: 1.0\n";
     print MAIL "Content-type: text/html; charset=\"UTF-8\"\n\n";
     # Email Body
     print MAIL $messageBody;

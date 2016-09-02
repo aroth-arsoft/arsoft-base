@@ -1,3 +1,9 @@
+arsoft-base (2.176) xenial; urgency=medium
+
+  * add mime version header for icinga mails
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 02 Sep 2016 17:34:44 +0200
+
 arsoft-base (2.175) xenial; urgency=medium
 
   * add expunge operation to remove old keytab entries
