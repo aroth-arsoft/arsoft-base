@@ -8,6 +8,7 @@ declare -i set_proxy_use=0
 function usage() {
 	echo "usage: apt-proxy <action> [params]"
 	echo "action must be one of the following:"
+	echo "  -?,-h,--help         show this help message"
 	echo "  info                 displays the current proxy configuration"
 	echo "  enable               enable the usage of proxy"
 	echo "  disable              disable the usage of proxy"
