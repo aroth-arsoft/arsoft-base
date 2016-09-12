@@ -30,7 +30,7 @@ else
 		for f in /etc/apt/trust*; do
 			[ -f "$f" ] && rm "$f"
 		done
-		/usr/sbin/apt-key-import $verbose_opt --keylist /etc/apt/keylist
+		/usr/bin/apt-key-import $verbose_opt --keylist /etc/apt/keylist
 	fi
 	/usr/bin/find /var/lib/apt/lists -type f -print -delete
 	/usr/bin/apt-get clean
