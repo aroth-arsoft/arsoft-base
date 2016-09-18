@@ -39,6 +39,7 @@ class base_object
 protected:
     const context & _ctx;
     base_object(const context & ctx);
+    base_object(const base_object & rhs);
 public:
     virtual ~base_object();
     const context & get_context() const;
@@ -73,6 +74,7 @@ public:
 
     bool operator==(const principal & rhs) const;
     bool operator!=(const principal & rhs) const;
+    bool operator<(const principal & rhs) const;
 
     const std::string & name() const;
     operator std::string() const { return name(); }
@@ -104,8 +106,11 @@ public:
 class keytab_entry : public base_object
 {
     krb5_keytab_entry * _entry;
+    bool _allocated;
 public:
     keytab_entry(const context & ctx, krb5_keytab_entry * entry);
+    keytab_entry(const keytab_entry & rhs);
+    ~keytab_entry();
 
     int get_magic() const;
     int get_key_version() const;
@@ -127,22 +132,23 @@ public:
     const std::string & get_filename() const;
 
     struct list_handler {
-        virtual void operator()(const keytab_entry & entry) const = 0;
+        virtual void operator()(const keytab_entry & entry) = 0;
     };
-    bool list(const list_handler & handler);
+    bool list(list_handler & handler);
 
     template<typename LIST_HANDLER>
-    bool list(const LIST_HANDLER & handler)
+    bool list(LIST_HANDLER & handler)
     {
         struct list_handler_impl : public list_handler {
-            const LIST_HANDLER & _handler;
-            list_handler_impl(const LIST_HANDLER & handler) : _handler(handler) {}
-            virtual void operator()(const keytab_entry & entry) const
+            LIST_HANDLER & _handler;
+            list_handler_impl(LIST_HANDLER & handler) : _handler(handler) {}
+            virtual void operator()(const keytab_entry & entry)
             {
                 _handler(entry);
             }
         };
-        return list(list_handler_impl(handler));
+        list_handler_impl impl(handler);
+        return list(impl);
     }
     bool update(const keytab & source);
     bool expunge();

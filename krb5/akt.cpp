@@ -23,7 +23,7 @@ struct console_list_handler {
     console_list_handler(OutputLevel level=OutputLevelDefault)
         : _level(level) {}
 
-    void operator()(const keytab_entry & e) const
+    void operator()(const keytab_entry & e)
     {
         bool first = true;
         if(_level & OutputLevelMagic)
@@ -60,6 +60,37 @@ struct console_list_handler {
             cout << endl;
     }
 };
+
+struct sorted_list_handler {
+    typedef std::list<keytab_entry> keytab_entry_list;
+    keytab_entry_list _list;
+    sorted_list_handler()
+    {
+    }
+
+    void operator()(const keytab_entry & e)
+    {
+        _list.push_back(e);
+    }
+
+    static bool sort_by_principal(const keytab_entry& first, const keytab_entry& second)
+    {
+        return first.get_principal() < second.get_principal();
+    }
+
+    template<typename LIST_HANDLER>
+    void list(LIST_HANDLER & handler)
+    {
+        _list.sort(sort_by_principal);
+        for(keytab_entry_list::const_iterator it = _list.begin(); it != _list.end(); ++it)
+        {
+            const keytab_entry & entry = *it;
+            handler(entry);
+        }
+    }
+
+};
+
 
 
 int main(int argc, char ** argv)
@@ -131,8 +162,10 @@ int main(int argc, char ** argv)
             string filename = vm["list"].as<std::string>();
             keytab kt(ctx, filename);
             cout << "Keytab name: FILE:" << filename << endl;
+            sorted_list_handler sorted_handler;
+            kt.list<sorted_list_handler>(sorted_handler);
             console_list_handler handler;
-            kt.list<console_list_handler>(handler);
+            sorted_handler.list<console_list_handler>(handler);
         }
         else if( vm.count("update"))
         {

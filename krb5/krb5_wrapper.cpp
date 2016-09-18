@@ -29,6 +29,11 @@ base_object::base_object(const context & ctx)
 {
 }
 
+base_object::base_object(const base_object & rhs)
+    : _ctx(rhs._ctx)
+{
+}
+
 base_object::~base_object()
 {
 }
@@ -85,6 +90,11 @@ bool principal::operator==(const principal & rhs) const
     return (krb5_principal_compare(_ctx, _handle, rhs._handle) != 0);
 }
 
+bool principal::operator<(const principal & rhs) const
+{
+    return (krb5_principal_compare(_ctx, _handle, rhs._handle) < 0);
+}
+
 const std::string & principal::name() const
 {
     if(_name.empty())
@@ -113,8 +123,19 @@ std::string timestamp::to_string() const
 }
 
 keytab_entry::keytab_entry(const context & ctx, krb5_keytab_entry * entry)
-    : base_object(ctx), _entry(entry)
+    : base_object(ctx), _entry(entry), _allocated(false)
 {
+}
+
+keytab_entry::keytab_entry(const keytab_entry & rhs)
+    : base_object(rhs._ctx), _entry(rhs._entry?new krb5_keytab_entry(*rhs._entry):NULL), _allocated(rhs._entry != NULL)
+{
+}
+
+keytab_entry::~keytab_entry()
+{
+    if(_allocated)
+        delete _entry;
 }
 
 int keytab_entry::get_magic() const
@@ -176,7 +197,7 @@ const std::string & keytab::get_filename() const
     return _filename;
 }
 
-bool keytab::list(const list_handler & handler)
+bool keytab::list(list_handler & handler)
 {
     bool ret = false;
     if(_ok)

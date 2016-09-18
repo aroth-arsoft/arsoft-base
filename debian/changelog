@@ -1,3 +1,9 @@
+arsoft-base (2.180) xenial; urgency=medium
+
+  * akt: output list sorted by principal name
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 18 Sep 2016 12:27:58 +0200
+
 arsoft-base (2.179) xenial; urgency=medium
 
   * fixed path to apt-key-import
