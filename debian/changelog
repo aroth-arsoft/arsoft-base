@@ -1,3 +1,10 @@
+arsoft-base (2.181) xenial; urgency=medium
+
+  * apt-repo: cleanup temp directory
+  * apt-repo: delete corrupt files which are not a valid debian package
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 15 Oct 2016 18:20:09 +0200
+
 arsoft-base (2.180) xenial; urgency=medium
 
   * akt: output list sorted by principal name

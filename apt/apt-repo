@@ -36,6 +36,12 @@ function usage() {
     exit 0
 }
 
+function containsElement () {
+  local e
+  for e in "${@:2}"; do [[ "$e" == "$1" ]] && return 0; done
+  return 1
+}
+
 function repoInit() {
 	[ ! -d "$repo_dir/conf" ] && mkdir -p "$repo_dir/conf"
 	[ ! -d "$repo_dir/.gnupg" ] && mkdir -p "$repo_dir/.gnupg" && chmod 700 "$repo_dir/.gnupg"
@@ -98,7 +104,7 @@ function repoIsValid() {
 
 function repoStatus() {
 	if callReprepro check; then
-		[ $verbose -ne 0 ] && echo "Repository $repo_dir OK"
+		echo "Repository $repo_dir OK"
 	else
 		echo "Repository $repo_dir corrupt" 1>&2
 	fi
@@ -264,50 +270,61 @@ function repoCleanup() {
 function updateFile() {
 	local source_url="$1"
 	local distributions="${2//,/ }"
+	local pkgfiles_in_filelist="$3"
 	local source_base=`basename "$1"`
 	local dest_dir="$repo_dir/tmp"
 	local dest_file="$dest_dir/$source_base"
 	local old_mtime=0
 	local source_query="${source_base##*\?}"
 	source_query="${source_query//\//%2F}"
+	local wget_opts='--timestamping'
+	[ $verbose -eq 0 ] && wget_opts="$wget_opts --quiet" || wget_opts="$wget_opts --verbose"
+
+	echo "$source_base" >> "$pkgfiles_in_filelist"
 
 	#echo "source_query: $source_query"
 
 	[ ! -d "$dest_dir" ] && mkdir -p "$dest_dir"
 	[ -f "$dest_file" ] && old_mtime=`stat -c %Y "$dest_file"`
 	pushd "$dest_dir" > /dev/null
-	if [ $verbose -eq 0 ]; then
-		wget --quiet --timestamping "$source_url" -nd
-	else
-		wget --verbose --timestamping "$source_url" -nd
-	fi
+	[ $verbose -ne 0 ] && echo "wget $wget_opts \"$source_url\" -nd"
+    wget $wget_opts "$source_url" -nd
 	local RES=$?
+
 	popd > /dev/null
 	if [ $RES -eq 0 ]; then
-		new_mtime=`stat -c %Y "$dest_file"`
-		if [ $force -ne 0 -o $new_mtime -gt $old_mtime ]; then
-			[ $verbose -ne 0 ] && echo "Download $source_url to $dest_file (old $old_mtime, new $new_mtime)"
+        filetype=`file -b "$dest_file"`
+        if [ "$filetype" != "Debian binary package (format 2.0)" ]; then
+            echo "File $dest_file not a debian package (actually $filetype)" 1>&2
+            # delete the downloaded file, so in case of server error the download will
+            # be retried on next update run.
+            rm -f "$dest_file"
+        else
+            new_mtime=`stat -c %Y "$dest_file"`
+            if [ $force -ne 0 -o $new_mtime -gt $old_mtime ]; then
+                [ $verbose -ne 0 ] && echo "Download $source_url to $dest_file (old $old_mtime, new $new_mtime)"
 
-			for distro in $distributions; do
-				if callReprepro --ignore=extension includedeb "$distro" "$dest_file"; then
-					[ $verbose -ne 0 ] && echo "Packages $dest_file added for $distro successfully."
-				else
-					echo "Failed to add packages $dest_file for $distro."
-				fi
-			done
-		else
-			[ $verbose -ne 0 ] && echo "No newer version of $source_url as $dest_file (old $old_mtime, new $new_mtime)"
-			for distro in $distributions; do
-				if ! repoIsPackageUpToDate "$distro" "$dest_file"; then
-					if callReprepro --ignore=extension includedeb "$distro" "$dest_file"; then
-						[ $verbose -ne 0 ] && echo "Packages $dest_file added for $distro successfully."
-					else
-						echo "Failed to add packages $dest_file for $distro."
-					fi
-				fi
-			done
-			true
-		fi
+                for distro in $distributions; do
+                    if callReprepro --ignore=extension includedeb "$distro" "$dest_file"; then
+                        [ $verbose -ne 0 ] && echo "Packages $dest_file added for $distro successfully."
+                    else
+                        echo "Failed to add packages $dest_file for $distro."
+                    fi
+                done
+            else
+                [ $verbose -ne 0 ] && echo "No newer version of $source_url as $dest_file (old $old_mtime, new $new_mtime)"
+                for distro in $distributions; do
+                    if ! repoIsPackageUpToDate "$distro" "$dest_file"; then
+                        if callReprepro --ignore=extension includedeb "$distro" "$dest_file"; then
+                            [ $verbose -ne 0 ] && echo "Packages $dest_file added for $distro successfully."
+                        else
+                            echo "Failed to add packages $dest_file for $distro."
+                        fi
+                    fi
+                done
+                true
+            fi
+        fi
 	else
 		echo "Failed to download $source_url to $dest_file" 1>&2
 	fi
@@ -323,6 +340,9 @@ function updateFromFilelist() {
 		echo "Unable to read $filelist" 1>&2
 	else
 		[ $verbose -ne 0 ] && echo "Use package list $filelist"
+		pkgfiles_in_filelist="$repo_dir/tmp/pkgfiles_$(basename "$filelist")"
+		# start new list of actually required file in temp dir
+		test -f "$pkgfiles_in_filelist" && rm -f "$pkgfiles_in_filelist"
 		declare -a fields
 		while IFS=$'\t ' read -r -a fields; do
 			[ ${#fields[*]} -eq 0 -o "${fields[0]:0:1}" == "#" ] && continue
@@ -330,7 +350,7 @@ function updateFromFilelist() {
 			source_url="${fields[0]}"
 			distributions="${fields[1]}"
 
-			updateFile "$source_url" "$distributions"
+			updateFile "$source_url" "$distributions" "$pkgfiles_in_filelist"
 		done < "$filelist"
 		RES=0
 	fi
@@ -349,6 +369,27 @@ function updateFromFilelistDir() {
 		done
 	fi
 	return $RES
+}
+
+function cleanupTempFiles() {
+    declare -a all_pkgfiles
+    shopt -s nullglob
+    for filelist in "$repo_dir/tmp/pkgfiles_"*; do
+		while IFS=$'\t ' read -r -a fields; do
+			[ ${#fields[*]} -eq 0 -o "${fields[0]:0:1}" == "#" ] && continue
+			all_pkgfiles+=("${fields[0]}")
+		done < "$filelist"
+    done
+    for tmpfile in "$repo_dir/tmp/"*; do
+        tmpfile_base=`basename "$tmpfile"`
+        [[ $tmpfile_base == "pkgfiles_"* ]] && continue
+        if containsElement "$tmpfile_base" "${all_pkgfiles[@]}"; then
+            [ $verbose -ne 0 ] && echo "found $tmpfile (still in use)"
+        else
+            echo "Delete unused temporary file $tmpfile"
+            rm -f "$tmpfile"
+        fi
+    done
 }
 
 # parse command line arguments
@@ -423,8 +464,8 @@ while [ $# -ne 0 ]; do
 			esac
 		done
 		;;
-	'cron-update')
-		action='cron-update'
+	'cron-update'|'update')
+		action='update'
 		while [ $# -gt 1 ]; do
 			case "$2" in
 				-*)
@@ -450,7 +491,7 @@ while [ $# -ne 0 ]; do
                     ;;
                 *)
                     if [ -z "$copy_source" ]; then
-                        copy_source="$2"
+                        copy_source="$2"cleanupTempFiles
                     elif [ -z "$copy_dest" ]; then
                         copy_dest="$2"
                     else
@@ -508,11 +549,12 @@ case "$action" in
 	'init')
 		repoInit
 		;;
-	'info'|'status')
+	'status')
 		repoIsValid && repoStatus
 		;;
 	'cleanup')
 		repoCleanup
+		cleanupTempFiles
 		;;
     'export')
         repoExport
@@ -533,11 +575,12 @@ case "$action" in
 			repoList $package_files
 		fi
 		;;
-	'cron-update'|'update')
-		repoCleanup
+	'update')
 		updateFromFilelistDir "$update_filelist"
 		repoProcessIncoming
 		repoUpdate
+		repoCleanup
+		cleanupTempFiles
 		;;
 	*)
 		echo "Action $action not implemented."
