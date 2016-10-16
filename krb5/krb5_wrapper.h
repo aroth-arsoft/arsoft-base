@@ -148,7 +148,7 @@ public:
             }
         };
         list_handler_impl impl(handler);
-        return list(impl);
+        return list(static_cast<list_handler & >(impl));
     }
     bool update(const keytab & source);
     bool expunge();
