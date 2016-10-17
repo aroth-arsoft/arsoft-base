@@ -1,3 +1,9 @@
+arsoft-base (2.183) yakkety; urgency=medium
+
+  * add support for zephyr
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 17 Oct 2016 19:30:23 +0200
+
 arsoft-base (2.182) xenial; urgency=medium
 
   * fixed compile error

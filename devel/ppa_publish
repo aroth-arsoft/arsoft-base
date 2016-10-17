@@ -36,6 +36,7 @@ declare -A VALID_RELEASE=(
 ["wily"]="15.10"
 ["xenial"]="16.04"
 ["yakkety"]="16.10"
+["zephyr"]="17.04"
 )
 noput=0
 noorig=0
