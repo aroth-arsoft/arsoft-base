@@ -14,7 +14,7 @@ case "$1" in
 		release=$(lsb_release -c -s)
         puppetlabs_release="$release"
         [ "$puppetlabs_release" = 'yakkety' ] && puppetlabs_release='xenial'
-        [ "$puppetlabs_release" = 'zephyr' ] && puppetlabs_release='xenial'
+        [ "$puppetlabs_release" = 'zesty' ] && puppetlabs_release='xenial'
 
 		echo "# /etc/apt/sources.list.d/ppa-aroth.list" >> /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
