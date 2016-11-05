@@ -372,6 +372,7 @@ function updateFromFilelistDir() {
 }
 
 function cleanupTempFiles() {
+	local RES=0
     declare -a all_pkgfiles
     shopt -s nullglob
     for filelist in "$repo_dir/tmp/pkgfiles_"*; do
@@ -390,6 +391,7 @@ function cleanupTempFiles() {
             rm -f "$tmpfile"
         fi
     done
+	return $RES
 }
 
 # parse command line arguments
