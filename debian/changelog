@@ -1,3 +1,9 @@
+arsoft-base (2.186) yakkety; urgency=medium
+
+  * enhance postfix-sendmail script for eicar and gtube testing
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 26 Nov 2016 17:54:36 +0100
+
 arsoft-base (2.185) yakkety; urgency=medium
 
   * avoid non-zero exit code on apt-repo update

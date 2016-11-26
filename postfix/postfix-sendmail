@@ -25,6 +25,9 @@ helo="$fqdn"
 attachments=''
 multipart=0
 html=0
+eicar=0
+gtube=0
+html=0
 verbose=0
 debug=0
 
@@ -45,6 +48,8 @@ function usage()
 	echo "    --port          specify the mail server port (default: $smtp_port)"
 	echo "    -a, --attach    specify the mail attachment; can be specified multiple times."
 	echo "    --html          send message in HTML."
+	echo "    --gtube         send message GTUBE to verify spam detection."
+	echo "    --eicar         send message including EICAR to verify virus detection."
 	echo "    -n, --netcat    use netcat to send mail (default: $netcat)"
 	echo "    -v,--verbose    verbose output"
 	echo "       --debug      enable debugging; no mail is sent."
@@ -101,6 +106,8 @@ while [ $# -ne 0 ]; do
 		"-a"|"--attach") attachments="$attachments $2"; shift ;;
 		"-n"|"--netcat") netcat=1; ;;
 		"--html") html=1; ;;
+		"--gtube") gtube=1; subject="$subject (GTUBE)"; ;;
+		"--eicar") eicar=1; subject="$subject (EICAR)"; ;;
 		"--debug") debug=1; verbose=1; ;;
 		"-v"|"--verbose") verbose=1; sendmail_opts="$sendmail_opts -v";  ;;
 		*)
@@ -165,6 +172,7 @@ fi
 if [ $multipart -ne 0 ]; then
 	BOUNDARY=`date +%s|md5sum`
 	BOUNDARY=${BOUNDARY:0:32}
+	echo "MIME-Version: 1.0" >> "$mail_temp"
 	echo "Content-Type: multipart/mixed; boundary=\""$BOUNDARY"\"" >> "$mail_temp"
 	echo "" >> "$mail_temp"
 	echo "This is a MIME formatted message.  If you see this text it means that your" >> "$mail_temp"
@@ -178,6 +186,24 @@ if [ $multipart -ne 0 ]; then
 	else
 		echo "Content-Type: text/html; charset=ISO-8859-1" >> "$mail_temp"
 	fi
+elif [ $gtube -ne 0 ]; then
+	echo "MIME-Version: 1.0" >> "$mail_temp"
+	echo "Content-Transfer-Encoding: 7bit" >> "$mail_temp"
+	echo "Precedence: junk" >> "$mail_temp"
+    echo "Content-Type: text/plain; charset=us-ascii" >> "$mail_temp"
+elif [ $eicar -ne 0 ]; then
+	BOUNDARY=`date +%s|md5sum`
+	BOUNDARY=${BOUNDARY:0:32}
+	echo "MIME-Version: 1.0" >> "$mail_temp"
+	echo "Content-Type: multipart/mixed; boundary=\""$BOUNDARY"\"" >> "$mail_temp"
+	echo "" >> "$mail_temp"
+	echo "This is a MIME formatted message.  If you see this text it means that your" >> "$mail_temp"
+	echo "email software does not support MIME formatted messages." >> "$mail_temp"
+	echo "" >> "$mail_temp"
+	echo "--$BOUNDARY" >> "$mail_temp"
+	echo "Content-Transfer-Encoding: 7bit" >> "$mail_temp"
+	echo "Content-Disposition: inline" >> "$mail_temp"
+    echo "Content-Type: text/plain; charset=ISO-8859-1; format=flowed" >> "$mail_temp"
 else
 	echo "Content-Type: text/plain; charset=ISO-8859-1; format=flowed" >> "$mail_temp"
 fi
@@ -185,7 +211,35 @@ fi
 # finalize the message header (even when no message is given)
 echo -e "\n" >> "$mail_temp"
 
-if [ ! -z "$msgfile" -a -f "$msgfile" ]; then
+if [ $gtube -ne 0 ]; then
+    cat >> "$mail_temp" << EOF
+This is the GTUBE, the
+	Generic
+	Test for
+	Unsolicited
+	Bulk
+	Email
+
+If your spam filter supports it, the GTUBE provides a test by which you
+can verify that the filter is installed correctly and is detecting incoming
+spam. You can send yourself a test mail containing the following string of
+characters (in upper case and with no white spaces and line breaks):
+
+XJS*C4JDBQADN1.NSBN3*2IDNEN*GTUBE-STANDARD-ANTI-UBE-TEST-EMAIL*C.34X
+
+You should send this test mail from an account outside of your network.
+
+EOF
+elif [ $eicar -ne 0 ]; then
+    cat >> "$mail_temp" << EOF
+This is a test message which includes a file attachment of the
+EICAR Standard Anti-Virus Test File.
+
+If your spam filter supports it, this mail provides a test by which you
+can verify that the filter is installed correctly and is detecting incoming
+viruses.
+EOF
+elif [ ! -z "$msgfile" -a -f "$msgfile" ]; then
 	cat "$msgfile" >> "$mail_temp"
 	echo -e "\n\n" >> "$mail_temp"
 else
@@ -194,7 +248,17 @@ else
 	fi
 fi
 
-if [ $multipart -ne 0 ]; then
+if [ $eicar -ne 0 ]; then
+    echo "--$BOUNDARY" >> "$mail_temp"
+    echo "Content-Type: text/plain; name=\"eicar.txt\"" >> "$mail_temp"
+    echo "Content-Transfer-Encoding: 7bit" >> "$mail_temp"
+    echo "Content-Disposition: attachment; filename=\"eicar.txt\";" >> "$mail_temp"
+    echo "" >> "$mail_temp"
+    echo "X5O!P%@AP[4\PZX54(P^)7CC)7}\$EICAR-STANDARD-ANTIVIRUS-TEST-FILE!\$H+H*" >> "$mail_temp"
+    echo "" >> "$mail_temp"
+    echo "" >> "$mail_temp"
+    echo "--$BOUNDARY--" >> "$mail_temp"
+elif [ $multipart -ne 0 ]; then
 	for attach in $attachments; do
 		FILENAME=`basename "$attach"`
 		MIMETYPE=`LANG=C file -b --mime "$attach"`
