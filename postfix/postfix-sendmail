@@ -41,6 +41,8 @@ function usage()
 	echo "        --bcc       add blind carbon copy receipant address"
 	echo "    -s, --subject   subject (default: $subject)"
 	echo "    -m, --message   message"
+	echo "    -D, --domain    use the given domain (default: $domain)"
+	echo "    -F, --fqdn      use FQDN ($fqdn) as domain"
 	echo "    -M, --msgfile   read message from the given file"
 	echo "    --helo          specify the smtp helo (default: $helo)"
 	echo "    --date          specify the message date (default: $maildate)"
@@ -60,6 +62,13 @@ function verbose_exec()
 {
 	[ $verbose -ne 0 ] && echo "$@"
 	"$@"
+}
+
+function use_domain()
+{
+    domain="$1"
+    from="$USER@$domain"
+    default_to="postmaster@$domain"
 }
 
 # parse command line arguments
@@ -91,6 +100,8 @@ while [ $# -ne 0 ]; do
 		"-s"|"--subject") subject="$2"; shift ;;
 		"-m"|"--message") message="$2"; shift ;;
 		"-M"|"--msgfile") msgfile="$2"; shift ;;
+		"-D"|"--domain") use_domain "$2"; shift ;;
+		"-F"|"--fqdn") use_domain "$fqdn"; ;;
 		"--helo") helo="$2"; shift ;;
 		"--date") 
 			# automatically convert the given date string into RFC 2822 (Internet Message Format)
