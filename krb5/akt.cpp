@@ -205,6 +205,11 @@ int main(int argc, char ** argv)
                     ret = 2;
             }
         }
+        else
+        {
+            cerr << "No action specified." << endl;
+            ret = 2;
+        }
     }
     catch(error & e)
     {
