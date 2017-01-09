@@ -307,6 +307,26 @@ krb5_error_code keytab::updateEntry(krb5_keytab_entry * updatedEntry)
     return code;
 }
 
+bool keytab::removeEntries(const std::vector<krb5_keytab_entry> & entries_to_remove)
+{
+    bool ret = true;
+    if(!entries_to_remove.empty())
+    {
+        krb5_error_code code;
+        for(std::vector<krb5_keytab_entry>::const_iterator it = entries_to_remove.begin(); it != entries_to_remove.end(); ++it)
+        {
+            const krb5_keytab_entry & entry = *it;
+            code = krb5_kt_remove_entry(_ctx, _handle, const_cast<krb5_keytab_entry *>(&entry));
+            if(code)
+                throw error(this, code);
+
+            // release all memory
+            krb5_free_keytab_entry_contents(_ctx, const_cast<krb5_keytab_entry *>(&entry));
+        }
+    }
+    return ret;
+}
+
 bool keytab::expunge()
 {
     bool ret = false;
@@ -380,20 +400,54 @@ bool keytab::expunge()
         if(cursor)
             krb5_kt_end_seq_get (_ctx, _handle, &cursor);
 
-        if(!entries_to_remove.empty())
+        if(!removeEntries(entries_to_remove))
+            ret = false;
+    }
+    return ret;
+}
+
+bool keytab::remove(const std::string & principal)
+{
+    bool ret = false;
+    if(_ok)
+    {
+        krb5_kt_cursor cursor = NULL;
+        krb5_keytab_entry entry;
+        krb5_error_code code;
+        krb5_principal kprincipal;
+
+        code = krb5_parse_name(_ctx, principal.c_str(), &kprincipal);
+        ret = (code == 0);
+        if(ret)
         {
-            for(std::vector<krb5_keytab_entry>::iterator it = entries_to_remove.begin(); it != entries_to_remove.end(); ++it)
+            std::vector<krb5_keytab_entry> entries_to_remove;
+            code = krb5_kt_start_seq_get (_ctx, _handle, &cursor);
+            ret = (code == 0);
+            while(!code)
             {
-                krb5_keytab_entry & entry = *it;
-                code = krb5_kt_remove_entry(_ctx, _handle, &entry);
-                if(code)
-                    throw error(this, code);
-
-                // release all memory
-                krb5_free_keytab_entry_contents(_ctx, &entry);
+                code = krb5_kt_next_entry (_ctx, _handle, &entry, &cursor);
+                if (code == 0)
+                {
+                    if(krb5_principal_compare(_ctx, entry.principal, kprincipal))
+                    {
+                        entries_to_remove.push_back(entry);
+                    }
+                    else
+                    {
+                        // release all memory
+                        krb5_free_keytab_entry_contents(_ctx, &entry);
+                    }
+                }
             }
-        }
 
+            krb5_free_principal(_ctx, kprincipal);
+
+            if(cursor)
+                krb5_kt_end_seq_get (_ctx, _handle, &cursor);
+
+            if(!removeEntries(entries_to_remove))
+                ret = false;
+        }
     }
     return ret;
 }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <vector>
 #include <stdint.h>
 
 typedef int32_t krb5_timestamp;
@@ -152,9 +153,11 @@ public:
     }
     bool update(const keytab & source);
     bool expunge();
+    bool remove(const std::string & principal);
 
 protected:
     krb5_error_code updateEntry(krb5_keytab_entry * updatedEntry);
+    bool removeEntries(const std::vector<krb5_keytab_entry> & entries_to_remove);
 };
 
     } // namespace krb5
