@@ -33,10 +33,12 @@ function runcmd()
 }
 
 #all_map_types=`/usr/sbin/postconf -m 2>/dev/null`
-all_map_files=`/usr/sbin/postconf | /usr/bin/awk -F '=' '/[[:space:]](hash|btree)\:/ { split($2, a, ","); for(x in a) { where=match(a[x],/[[:space:]](hash|btree)\:/); if(where) { print substr(a[x],where+1);} } }' | sort -u`
+all_map_files=`/usr/sbin/postconf | /usr/bin/awk -F '=' '/([[:space:]]+|,)(hash|btree)\:/ { split($2, a, ","); for(x in a) { gsub(/ /, "", a[x]); where=match(a[x],/(hash|btree)\:/); if(where) { print substr(a[x],where);} } }' | sort -u`
+#echo "$all_map_files"
 for f in $all_map_files; do
 	maptype=`echo "$f" | /usr/bin/awk -F':' '{ print $1 }'`
 	mapfile=`echo "$f" | /usr/bin/awk -F':' '{ print $2 }'`
+    [ $verbose -ne 0 ] && echo "got map $f"
 	if [ -f "$mapfile" ]; then
 		if [ "$mapfile" == '/etc/aliases' ]; then
 			runcmd /usr/sbin/postalias -o "${maptype}:${mapfile}"

@@ -1,3 +1,9 @@
+arsoft-base (2.188) yakkety; urgency=medium
+
+  * postfix: fixed update map to pick up map file from complex configs
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 14 Jan 2017 17:33:16 +0100
+
 arsoft-base (2.187) yakkety; urgency=medium
 
   * akt: add action to remove all matching principals from a keytab
