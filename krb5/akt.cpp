@@ -107,9 +107,10 @@ int main(int argc, char ** argv)
       ("verbose,v", "enable verbose output")
       ("version,V", "show version number")
       ("list,l", po::value<vector<string> >()->multitoken()->zero_tokens()->composing(), "list all entries of the given keytab")
-      ("update,u", po::value< vector<string> >()->multitoken(), "copies new or missing entries from source keytab to destination")
-      ("expunge,E", po::value< vector<string> >()->multitoken(), "remove all duplicated or obsolete keytab entries.")
-      ("remove,r", po::value< vector<string> >()->multitoken(), "remove all entries with matching principals from the keytab")
+      ("update,u", po::value< vector<string> >()->multitoken()->zero_tokens()->composing(), "copies new or missing entries from source keytab to destination")
+      ("copy,c", po::value< vector<string> >()->multitoken()->zero_tokens()->composing(), "copies all entries from source keytab to destination")
+      ("expunge,E", po::value< vector<string> >()->multitoken()->zero_tokens()->composing(), "remove all duplicated or obsolete keytab entries.")
+      ("remove,r", po::value< vector<string> >()->multitoken()->zero_tokens()->composing(), "remove all entries with matching principals from the keytab")
       ;
 
     po::positional_options_description positionalOptions;
@@ -153,6 +154,10 @@ int main(int argc, char ** argv)
     }
 
     try {
+        bool expunge = vm.count("expunge") != 0;
+        vector<string> expunge_filenames;
+        cout << "expunge: " << expunge << endl;
+
         context ctx;
         if( vm.count("version"))
         {
@@ -173,6 +178,8 @@ int main(int argc, char ** argv)
                 kt.list<sorted_list_handler>(sorted_handler);
                 console_list_handler handler;
                 sorted_handler.list<console_list_handler>(handler);
+                if(expunge)
+                    expunge_filenames.push_back(filename);
             }
         }
         else if( vm.count("update"))
@@ -204,26 +211,48 @@ int main(int argc, char ** argv)
                     ret = 0;
                 else
                     ret = 2;
+                if(expunge)
+                    expunge_filenames.push_back(dest);
+            }
+        }
+        else if( vm.count("copy"))
+        {
+            vector<string> filenames = vm["copy"].as< vector<string> >();
+            string source = (filenames.size() >= 1) ? filenames[0] : string();
+            string dest = (filenames.size() >= 2) ? filenames[1] : string();
+
+            if(source.empty())
+            {
+                cerr << "No source keytab file given." << endl;
+                ret = 1;
+            }
+            else if(dest.empty())
+            {
+                cerr << "No destination keytab file given." << endl;
+                ret = 1;
+            }
+            else if(source == dest)
+            {
+                cerr << "Source and destination keytab file (" << source << ") are identical." << endl;
+                ret = 1;
+            }
+            else
+            {
+                keytab sourceKeyTab(ctx, source);
+                keytab destKeyTab(ctx, dest);
+                if(destKeyTab.copy(sourceKeyTab))
+                    ret = 0;
+                else
+                    ret = 2;
+                if(expunge)
+                    expunge_filenames.push_back(dest);
             }
         }
         else if( vm.count("expunge"))
         {
             vector<string> filenames = vm["expunge"].as< vector<string> >();
-            if(filenames.empty())
-            {
-                cerr << "No keytab file given." << endl;
-                ret = 1;
-            }
-            else
-            {
-                ret = 0;
-                for(vector<string>::const_iterator it = filenames.begin(); it != filenames.end(); ++it)
-                {
-                    keytab keytab(ctx, *it);
-                    if(!keytab.expunge())
-                        ret = 2;
-                }
-            }
+            for(vector<string>::const_iterator it = filenames.begin(); it != filenames.end(); ++it)
+                expunge_filenames.push_back(*it);
         }
         else if( vm.count("remove"))
         {
@@ -252,6 +281,17 @@ int main(int argc, char ** argv)
         {
             cerr << "No action specified." << endl;
             ret = 2;
+        }
+        if(!ret && expunge)
+        {
+            ret = 0;
+            for(vector<string>::const_iterator it = expunge_filenames.begin(); it != expunge_filenames.end(); ++it)
+            {
+                keytab keytab(ctx, *it);
+                cout << "expunge " << *it << endl;
+                if(!keytab.expunge())
+                    ret = 2;
+            }
         }
     }
     catch(error & e)

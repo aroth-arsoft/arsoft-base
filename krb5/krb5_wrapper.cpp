@@ -230,6 +230,39 @@ bool keytab::list(list_handler & handler)
     return ret;
 }
 
+bool keytab::copy(const keytab & source)
+{
+    bool ret = false;
+    if(source._ok)
+    {
+        krb5_kt_cursor cursor = NULL;
+        krb5_keytab_entry entry;
+        krb5_error_code code;
+        code = krb5_kt_start_seq_get (source._ctx, source._handle, &cursor);
+        ret = (code == 0);
+        while(!code)
+        {
+            code = krb5_kt_next_entry (source._ctx, source._handle, &entry, &cursor);
+            if (code == 0)
+            {
+                code = krb5_kt_add_entry(_ctx, _handle, &entry);
+                if(code != 0)
+                    ret = false;
+
+                // release all memory
+                krb5_free_keytab_entry_contents(_ctx, &entry);
+            }
+        }
+
+        if (code == KRB5_KT_END)
+            code = 0;
+
+        if(cursor)
+            krb5_kt_end_seq_get (source._ctx, source._handle, &cursor);
+    }
+    return ret;
+}
+
 bool keytab::update(const keytab & source)
 {
     bool ret = false;

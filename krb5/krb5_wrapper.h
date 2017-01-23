@@ -152,6 +152,7 @@ public:
         return list(static_cast<list_handler & >(impl));
     }
     bool update(const keytab & source);
+    bool copy(const keytab & source);
     bool expunge();
     bool remove(const std::string & principal);
 
