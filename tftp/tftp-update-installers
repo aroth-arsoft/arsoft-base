@@ -3,7 +3,7 @@
 DISTS=`/usr/bin/lsb_release -cs`
 CURL_BIN=`which curl`
 ARCHS=`/bin/uname -m`
-UBUNTU_BASE_URL='http://ftp.ubuntulinux.org/ubuntu/dists/'
+UBUNTU_BASE_URL='http://ftp.ubuntu.com/ubuntu/dists/'
 TFTPBOOT_DIR='/var/lib/tftpboot'
 TEMP_DIR='/tmp'
 VERBOSE=0
