@@ -26,10 +26,8 @@ if [[ $EUID -ne 0 ]]; then
 else
 	[ $verbose -ne 0 ] && verbose_opt='--verbose' || verbose_opt=''
 	/usr/bin/apt-get clean
-	if [ -f /etc/apt/keylist -a -x /usr/sbin/apt-key-import ]; then
-		for f in /etc/apt/trust*; do
-			[ -f "$f" ] && rm "$f"
-		done
+	if [ -f /etc/apt/keylist -a -x /usr/bin/apt-key-import ]; then
+		/usr/bin/find /etc/apt/trust* -type f -print -delete
 		/usr/bin/apt-key-import $verbose_opt --keylist /etc/apt/keylist
 	fi
 	/usr/bin/find /var/lib/apt/lists -type f -print -delete
