@@ -18,7 +18,7 @@ Depends: arsoft-ppa, arsoft-base-bin,
  language-pack-en-base, lvm2,
  console-data, console-setup, gawk,
  strace, 
- openssh-server, ethtool, wget, curl, resolvconf, ncdu,
+ openssh-server, ethtool, wget, curl, ncdu,
  python-arsoft, python3-arsoft,
  ${misc:Depends}
 Replaces: arsoft-scripts
