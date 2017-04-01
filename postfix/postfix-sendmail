@@ -4,8 +4,8 @@ sendmail_bin=`which sendmail`
 sendmail_opts=''
 netcat_bin=`which nc`
 netcat_opts=''
-smtp_port='25'
-smtp_server='localhost'
+curl_bin=`which curl`
+curl_opts=''
 maildate=`LANG=C date -R`
 domain=`hostname -d`
 from="$USER@$domain"
@@ -15,12 +15,18 @@ cc=''
 bcc=''
 default_to="postmaster@$domain"
 fqdn=`hostname -f`
+smtp_port='25'
+smtp_server="$fqdn"
+smtp_username=''
+smtp_password=''
+smtp_auth=''
 scriptfile=`readlink -f "$0"`
 scriptdir=`dirname "$scriptfile"`
 subject_prefix=`basename "$scriptfile"`
 subject="$subject_prefix: $maildate on $fqdn"
 message=''
 netcat=0
+curl=0
 helo="$fqdn"
 attachments=''
 multipart=0
@@ -48,11 +54,15 @@ function usage()
 	echo "    --date          specify the message date (default: $maildate)"
 	echo "    --server        specify the mail server (default: $smtp_server)"
 	echo "    --port          specify the mail server port (default: $smtp_port)"
+	echo "    --username      specify the mail server username/login (default: $smtp_username)"
+	echo "    --password      specify the mail server password (default: $smtp_password)"
+	echo "    --auth          override the mail server authentication mechanism"
 	echo "    -a, --attach    specify the mail attachment; can be specified multiple times."
 	echo "    --html          send message in HTML."
 	echo "    --gtube         send message GTUBE to verify spam detection."
 	echo "    --eicar         send message including EICAR to verify virus detection."
 	echo "    -n, --netcat    use netcat to send mail (default: $netcat)"
+	echo "    -C, --curl      use curl to send mail (default: $curl)"
 	echo "    -v,--verbose    verbose output"
 	echo "       --debug      enable debugging; no mail is sent."
 	exit 0
@@ -114,8 +124,12 @@ while [ $# -ne 0 ]; do
 			;;
 		"--server") smtp_server="$2"; shift ;;
 		"--port") smtp_port="$2"; shift ;;
+		"--username") smtp_username="$2"; shift ;;
+		"--password") smtp_password="$2"; shift ;;
+		"--auth") smtp_auth="$2"; shift ;;
 		"-a"|"--attach") attachments="$attachments $2"; shift ;;
 		"-n"|"--netcat") netcat=1; ;;
+		"-C"|"--curl") curl=1; ;;
 		"--html") html=1; ;;
 		"--gtube") gtube=1; subject="$subject (GTUBE)"; ;;
 		"--eicar") eicar=1; subject="$subject (EICAR)"; ;;
@@ -139,6 +153,11 @@ fi
 
 if [ -z "$netcat_bin" -a "$netcat" -ne 0 ]; then
 	echo "netcat not available. Please install netcat" 1>&2
+	exit 1
+fi
+
+if [ -z "$curl_bin" -a "$curl" -ne 0 ]; then
+	echo "curl not available. Please install curl" 1>&2
 	exit 1
 fi
 
@@ -289,7 +308,32 @@ fi
 [ $verbose -ne 0 ] && cat "$mail_temp"
 
 if [ $debug -eq 0 ]; then
-	if [ $netcat -eq 0 ]; then
+    if [ $curl -ne 0 ]; then
+		[ $verbose -ne 0 ] && echo "Using curl on $smtp_server:$smtp_port"
+
+		mail_curl_temp=`mktemp /tmp/postfix-sendmail.XXXXXX`
+
+		url="smtp://$smtp_server:$smtp_port"
+        curl_recipients=''
+		for recipient in $to; do
+            curl_recipients="$curl_recipients --mail-rcpt $to"
+		done
+
+		[ $verbose -ne 0 ] && curl_opts="${curl_opts} -v --ssl"
+		curl_opts="${curl_opts} -s --connect-timeout 15 --insecure"
+		[ $smtp_port -ne 25 ] && curl_opts="${curl_opts} -1"
+
+		if [ ! -z "$smtp_username" ]; then
+            #if [ ! -z "$smtp_auth" ]; then
+            #    curl_opts="${curl_opts} -u ${smtp_username}:${smtp_password};auth=${smtp_auth}"
+            #else
+                curl_opts="${curl_opts} -u ${smtp_username}:${smtp_password}"
+            #fi
+        fi
+		verbose_exec "${curl_bin}" ${curl_opts} ${url} --mail-from "${from}" ${curl_recipients} -T "$mail_curl_temp"
+		RET=$?
+        rm "$mail_curl_temp"
+	elif [ $netcat -eq 0 ]; then
 		[ $verbose -ne 0 ] && echo "Using sendmail"
 		sendmail_recipients=''
 		for recipient in $to; do
@@ -304,7 +348,8 @@ if [ $debug -eq 0 ]; then
 			sendmail_opts="$sendmail_opts -f \"$from\""
 		fi
 		verbose_exec "${sendmail_bin}" ${sendmail_opts} ${sendmail_recipients} < "$mail_temp" 
-	else
+		RET=$?
+    else
 		[ $verbose -ne 0 ] && echo "Using netcat on $smtp_server:$smtp_port"
 		
 		mail_netcat_temp=`mktemp /tmp/postfix-sendmail.XXXXXX`
@@ -322,8 +367,10 @@ if [ $debug -eq 0 ]; then
 
 		[ $verbose -ne 0 ] && cat "$mail_netcat_temp"
 		cat "$mail_netcat_temp" | "${netcat_bin}" ${netcat_opts} "$smtp_server" "$smtp_port"
+		RET=$?
 		rm "$mail_netcat_temp"
 	fi
 fi
 
 rm "$mail_temp"
+exit $RET
