@@ -20,7 +20,7 @@ if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
 fi
 
 # set a fancy prompt (non-color, overwrite the one in /etc/profile)
-PS1='${debian_chroot:+($debian_chroot)}\u@\h:\w\$ '
+PS1='${debian_chroot:+($debian_chroot)}\[\033[0;32;40m\]\u@\h:\[\033[1;37m\]\w\e[0m$ '
 
 # Commented out, don't overwrite xterm -T "title" -n "icontitle" by default.
 # If this is an xterm set the title to user@host:dir
@@ -48,7 +48,7 @@ if [ ! -e "$HOME/.sudo_as_admin_successful" ] && [ ! -e "$HOME/.hushlogin" ] ; t
 	cat <<-EOF
 	To run a command as administrator (user "root"), use "sudo <command>".
 	See "man sudo_root" for details.
-	
+
 	EOF
     fi
     esac
@@ -56,22 +56,21 @@ fi
 
 # if the command-not-found package is installed, use it
 if [ -x /usr/lib/command-not-found -o -x /usr/share/command-not-found/command-not-found ]; then
-function command_not_found_handle {
-	# check because c-n-f could've been removed in the meantime
-	if [ -x /usr/lib/command-not-found ]; then
-		/usr/lib/command-not-found -- "$1"
-		return $?
-	elif [ -x /usr/share/command-not-found/command-not-found ]; then
-		/usr/share/command-not-found/command-not-found -- "$1"
-		return $?
-	else
-		printf "%s: command not found\n" "$1" >&2
-		return 127
-	fi
-}
+	function command_not_found_handle {
+	        # check because c-n-f could've been removed in the meantime
+                if [ -x /usr/lib/command-not-found ]; then
+		   /usr/lib/command-not-found -- "$1"
+                   return $?
+                elif [ -x /usr/share/command-not-found/command-not-found ]; then
+		   /usr/share/command-not-found/command-not-found -- "$1"
+                   return $?
+		else
+		   printf "%s: command not found\n" "$1" >&2
+		   return 127
+		fi
+	}
 fi
 
-export PATH
 #
 # Colored file listings
 #
@@ -120,13 +119,10 @@ alias poweroff='sudo /sbin/poweroff'
 alias halt='sudo /sbin/halt'
 alias shutdown='sudo /sbin/shutdown'
 
-# some handy aliases for apt-get
-alias agi='apt-get install '
-alias agu='apt-get update && apt-get upgrade'
-alias agdu='apt-get update && apt-get dist-upgrade'
-alias aga='apt-get autoremove'
-alias agr='apt-get remove '
-alias ags='apt-cache search '
+# load .bash_aliases from the user home directory
+if [ -f ~/.bash_aliases ]; then
+    source ~/.bash_aliases
+fi
 
 function mkdircd () { mkdir -p "$@" && eval cd "\"\$$#\""; }
 
