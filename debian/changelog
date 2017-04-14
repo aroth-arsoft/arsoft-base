@@ -1,3 +1,9 @@
+arsoft-base (2.194) yakkety; urgency=medium
+
+  * better and easier bash prompt
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 14 Apr 2017 07:57:31 +0200
+
 arsoft-base (2.193) yakkety; urgency=medium
 
   * bash: use color for prompt
