@@ -19,10 +19,8 @@ if [ -z "${debian_chroot:-}" ] && [ -r /etc/debian_chroot ]; then
     debian_chroot=$(cat /etc/debian_chroot)
 fi
 
-# set a fancy prompt (non-color, overwrite the one in /etc/profile)
-#PS1='${debian_chroot:+($debian_chroot)}\[\e[0;32m\]\u@\h:\[\e[1;37m\]\w\e[0m$ '
-#PS1='${debian_chroot:+($debian_chroot)}\e[0;32m\]\u@\h:\e[1;37m\]\w\e[0m$ '
-PS1='\e[0;32m\]\u@\h:\e[1;37m\]\w\e[0m$ '
+# set a fancy prompt (with color, overwrite the one in /etc/profile)
+PS1="${debian_chroot:+($debian_chroot)}\[\e[;32m\]\u@\h:\[\e[1;37m\]\w\$ \[\e[m\]"
 
 # Commented out, don't overwrite xterm -T "title" -n "icontitle" by default.
 # If this is an xterm set the title to user@host:dir
