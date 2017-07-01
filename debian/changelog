@@ -1,3 +1,9 @@
+arsoft-base (2.196) zesty; urgency=medium
+
+  * add artful distro
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 01 Jul 2017 15:08:35 +0200
+
 arsoft-base (2.195) yakkety; urgency=medium
 
   * fixed escape sequences in bash prompt
