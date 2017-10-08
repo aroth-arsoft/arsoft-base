@@ -209,14 +209,22 @@ for RELEASE in $RELEASES; do
 	pushd "$PKGDIR"
 	debuild -i -I -S $debuild_opts 2>&1 | tee "$debuild_log"
 	if [ $noput -eq 0 ]; then
-		CHANGES=`readlink -f "$PKGDIR/../$(sed -n 's/^.*signfile \(.*\.changes\).*$/\1/p' "$debuild_log")"`
-		if [ -f "$CHANGES" ]; then
-			echo -e "\nPublishing to $DPUT_TARGET with $CHANGES"
-			dput "$DPUT_TARGET" "$CHANGES"
-			echo -e "\nRemove all generated files"
-			find "$PKGDIR/.." -maxdepth 1 -type f -name "$(basename $CHANGES _source.changes)*" -print -delete
-		else
-			echo "No changes file found, assume build failed."
+        changes_file=`sed -n 's/^.*signfile changes \(.*\.changes\).*$/\1/p' "$debuild_log"`
+        if [ -z "$changes_file" ]; then
+            changes_file=`sed -n 's/^.*signfile \(.*\.changes\).*$/\1/p' "$debuild_log"`
+        fi
+        if [ -z "$changes_file" ]; then
+            echo "Unable to find changes file in debuild output, assume build failed."
+        else
+            CHANGES=`readlink -f "$PKGDIR/../$changes_file"`
+            if [ -f "$CHANGES" ]; then
+                echo -e "\nPublishing to $DPUT_TARGET with $CHANGES"
+                dput "$DPUT_TARGET" "$CHANGES"
+                echo -e "\nRemove all generated files"
+                find "$PKGDIR/.." -maxdepth 1 -type f -name "$(basename $CHANGES _source.changes)*" -print -delete
+            else
+                echo "Changes file $CHANGES does not exists, assume build failed."
+            fi
 		fi
 	else
 		echo "Do not upload the package"
