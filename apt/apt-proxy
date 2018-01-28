@@ -1,6 +1,6 @@
 #!/bin/bash
 
-proxy_conf_file='/etc/apt/apt.conf.d/02proxy'
+proxy_conf_file='/etc/apt/apt.conf.d/55proxy'
 action=''
 set_proxy_name=''
 declare -i set_proxy_use=0
