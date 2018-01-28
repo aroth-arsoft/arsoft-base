@@ -20,7 +20,7 @@ CMAKE_BUILD_TYPE = Release
 	 dh $@ --buildsystem=cmake
 
 override_dh_clean:
-	dh_clean --buildsystem=cmake
+	dh_clean
 	-rm -rf build
 
 override_dh_auto_configure:

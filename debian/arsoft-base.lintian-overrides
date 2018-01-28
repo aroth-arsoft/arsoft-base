@@ -40,3 +40,4 @@ arsoft-base binary: binary-without-manpage usr/bin/slapd-clean-db
 arsoft-base binary: binary-without-manpage usr/bin/slapd-debug
 arsoft-base binary: binary-without-manpage usr/bin/slapd-online-config
 arsoft-base binary: binary-without-manpage usr/bin/tftp-update-installers
+arsoft-base binary: binary-without-manpage usr/bin/dsh

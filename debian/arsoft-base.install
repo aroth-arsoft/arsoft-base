@@ -6,6 +6,7 @@ usr/bin/apt-proxy
 usr/bin/apt-purge-removed
 usr/bin/apt-repo
 usr/bin/dpkg-info
+usr/bin/dsh
 usr/bin/find-snmp-devices
 usr/bin/nfs-control
 usr/bin/nss-import-cert

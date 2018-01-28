@@ -1,0 +1,8 @@
+#!/bin/sh
+container="$1"
+if [ -z "$container" ]; then
+    echo "No container specified."
+    exit 1
+fi
+shift
+docker exec -it "$container" /bin/bash $@
