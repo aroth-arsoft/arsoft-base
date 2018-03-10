@@ -1,3 +1,9 @@
+arsoft-base (2.199) artful; urgency=medium
+
+  * ppa_publish: add bionic
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 10 Mar 2018 14:39:55 +0100
+
 arsoft-base (2.198) artful; urgency=medium
 
   * add dsh script
