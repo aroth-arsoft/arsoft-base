@@ -32,6 +32,7 @@ function usage() {
     echo "  cron-update [pkglist]  update the packages from the given list file or directory."
     echo "                         If no package list is specified all configured package lists are"
     echo "                         used."
+    echo "  process-incoming       process all files in the incoming directory."
     echo "  copy <from> <to> <pkg> copy package from one distrubution into another."
     exit 0
 }
@@ -484,6 +485,9 @@ while [ $# -ne 0 ]; do
 			esac
 		done
 		;;
+    'process-incoming')
+		action='incoming'
+        ;;
     'copy')
         action='copy'
         while [ $# -gt 1 ]; do
@@ -583,6 +587,9 @@ case "$action" in
 		repoUpdate
 		repoCleanup
 		cleanupTempFiles
+		;;
+	'incoming')
+		repoProcessIncoming
 		;;
 	*)
 		echo "Action $action not implemented."
