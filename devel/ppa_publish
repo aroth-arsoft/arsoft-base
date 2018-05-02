@@ -39,6 +39,7 @@ declare -A VALID_RELEASE=(
 ["zesty"]="17.04"
 ["artful"]="17.10"
 ["bionic"]="18.04"
+["cosmic"]="18.10"
 )
 noput=0
 noorig=0
