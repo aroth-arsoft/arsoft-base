@@ -43,6 +43,7 @@ declare -A VALID_RELEASE=(
 )
 noput=0
 noorig=0
+nodeps=0
 verbose=0
 
 if [ -f $HOME/.arsoft/ppa_publish.conf ]; then
@@ -68,6 +69,7 @@ function usage() {
 	echo "    --target name         specifies the target for dput"
 	echo "    --noput               do not upload the package"
 	echo "    --noorig              do not upload the original tarball"
+	echo "    --nodeps              do not require install depends"
 	echo "RELEASE:"
 	for rel in "${!VALID_RELEASE[@]}"; do
 		if $(echo $DEFAULT_RELEASES} | grep -q $rel); then
@@ -99,6 +101,7 @@ while [ $# -ne 0 ]; do
 	'--ppa') DPUT_TARGET="ppa:$2"; shift; ;;
 	'--noput') noput=1; ;;
 	'--noorig') noorig=1; ;;
+	'--nodeps') nodeps=1; ;;
 	-*)
 		echo "Unrecognized option $1" >&2
 		exit 1
@@ -207,6 +210,9 @@ for RELEASE in $RELEASES; do
 		debuild_opts='-sa'
 	else
 		debuild_opts='-sd'
+	fi
+	if [ $nodeps -ne 0 ]; then
+		debuild_opts="$debuild_opts -d"
 	fi
 	pushd "$PKGDIR"
 	debuild -i -I -S $debuild_opts 2>&1 | tee "$debuild_log"
