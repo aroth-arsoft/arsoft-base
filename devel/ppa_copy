@@ -32,6 +32,7 @@ dryrun=0
 confirm=1
 include_binary=1
 auto_approve=0
+from_proposed=0
 PPA=''
 PPA_NAME=''
 PACKAGES=''
@@ -68,12 +69,20 @@ if [ ! -f "$UBUNTU_ARCHIVE_TOOLS_DIR/copy-package" ]; then
 	exit 1
 fi
 
+python_launchpadlib_version=`dpkg -l python-launchpadlib 2>/dev/null`
+if [ $? -ne 0 ]; then
+	echo "Require python module python-launchpadlib not installed. Please run: sudo apt install python-launchpadlib" >&2
+	exit 1
+fi
+
+
 function usage()
 {
     echo "ppa_copy <packages>"
     echo "    -h, --help         shows this help screen"
     echo "    -v, --verbose      enable verbose output"
     echo "    -n, --dryrun       dry-run only show what would be done."
+    echo "    --proposed             copy from proposed pocket instead of main."
     echo "    --ppa <ppa>            name of the destination PPA; username (default: $DEFAULT_PPA)"
     echo "    --ppa-name <ppaname>   destination archive name (default: $DEFAULT_PPA_NAME)"
     echo "    -S, --source <suite>   name of the source suite/codename (default: $source_suite)"
@@ -93,6 +102,7 @@ while [ $# -ne 0 ]; do
 	'-?'|'-h'|'--help') usage;;
 	'-v'|'--verbose') verbose=1; ;;
 	'-n'|'--dryrun') dryrun=1; ;;
+	'--proposed') from_proposed=1; ;;
 	'--ppa') PPA="$2"; shift; ;;
 	'--ppa-name') PPA_NAME="$2"; shift; ;;
 	'-S'|'--source') source_suite="$2"; shift; ;;
@@ -139,6 +149,7 @@ OPTIONS=''
 [ $confirm -ne 0 ] && OPTIONS="$OPTIONS -y"
 [ $include_binary -ne 0 ] && OPTIONS="$OPTIONS -b"
 [ $auto_approve -ne 0 ] && OPTIONS="$OPTIONS --auto-approve"
+[ $from_proposed -ne 0 ] && source_suite="$source_suite-proposed"
 
 [ $verbose -ne 0 ] && echo "python $UBUNTU_ARCHIVE_TOOLS_DIR/copy-package" $OPTIONS --distribution=$source_distro --suite=$source_suite --to-suite=$dest_suite --to-ppa=$PPA --to-ppa-name=$PPA_NAME $PACKAGES $@
 python "$UBUNTU_ARCHIVE_TOOLS_DIR/copy-package" $OPTIONS --distribution=$source_distro --suite=$source_suite --to-suite=$dest_suite --to-ppa=$PPA --to-ppa-name=$PPA_NAME $PACKAGES $@
