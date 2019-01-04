@@ -1,3 +1,10 @@
+arsoft-base (2.202) cosmic; urgency=medium
+
+  * prepare for disco
+  * allow to copy packages from proposed
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Fri, 04 Jan 2019 19:05:33 +0100
+
 arsoft-base (2.201) cosmic; urgency=medium
 
   * ppa_publish: allow to build without depends
