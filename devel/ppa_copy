@@ -87,6 +87,9 @@ function usage()
     echo "    --ppa-name <ppaname>   destination archive name (default: $DEFAULT_PPA_NAME)"
     echo "    -S, --source <suite>   name of the source suite/codename (default: $source_suite)"
     echo "    -D, --dest <suite>     name of the destination suite/codename (default: $dest_suite)"
+    echo ""
+    echo "Examples:"
+    echo "    ppa_copy --source disco gdb --ppa myppa"
     exit 0
 }
 
