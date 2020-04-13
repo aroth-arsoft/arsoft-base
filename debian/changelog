@@ -1,3 +1,9 @@
+arsoft-base (2.205) eoan; urgency=medium
+
+  * rebuild for all active distros
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Mon, 13 Apr 2020 10:33:24 +0200
+
 arsoft-base (2.204) eoan; urgency=medium
 
   * add ubuntu 20.04: focal
