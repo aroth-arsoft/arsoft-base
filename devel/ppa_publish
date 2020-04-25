@@ -17,33 +17,7 @@ DPUT_TARGET=''
 RELEASES=''
 PKG=''
 DEFAULT_RELEASES=`lsb_release -cs`
-declare -A VALID_RELEASE=(
-["hardy"]="8.04"
-["intrepid"]="8.10"
-["jaunty"]="9.04"
-["lucid"]="9.10"
-["karmic"]="10.04"
-["maverick"]="10.10"
-["natty"]="11.04"
-["oneiric"]="11.10"
-["precise"]="12.04"
-["quantal"]="12.10"
-["raring"]="13.04"
-["saucy"]="13.10"
-["trusty"]="14.04"
-["utopic"]="14.10"
-["vivid"]="15.04"
-["wily"]="15.10"
-["xenial"]="16.04"
-["yakkety"]="16.10"
-["zesty"]="17.04"
-["artful"]="17.10"
-["bionic"]="18.04"
-["cosmic"]="18.10"
-["disco"]="19.04"
-["eoan"]="19.10"
-["focal"]="20.04"
-)
+declare -A VALID_RELEASE
 noput=0
 noorig=0
 nodeps=0
@@ -59,6 +33,14 @@ if [ -z "$DPUT_TARGET" ]; then
 	fi
 fi
 
+while read -r line; do
+    IFS=',' read -ra part <<< "${line//\"/}"
+    if [ "${part[0]}" != 'version' ]; then
+        value="${part[0]%" LTS"}"
+        key="${part[2]}"
+        VALID_RELEASE[$key]=$value
+    fi
+done < /usr/share/distro-info/ubuntu.csv
 
 function usage() {
 	echo "Usage: $SCRIPTNAME [OPTIONS] [RELEASE]"
@@ -74,6 +56,7 @@ function usage() {
 	echo "    --noorig              do not upload the original tarball"
 	echo "    --nodeps              do not require install depends"
 	echo "RELEASE:"
+
 	for rel in "${!VALID_RELEASE[@]}"; do
 		if $(echo $DEFAULT_RELEASES} | grep -q $rel); then
 			echo "    $rel (default)"
