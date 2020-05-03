@@ -17,3 +17,5 @@
 /arsoft-pbuilder/
 /debhelper-build-stamp
 /arsoft-base-bin/
+/arsoft-apt-source/
+/arsoft-trac-suid/

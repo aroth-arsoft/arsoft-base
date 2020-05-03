@@ -88,6 +88,7 @@ add_subdirectory(spamassassin)
 add_subdirectory(ssh)
 add_subdirectory(scm)
 add_subdirectory(sysinfo)
+add_subdirectory(trac)
 add_subdirectory(tftp)
 add_subdirectory(wine)
 

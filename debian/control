@@ -1,11 +1,11 @@
 Source: arsoft-base
 Section: admin
-Priority: extra
+Priority: optional
 Maintainer: Andreas Roth <aroth@arsoft-online.com>
-Build-Depends: debhelper (>= 9), cmake, libboost-program-options-dev,
+Build-Depends: debhelper (>= 11), cmake, libboost-program-options-dev,
  libboost-filesystem-dev, libboost-system-dev, libboost-regex-dev,
  libkrb5-dev
-Standards-Version: 3.9.8
+Standards-Version: 4.5.0
 Homepage: http://www.arsoft-online.com
 
 Package: arsoft-base
@@ -32,10 +32,11 @@ Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: binary packages for system administration
  includes a tool to manipulate kerberos 5 keytabs
 
-Package: arsoft-ppa
+Package: arsoft-apt-source
 Architecture: all
 Depends: ${misc:Depends}, lsb-release
 Conflicts: puppetlabs-release-pc1, puppetlabs-release
+Replaces: arsoft-ppa
 Description: installs the AR Soft package repository
  Installs all files to access the AR Soft package repository.
 
@@ -99,3 +100,9 @@ Description: setting up pbuilder
  Includes helper scripts and hooks for pbuilder:
   - Kubuntu hooks (lp:~kubuntu-packagers/pbuilder/pbuilder-hooks)
 
+Package: arsoft-trac-suid
+Architecture: i386 amd64
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: suid helpers for the accessing Trac from a web server
+ This package suid helpers to allow the user of the web server (or any
+ other service) to run trac-admin.

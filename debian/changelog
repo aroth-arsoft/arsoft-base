@@ -1,3 +1,10 @@
+arsoft-base (2.206) focal; urgency=medium
+
+  * move trac-admin-suid package here
+  * update to latest debian package policy
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 03 May 2020 11:32:46 +0200
+
 arsoft-base (2.205) eoan; urgency=medium
 
   * rebuild for all active distros
