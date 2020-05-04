@@ -10,7 +10,7 @@ Homepage: http://www.arsoft-online.com
 
 Package: arsoft-base
 Architecture: all
-Depends: arsoft-ppa, arsoft-base-bin,
+Depends: arsoft-apt-source, arsoft-base-bin,
  tzdata, mc, screen,
  unzip, zip, unrar, iotop, htop,
  ntfs-3g, xfsprogs, cryptsetup,
@@ -19,7 +19,7 @@ Depends: arsoft-ppa, arsoft-base-bin,
  console-data, console-setup, gawk,
  strace, 
  openssh-server, ethtool, wget, curl, ncdu,
- python-arsoft, python3-arsoft,
+ python3-arsoft,
  ${misc:Depends}
 Replaces: arsoft-scripts
 Description: configure the system to use the AR Soft packages.
@@ -27,7 +27,7 @@ Description: configure the system to use the AR Soft packages.
  AR Soft managed systems.
 
 Package: arsoft-base-bin
-Architecture: i386 amd64
+Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: binary packages for system administration
  includes a tool to manipulate kerberos 5 keytabs
@@ -101,7 +101,7 @@ Description: setting up pbuilder
   - Kubuntu hooks (lp:~kubuntu-packagers/pbuilder/pbuilder-hooks)
 
 Package: arsoft-trac-suid
-Architecture: i386 amd64
+Architecture: amd64
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Description: suid helpers for the accessing Trac from a web server
  This package suid helpers to allow the user of the web server (or any
