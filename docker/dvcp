@@ -1,0 +1,127 @@
+#!/bin/bash
+# kate: space-indent on; indent-width 4; mixedindent off; indent-mode cstyle;
+
+SCRIPTFILE=`readlink -f "$0"`
+SCRIPTNAME=`basename "$SCRIPTFILE"`
+SCRIPTDIR=`dirname "$SCRIPTFILE"`
+
+verbose=0
+SOURCE=''
+DEST=''
+
+function usage() {
+	echo "Usage: $SCRIPTNAME [OPTIONS] SOURCE DEST"
+	echo "  Copies SOURCE to DEST"
+	echo "OPTIONS:"
+	echo "    -h, --help            shows this help"
+	echo "    -v, --verbose         enable verbose output"
+	echo ""
+	echo "SOURCE: can be file, directory or dv:<volume_name>/path. "
+	echo "DEST: can be file, directory or dv:<volume_name>/path. "
+	exit 0
+}
+
+# parse command line arguments
+while [ $# -ne 0 ]; do
+	case "$1" in
+	'-?'|'-h'|'--help') usage;;
+	'-v'|'--verbose') verbose=1; ;;
+	-*)
+		echo "Unrecognized option $1" >&2
+		exit 1
+		;;
+	*)
+		if [ -z "$SOURCE" ]; then
+            SOURCE="$1"
+        else
+			if [ ! -z "$DEST" ]; then
+				SOURCE="$SOURCE $DEST"
+			fi
+            DEST="$1"
+		fi
+		;;
+	esac
+	shift
+done
+
+if [ -z "$SOURCE" ]; then
+    echo "No SOURCE specified." >&2
+    exit 1
+elif [ -z "$DEST" ]; then
+    echo "No DEST specified." >&2
+    exit 1
+fi
+
+function copy_pair() {
+    local SOURCE="$1"
+    local DEST="$2"
+    local SOURCE_SCHEME="${SOURCE%:*}"
+    local SOURCE_VOLUME=''
+    local SOURCE_PATH=''
+    # check if a scheme has been detected (if scheme is different from source)
+    if [ "$SOURCE_SCHEME" != "$SOURCE" ]; then
+        SOURCE_SCHEME="${SOURCE%:*}"
+        SOURCE_VOLUME="${SOURCE##*:}"
+    else
+        SOURCE_SCHEME=''
+        SOURCE_PATH="$SOURCE"
+    fi
+    if [ "$SOURCE_SCHEME" == "docker" ]; then
+        SOURCE_PATH="${SOURCE_VOLUME##*/}"
+        if [ "$SOURCE_PATH" == "$SOURCE_VOLUME" ]; then
+            SOURCE_PATH=''
+        else
+            SOURCE_VOLUME="${SOURCE_VOLUME%/*}"
+        fi
+    fi
+
+    local DEST_SCHEME="${DEST%:*}"
+    local DEST_VOLUME=''
+    local DEST_PATH=''
+    # check if a scheme has been detected (if scheme is different from source)
+    if [ "$DEST_SCHEME" != "$DEST" ]; then
+        DEST_SCHEME="${DEST%:*}"
+        DEST_VOLUME="${DEST##*:}"
+    else
+        DEST_SCHEME=''
+        DEST_PATH="$DEST"
+    fi
+    if [ "$DEST_SCHEME" == "docker" ]; then
+        DEST_PATH="${DEST_VOLUME##*/}"
+        if [ "$DEST_PATH" == "$DEST_VOLUME" ]; then
+            DEST_PATH=''
+        else
+            DEST_VOLUME="${DEST_VOLUME%/*}"
+        fi
+    fi
+
+    if [ $verbose -ne 0 ]; then
+        echo "SOURCE: $SOURCE"
+        echo "SOURCE_SCHEME: $SOURCE_SCHEME"
+        echo "SOURCE_VOLUME: $SOURCE_VOLUME"
+        echo "SOURCE_PATH: $SOURCE_PATH"
+        echo "DEST: $DEST"
+        echo "DEST_SCHEME: $DEST_SCHEME"
+        echo "DEST_VOLUME: $DEST_VOLUME"
+        echo "DEST_PATH: $DEST_PATH"
+    fi
+
+    local verbose_flag=''
+    [ $verbose -ne 0 ] && verbose_flag='-v'
+    if [ "$SOURCE_SCHEME" == 'docker' -a "$DEST_SCHEME" == 'docker' ]; then
+        set -x
+        echo "Copy from docker to docker not yet implemented"
+        false
+    elif [ "$SOURCE_SCHEME" == 'docker' ]; then
+        set -x
+        docker run --rm -it -v "${SOURCE_VOLUME}:/source" -v "$DEST_PATH:/dest" busybox cp $verbose_flag -a "/source/$SOURCE_PATH" /dest
+    elif [ "$DEST_SCHEME" == 'docker' ]; then
+        set -x
+        docker run --rm -it -v "${DEST_VOLUME}:/dest" -v "$SOURCE_PATH:/source" busybox cp $verbose_flag -a "/source/$SOURCE_PATH" /dest
+    else
+        cp $verbose_flag -a "$SOURCE_PATH" "$DEST_PATH"
+    fi
+}
+
+copy_pair "$SOURCE" "$DEST"
+#docker run --rm --volumes-from DATA -v $(pwd):/backup busybox tar cvf /backup/backup.tar /data
