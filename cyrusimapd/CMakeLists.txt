@@ -1,1 +1,0 @@
-install_script_files(cyrusimap-backup)

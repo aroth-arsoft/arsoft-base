@@ -13,16 +13,21 @@ case "$1" in
 		## create the apt source list file
 		release=$(lsb_release -c -s)
         puppetlabs_release="$release"
-        [ "$puppetlabs_release" = 'yakkety' ] && puppetlabs_release='xenial'
-        [ "$puppetlabs_release" = 'zesty' ] && puppetlabs_release='xenial'
+        [ "$puppetlabs_release" == 'groovy' ] && puppetlabs_release='focal'
 
 		echo "# /etc/apt/sources.list.d/ppa-aroth.list" >> /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
-		echo "deb-src http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
+		echo "#deb-src http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
 		
-		echo "# Puppetlabs PC1 $puppetlabs_release Repository" >> /etc/apt/sources.list.d/puppetlabs-pc1.list
-		echo "deb http://apt.puppetlabs.com $puppetlabs_release PC1" >> /etc/apt/sources.list.d/puppetlabs-pc1.list
-        echo "#deb-src http://apt.puppetlabs.com $puppetlabs_release PC1" >> /etc/apt/sources.list.d/puppetlabs-pc1.list
+		echo "# Puppet $puppetlabs_release Repository" >> /etc/apt/sources.list.d/puppet.list
+		echo "deb http://apt.puppetlabs.com $puppetlabs_release puppet" >> /etc/apt/sources.list.d/puppet.list
+        echo "#deb-src http://apt.puppetlabs.com $puppetlabs_release PC1" >> /etc/apt/sources.list.d/puppet.list
+
+        # Set up any specific permissions needed...
+        chmod '0644' '/etc/apt/sources.list.d/ppa-aroth.list'
+        chmod '0644' '/etc/apt/trusted.gpg.d/ppa-aroth.gpg'
+        chmod '0644' '/etc/apt/sources.list.d/puppet.list'
+        chmod '0644' '/etc/apt/trusted.gpg.d/puppet-keyring.gpg'
 
 		;;
     abort-upgrade|abort-remove|abort-deconfigure)

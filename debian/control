@@ -22,6 +22,8 @@ Depends: arsoft-apt-source, arsoft-base-bin,
  python3-arsoft,
  ${misc:Depends}
 Replaces: arsoft-scripts
+Conflicts: arsoft-scripts-cyrusimapd, nagios-notifications, nagios-plugins-arsoft,
+ arsoft-pbuilder
 Description: configure the system to use the AR Soft packages.
  installs basic packages and configuration for operation on 
  AR Soft managed systems.
@@ -48,42 +50,12 @@ Description: script for network configuration
  installs dhcp client scripts to configure your workstations
  according to data provided by DHCP, DNS and LDAP.
 
-Package: arsoft-scripts-cyrusimapd
-Architecture: all
-Depends: ${misc:Depends}
-Description: scripts for the Cyrus IMAP server
- This package provides a backup script for the Cyrus IMAP server to
- save and restore the configuration and data to a different location.
-
 Package: arsoft-scm
 Architecture: all
 Depends: arsoft-base, libimage-exiftool-perl, odt2txt, ${misc:Depends}
 Replaces: arsoft-scripts-svn
 Description: some helper scripts for various SCM systems
  a collection of helper scripts for Subversion and GIT.
-
-Package: nagios-plugins-arsoft
-Architecture: all
-Depends: arsoft-python-nagios, libnagios-plugin-perl, libjson-perl,
- lm-sensors, hddtemp, dnsutils, ${perl:Depends}, ${misc:Depends}
-Description: additional Nagios plugins for AR Soft specific services
- Installs all files and packages required to use the AR Soft Nagios
- plugins to monitor the following services:
-  - APT upgrades
-  - Puppet agent
-  - PuppetDB
-  - Jenkins
-  - SMB
-  - and more
-
-Package: nagios-notifications
-Architecture: all
-Depends: libmail-sender-perl, libwww-mechanize-perl, libjson-perl,
- ${perl:Depends}, ${misc:Depends}
-Description: additional nagios notification plugins
- The following notification scripts are included:
-  - Icinga HTML notification
-  - NotifyMyAndroid
 
 Package: arsoft-pnp4nagios
 Architecture: all
@@ -92,13 +64,6 @@ Depends: ${misc:Depends}
 Description: additional templates and check_commands for PNP4Nagios
  custom templates and check_commands for PNP4Nagios:
   - PuppetDB
-
-Package: arsoft-pbuilder
-Architecture: all
-Depends: arsoft-ppa, lintian, pbuilder, ${misc:Depends}
-Description: setting up pbuilder
- Includes helper scripts and hooks for pbuilder:
-  - Kubuntu hooks (lp:~kubuntu-packagers/pbuilder/pbuilder-hooks)
 
 Package: arsoft-trac-suid
 Architecture: amd64

@@ -1,3 +1,0 @@
-etc/nagios-plugins/config/nma_notify.cfg
-usr/lib/nagios/icinga_mail.pl
-usr/lib/nagios/nma.pl

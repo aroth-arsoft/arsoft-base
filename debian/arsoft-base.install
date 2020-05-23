@@ -7,6 +7,7 @@ usr/bin/apt-purge-removed
 usr/bin/apt-repo
 usr/bin/dpkg-info
 usr/bin/dsh
+usr/bin/dvcp
 usr/bin/find-snmp-devices
 usr/bin/nfs-control
 usr/bin/nss-import-cert
@@ -42,4 +43,3 @@ usr/share/arsoft-base/devel
 usr/share/arsoft-base/profile
 usr/share/ca-certificates/arsoft
 usr/share/ca-certificates/fastprotect
-usr/share/pam-configs

@@ -1,9 +1,0 @@
-#!/bin/bash
-
-# make sure we use force-unsafe-io
-installed="$(apt-cache policy dpkg | grep Installed | cut -d ' ' -f 4)"
-if $(dpkg --compare-versions "$installed" ge "1.15.8.6") && [ -z "$(grep '^force-unsafe-io' /etc/dpkg/dpkg.cfg)" ]; then 
-    echo "Setting force-unsafe-io for dpkg"
-    echo "force-unsafe-io" >> /etc/dpkg/dpkg.cfg
-fi
-
