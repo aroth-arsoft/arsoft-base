@@ -1,3 +1,9 @@
+arsoft-base (2.210) focal; urgency=medium
+
+  * fix postinst issues
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 23 May 2020 13:20:33 +0200
+
 arsoft-base (2.209) focal; urgency=medium
 
   * fix apt-source package for puppet

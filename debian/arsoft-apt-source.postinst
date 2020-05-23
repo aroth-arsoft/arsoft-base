@@ -13,13 +13,13 @@ case "$1" in
 		## create the apt source list file
 		release=$(lsb_release -c -s)
         puppetlabs_release="$release"
-        [ "$puppetlabs_release" == 'groovy' ] && puppetlabs_release='focal'
+        [ "$puppetlabs_release" = 'groovy' ] && puppetlabs_release='focal'
 
-		echo "# /etc/apt/sources.list.d/ppa-aroth.list" >> /etc/apt/sources.list.d/ppa-aroth.list
+		echo "# /etc/apt/sources.list.d/ppa-aroth.list" > /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
 		echo "#deb-src http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
 		
-		echo "# Puppet $puppetlabs_release Repository" >> /etc/apt/sources.list.d/puppet.list
+		echo "# Puppet $puppetlabs_release Repository" > /etc/apt/sources.list.d/puppet.list
 		echo "deb http://apt.puppetlabs.com $puppetlabs_release puppet" >> /etc/apt/sources.list.d/puppet.list
         echo "#deb-src http://apt.puppetlabs.com $puppetlabs_release PC1" >> /etc/apt/sources.list.d/puppet.list
 
