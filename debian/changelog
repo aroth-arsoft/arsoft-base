@@ -1,3 +1,9 @@
+arsoft-base (2.211) focal; urgency=medium
+
+  * switch to puppet7
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sun, 22 Nov 2020 09:27:29 +0100
+
 arsoft-base (2.210) focal; urgency=medium
 
   * fix postinst issues
