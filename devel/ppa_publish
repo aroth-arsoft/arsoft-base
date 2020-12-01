@@ -19,7 +19,8 @@ PKG=''
 DEFAULT_RELEASES=`lsb_release -cs`
 declare -A VALID_RELEASE
 noput=0
-noorig=0
+force_orig_source=0
+force_source_diff=0
 nodeps=0
 verbose=0
 
@@ -53,8 +54,9 @@ function usage() {
 	echo "    --ppa name            specifies the target PPA (alias for --target ppa:name)"
 	echo "    --target name         specifies the target for dput"
 	echo "    --noput               do not upload the package"
-	echo "    --noorig              do not upload the original tarball"
-	echo "    --nodeps              do not require install depends"
+	echo "    -sa,--orig            Forces the inclusion of the original source"
+	echo "    -sd,--diff            Forces the exclusion of the original source and includes only the diff"
+	echo "    -d,--nodeps           do not require install depends"
 	echo "RELEASE:"
 
 	for rel in "${!VALID_RELEASE[@]}"; do
@@ -86,8 +88,9 @@ while [ $# -ne 0 ]; do
 	'--target') DPUT_TARGET="$2"; shift; ;;
 	'--ppa') DPUT_TARGET="ppa:$2"; shift; ;;
 	'--noput') noput=1; ;;
-	'--noorig') noorig=1; ;;
-	'--nodeps') nodeps=1; ;;
+	'--orig'|'-sa') force_orig_source=1; ;;
+	'--diff'|'-sd') force_source_diff=1; ;;
+	'--nodeps'|'-d') nodeps=1; ;;
 	-*)
 		echo "Unrecognized option $1" >&2
 		exit 1
@@ -192,10 +195,15 @@ for RELEASE in $RELEASES; do
 	export BUILD_TEST=1
 
 	debuild_log=`mktemp /tmp/ppa_publish.XXXXXX`
-	if [ $noorig -eq 0 ]; then
-		debuild_opts='-sa'
-	else
-		debuild_opts='-sd'
+	debuild_opts=''
+	# -sa, -sd options:
+	# https://manpages.debian.org/stretch/dpkg-dev/dpkg-genchanges.1.en.html
+	if [ $force_orig_source -ne 0 ]; then
+        # Forces the inclusion of the original source.
+		debuild_opts="$debuild_opts -sa"
+	elif [ $force_source_diff -ne 0 ]; then
+        # Forces the exclusion of the original source and includes only the diff.
+		debuild_opts="$debuild_opts -sd"
 	fi
 	if [ $nodeps -ne 0 ]; then
 		debuild_opts="$debuild_opts -d"
