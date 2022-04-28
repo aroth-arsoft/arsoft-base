@@ -2,7 +2,7 @@ arsoft-base (2.214) focal; urgency=medium
 
   * arsoft-apt-source: drop lsb-release dependency
 
- -- Andreas Roth <aroth@arsoft-online.com>  Tue, 01 Dec 2020 07:20:30 +0100
+ -- Andreas Roth <aroth@arsoft-online.com>  Thu, 28 Apr 2022 18:12:56 +0200
 
 arsoft-base (2.213) focal; urgency=medium
 

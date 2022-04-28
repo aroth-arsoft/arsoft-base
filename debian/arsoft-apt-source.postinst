@@ -12,9 +12,9 @@ case "$1" in
 		rm /etc/apt/trusted.gpg.d/puppet-keyring.gp 2>/dev/null || true
 
 		## create the apt source list file
-		release=$(lsb_release -c -s)
+		release=$(grep DISTRIB_CODENAME /etc/lsb-release | cut -d '=' -f2)
         puppetlabs_release="$release"
-        [ "$puppetlabs_release" = 'groovy' -o "$puppetlabs_release" = 'hirsute' ] && puppetlabs_release='focal'
+        [ "$puppetlabs_release" = 'groovy' -o "$puppetlabs_release" = 'hirsute' -o "$puppetlabs_release" = 'impish' -o "$puppetlabs_release" = 'jammy' ] && puppetlabs_release='focal'
 
 		echo "# /etc/apt/sources.list.d/ppa-aroth.list" > /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
