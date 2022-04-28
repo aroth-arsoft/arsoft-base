@@ -36,7 +36,7 @@ Description: binary packages for system administration
 
 Package: arsoft-apt-source
 Architecture: all
-Depends: ${misc:Depends}, lsb-release
+Depends: ${misc:Depends}
 Conflicts: puppetlabs-release-pc1, puppetlabs-release, puppet7-release
 Replaces: arsoft-ppa
 Description: installs the AR Soft package repository
