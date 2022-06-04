@@ -1,3 +1,9 @@
+arsoft-base (2.215) focal; urgency=medium
+
+  * arsoft-apt-source: update puppet keyring
+
+ -- Andreas Roth <aroth@arsoft-online.com>  Sat, 04 Jun 2022 09:54:08 +0200
+
 arsoft-base (2.214) focal; urgency=medium
 
   * arsoft-apt-source: drop lsb-release dependency
