@@ -23,6 +23,7 @@ force_orig_source=0
 force_source_diff=0
 nodeps=0
 verbose=0
+no_lintian=1
 
 if [ -f $HOME/.arsoft/ppa_publish.conf ]; then
 	source $HOME/.arsoft/ppa_publish.conf
@@ -90,6 +91,8 @@ while [ $# -ne 0 ]; do
 	'--noput') noput=1; ;;
 	'--orig'|'-sa') force_orig_source=1; ;;
 	'--diff'|'-sd') force_source_diff=1; ;;
+	'--no-lintian') no_lintian=1; ;;
+	'--lintian') no_lintian=0; ;;
 	'--nodeps'|'-d') nodeps=1; ;;
 	-*)
 		echo "Unrecognized option $1" >&2
@@ -196,6 +199,10 @@ for RELEASE in $RELEASES; do
 
 	debuild_log=`mktemp /tmp/ppa_publish.XXXXXX`
 	debuild_opts=''
+	no_lint_opt=''
+	if [ $no_lintian -ne 0 ]; then
+		no_lint_opt="--no-lintian"
+	fi
 	# -sa, -sd options:
 	# https://manpages.debian.org/stretch/dpkg-dev/dpkg-genchanges.1.en.html
 	if [ $force_orig_source -ne 0 ]; then
@@ -209,7 +216,7 @@ for RELEASE in $RELEASES; do
 		debuild_opts="$debuild_opts -d"
 	fi
 	pushd "$PKGDIR"
-	debuild -i -I -S $debuild_opts 2>&1 | tee "$debuild_log"
+	debuild $no_lint_opt -i -I -S $debuild_opts 2>&1 | tee "$debuild_log"
 	if [ $noput -eq 0 ]; then
         changes_file=`sed -n 's/^.*signfile changes \(.*\.changes\).*$/\1/p' "$debuild_log"`
         if [ -z "$changes_file" ]; then
