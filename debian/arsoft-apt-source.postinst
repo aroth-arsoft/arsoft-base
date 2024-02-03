@@ -5,30 +5,17 @@
 case "$1" in
 	configure|upgrade)
 		rm /etc/apt/sources.list.d/ppa-aroth.list 2>/dev/null || true
-		rm /etc/apt/sources.list.d/puppetlabs-pc1.list 2>/dev/null || true
-		rm /etc/apt/sources.list.d/puppet.list 2>/dev/null || true
-		# remove old puppetlabs APT repo from times before Puppet 7.x
-		rm /etc/apt/sources.list.d/puppetlabs.list 2>/dev/null || true
-		rm /etc/apt/trusted.gpg.d/puppetlabs.gpg 2>/dev/null || true
-		rm /etc/apt/trusted.gpg.d/puppet-keyring.gpg 2>/dev/null || true
 
 		## create the apt source list file
 		release=$(grep DISTRIB_CODENAME /etc/lsb-release | cut -d '=' -f2)
-        puppetlabs_release="$release"
-        [ "$puppetlabs_release" = 'groovy' -o "$puppetlabs_release" = 'hirsute' -o "$puppetlabs_release" = 'impish' -o "$puppetlabs_release" = 'jammy' ] && puppetlabs_release='focal'
 
 		echo "# /etc/apt/sources.list.d/ppa-aroth.list" > /etc/apt/sources.list.d/ppa-aroth.list
 		echo "deb http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
 		echo "#deb-src http://ppa.launchpad.net/aroth/ppa/ubuntu $release main" >> /etc/apt/sources.list.d/ppa-aroth.list
 
-		echo "# Puppet 7 $puppetlabs_release Repository" > /etc/apt/sources.list.d/puppet7.list
-		echo "deb http://apt.puppetlabs.com $puppetlabs_release puppet7" >> /etc/apt/sources.list.d/puppet7.list
-
         # Set up any specific permissions needed...
         chmod '0644' '/etc/apt/sources.list.d/ppa-aroth.list'
         chmod '0644' '/etc/apt/trusted.gpg.d/ppa-aroth.gpg'
-        chmod '0644' '/etc/apt/sources.list.d/puppet7.list'
-        chmod '0644' '/etc/apt/trusted.gpg.d/puppet7-keyring.gpg'
 
 		;;
     abort-upgrade|abort-remove|abort-deconfigure)
