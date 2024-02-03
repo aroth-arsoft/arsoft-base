@@ -146,17 +146,17 @@ while [ $# -ne 0 ]; do
 	shift
 done
 
-if [ -z "$sendmail_bin" -a "$netcat" -eq 0 ]; then
+if [ -z "$sendmail_bin" -a "$netcat" -eq 0 -a "$curl" -eq 0 ]; then
 	echo "sendmail not available. Please install postfix or sendmail" 1>&2
 	exit 1
 fi
 
-if [ -z "$netcat_bin" -a "$netcat" -ne 0 ]; then
+if [ -z "$netcat_bin" -a "$netcat" -ne 0 -a "$curl" -eq 0 ]; then
 	echo "netcat not available. Please install netcat" 1>&2
 	exit 1
 fi
 
-if [ -z "$curl_bin" -a "$curl" -ne 0 ]; then
+if [ -z "$curl_bin" -a "$curl" -ne 0 -a "$netcat" -eq 0 ]; then
 	echo "curl not available. Please install curl" 1>&2
 	exit 1
 fi
